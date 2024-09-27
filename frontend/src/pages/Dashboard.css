@@ -1,0 +1,11 @@
+/* src/pages/Dashboard.css */
+
+.dashboard-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    padding-top: 80px; /* Adjust based on Navbar height (60px + extra spacing) */
+  }
+  
+  /* Optional: Additional styles for dashboard content */
+  

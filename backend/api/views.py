@@ -8,7 +8,6 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from .services import generate_workout_plan
-
 from .models import Exercise, WorkoutPlan, WorkoutLog
 from .serializers import (
     ExerciseSerializer,
@@ -43,7 +42,8 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
             # Check if a workout plan already exists
             workout_plan = WorkoutPlan.objects.filter(user=user).first()
             if workout_plan:
-                serializer = self.get_serializer(workout_plan)
+                serializer = WorkoutPlanSerializer(workout_plan)
+                #serializer = self.get_serializer(workout_plan)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             else:
                 # Ensure the user has an associated UserProfile
@@ -177,3 +177,12 @@ def create_workout_plan(request):
 @permission_classes([IsAuthenticated])
 def verify_token(request):
     return Response({'message': 'Token is valid.'}, status=200)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_user(request):
+    try:
+        request.user.auth_token.delete()
+        return Response({'message': 'Successfully logged out.'}, status=200)
+    except Exception as e:
+        return Response({'error': 'Failed to log out.'}, status=400)
