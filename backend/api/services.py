@@ -16,6 +16,12 @@ def generate_workout_plan(user):
     Returns:
         dict: A dictionary containing the workout plan.
     """
+    if not hasattr(user, 'userprofile'):
+        # Handle the case where UserProfile doesn't exist
+        # You might create a new UserProfile or return an error
+        logger.error("UserProfile does not exist for this user.")
+        return None
+    
     # Access UserProfile attributes
     user_profile = user.userprofile
     age = user_profile.age
@@ -56,7 +62,7 @@ def generate_workout_plan(user):
         inputs = {
             'prompt': prompt,
             'temperature': 0.7,
-            'max_new_tokens': 512,  # Adjust as needed
+            'max_new_tokens': 2000,  # Adjust as needed
         }
 
         # Run the model prediction

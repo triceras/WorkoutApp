@@ -10,19 +10,22 @@ class User(AbstractUser):
     strength_goals = models.TextField(null=True)
     equipment = models.TextField(null=True)
     workout_time = models.CharField(max_length=50, null=True)
+    workout_days = models.CharField(max_length=50, null=True)
     # Add additional fields as needed
 
 class Exercise(models.Model):
     name = models.CharField(max_length=100)
-    description = models.TextField()
+    description = models.JSONField()
     video_url = models.URLField(null=True, blank=True)
     # Additional fields
 
 class WorkoutPlan(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     plan_data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
     # Store plan details as JSON
+    def __str__(self):
+        return f"Workout Plan for {self.user.username}"
 
 class WorkoutLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

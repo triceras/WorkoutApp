@@ -38,39 +38,40 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
         return WorkoutPlan.objects.filter(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
+        user = request.user
         try:
-            user = request.user
-            user_data = {
-                'age': user.age,
-                'weight': user.weight,
-                'height': user.height,
-                'fitness_level': user.fitness_level,
-                'strength_goals': user.strength_goals,
-                'equipment': user.equipment,
-                'workout_time': user.workout_time,
-                'workout_days': user.workout_days,
-                # Include other necessary fields
-            }
+            # Check if a workout plan already exists
+            workout_plan = WorkoutPlan.objects.filter(user=user).first()
+            if workout_plan:
+                serializer = self.get_serializer(workout_plan)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                # Ensure the user has an associated UserProfile
+                if not hasattr(user, 'userprofile'):
+                    return Response(
+                        {'detail': 'UserProfile does not exist for this user.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-            workout_plan = generate_workout_plan(user_data)
+                # Generate the workout plan
+                plan_data = generate_workout_plan(user)
+                if not plan_data:
+                    logger.error('Failed to generate workout plan.')
+                    return Response(
+                        {'detail': 'Failed to generate workout plan.'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
 
-            if not workout_plan:
-                logger.error('Failed to generate workout plan.')
-                return Response(
-                    {'detail': 'Failed to generate workout plan.'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
-            plan = WorkoutPlan.objects.create(user=user, plan_data=workout_plan)
-            serializer = self.get_serializer(plan)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+                workout_plan = WorkoutPlan.objects.create(user=user, plan_data=plan_data)
+                serializer = WorkoutPlanSerializer(workout_plan)
+                #serializer = self.get_serializer(workout_plan)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
-            logger.error(f'Error creating workout plan: {str(e)}')
+            logger.error(f'Error creating workout plan: {str(e)}', exc_info=True)
             return Response(
                 {'detail': 'An error occurred while creating the workout plan.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
 
 class WorkoutLogViewSet(viewsets.ModelViewSet):
     serializer_class = WorkoutLogSerializer
@@ -132,21 +133,45 @@ def register_user(request):
 def get_workout_plan(request):
     user = request.user
     try:
-        # Ensure the user has an associated UserProfile
-        if not hasattr(user, 'userprofile'):
-            return Response({'error': 'UserProfile does not exist for this user.'}, status=400)
+        # Check if a workout plan already exists for the user
+        workout_plan = WorkoutPlan.objects.filter(user=user).first()
+        if workout_plan:
+            # Return the existing workout plan
+            serializer = WorkoutPlanSerializer(workout_plan)
+            return Response(serializer.data, status=200)
+        else:
+            # Ensure the user has an associated UserProfile
+            if not hasattr(user, 'userprofile'):
+                return Response({'error': 'UserProfile does not exist for this user.'}, status=400)
 
-        # Generate the workout plan by passing the user object
+            # Generate the workout plan by passing the user object
+            plan_data = generate_workout_plan(user)
+            if plan_data:
+                # Save the new workout plan
+                workout_plan = WorkoutPlan.objects.create(user=user, plan_data=plan_data)
+                serializer = WorkoutPlanSerializer(workout_plan)
+                return Response(serializer.data, status=201)
+            else:
+                logger.error('Failed to generate workout plan.')
+                return Response({'error': 'Could not generate workout plan.'}, status=500)
+
+    except Exception as e:
+        logger.error(f"Error in get_workout_plan: {str(e)}", exc_info=True)
+        return Response({'error': 'An error occurred while retrieving the workout plan.'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_workout_plan(request):
+    try:
+        user = request.user  # The authenticated user
         workout_plan = generate_workout_plan(user)
-
         if workout_plan:
             return Response({'workout_plan': workout_plan}, status=200)
         else:
             return Response({'error': 'Could not generate workout plan.'}, status=500)
     except Exception as e:
-        print(f"Error generating workout plan: {e}")
+        print(f"Error creating workout plan: {e}")
         return Response({'error': str(e)}, status=500)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

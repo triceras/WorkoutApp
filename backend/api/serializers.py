@@ -13,7 +13,8 @@ class ExerciseSerializer(serializers.ModelSerializer):
 class WorkoutPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutPlan
-        fields = '__all__'
+        fields = ['id', 'user', 'plan_data', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     class Meta:
@@ -61,3 +62,4 @@ class UserSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
         UserProfile.objects.create(user=user, **profile_data)
         return user
+
