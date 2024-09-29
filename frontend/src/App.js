@@ -7,13 +7,14 @@ import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import PrivateRoute from './components/PrivateRoute';
 import WorkoutPlan from './components/WorkoutPlan';
-import axiosInstance from './api/axiosInstance'; // Ensure this path is correct
+import axiosInstance from './api/axiosInstance';
 import Navbar from './components/Navbar'; // Import Navbar
 
 function App() {
   // Define the Logout component inside App.js
   const Logout = () => {
     const navigate = useNavigate();
+    const [error, setError] = React.useState(null); // State to handle errors
 
     useEffect(() => {
       const performLogout = async () => {
@@ -22,7 +23,7 @@ function App() {
           await axiosInstance.post('logout/');
         } catch (error) {
           console.error('Error during logout:', error);
-          // Optionally, handle specific error messages or display to the user
+          setError('Failed to logout. Please try again.');
         } finally {
           // Remove the auth token from local storage
           localStorage.removeItem('authToken');
@@ -34,12 +35,16 @@ function App() {
       performLogout();
     }, [navigate]);
 
-    return <div>Logging out...</div>;
+    return (
+      <div>
+        {error ? <p style={{ color: 'red' }}>{error}</p> : <p>Logging out...</p>}
+      </div>
+    );
   };
 
   return (
     <Router>
-      <Navbar /> {/* Include Navbar at the top */}
+      <Navbar /> {/* Include Navbar once at the top */}
       <Routes>
         <Route
           path="/"

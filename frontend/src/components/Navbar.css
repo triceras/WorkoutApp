@@ -6,7 +6,7 @@
     padding: 0;
     box-sizing: border-box;
   }
-
+  
   .navbar {
     background-color: #007BFF; /* Bootstrap primary blue */
     position: fixed;
@@ -16,58 +16,60 @@
     height: 60px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    /* Removed justify-content: center; */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     z-index: 1000;
   }
-
+  
   .navbar-container {
-    width: 90%;
+    width: 100%; /* Changed from 90% to 100% for full width */
     max-width: 1200px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between; /* Ensures logo on left and menu on right */
   }
-
+  
   .navbar-logo a {
     color: #ffffff;
     font-size: 1.5rem;
     font-weight: bold;
     text-decoration: none;
+    margin-left: 76px; /* Approximately 2 cm (adjust as needed) */
   }
-
+  
   .navbar-menu {
     list-style: none;
     display: flex;
     align-items: center;
+    margin-right: 40px; /* Increased spacing from the right border */
   }
-
+  
   .navbar-item {
     margin-left: 2rem;
   }
-
+  
   .navbar-link {
     color: #ffffff;
     text-decoration: none;
     font-size: 1rem;
     transition: color 0.3s ease;
   }
-
+  
   .navbar-link:hover {
     color: #e2e6ea;
   }
-
+  
   .active-link {
     border-bottom: 2px solid #ffffff;
   }
-
+  
   /* Hamburger Menu Styles */
   .navbar-hamburger {
     display: none;
     flex-direction: column;
     cursor: pointer;
   }
-
+  
   .navbar-hamburger .bar {
     width: 25px;
     height: 3px;
@@ -75,7 +77,7 @@
     margin: 4px 0;
     transition: 0.4s;
   }
-
+  
   /* Responsive Design */
   @media (max-width: 768px) {
     .navbar-menu {
@@ -89,17 +91,19 @@
       max-height: 0;
       overflow: hidden;
       transition: max-height 0.3s ease-in-out;
+      margin-right: 40px;
     }
-
+  
     .navbar-menu.active {
       max-height: 300px; /* Adjust based on number of menu items */
     }
-
+  
     .navbar-item {
       margin: 1.5rem 0;
     }
-
+  
     .navbar-hamburger {
       display: flex;
     }
   }
+  
