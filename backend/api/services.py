@@ -16,22 +16,15 @@ def generate_workout_plan(user):
     Returns:
         dict: A dictionary containing the workout plan.
     """
-    if not hasattr(user, 'userprofile'):
-        # Handle the case where UserProfile doesn't exist
-        # You might create a new UserProfile or return an error
-        logger.error("UserProfile does not exist for this user.")
-        return None
-    
-    # Access UserProfile attributes
-    user_profile = user.userprofile
-    age = user_profile.age
-    weight = user_profile.weight
-    height = user_profile.height
-    fitness_level = user_profile.fitness_level
-    strength_goals = user_profile.strength_goals
-    equipment = user_profile.equipment
-    workout_days = user_profile.workout_days
-    workout_time = user_profile.workout_time
+    # Directly access User fields
+    age = user.age
+    weight = user.weight
+    height = user.height
+    fitness_level = user.fitness_level
+    strength_goals = user.strength_goals
+    equipment = user.equipment
+    workout_days = user.workout_days
+    workout_time = user.workout_time
 
     # Create the prompt
     user_data = {

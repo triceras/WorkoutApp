@@ -2,187 +2,147 @@
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
-from .services import generate_workout_plan
-from .models import Exercise, WorkoutPlan, WorkoutLog
+from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog
 from .serializers import (
     ExerciseSerializer,
     WorkoutPlanSerializer,
     WorkoutLogSerializer,
+    ExerciseLogSerializer,
     UserSerializer,
 )
-from .services import generate_workout_plan  # Import the AI integration function
-
 import logging
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
-
 class ExerciseViewSet(viewsets.ModelViewSet):
     queryset = Exercise.objects.all()
     serializer_class = ExerciseSerializer
-    permission_classes = [permissions.AllowAny]
-
+    permission_classes = [permissions.IsAuthenticated]
 
 class WorkoutPlanViewSet(viewsets.ModelViewSet):
+    queryset = WorkoutPlan.objects.all()
     serializer_class = WorkoutPlanSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return WorkoutPlan.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def current(self, request):
+        try:
+            workout_plan = WorkoutPlan.objects.get(user=request.user)
+            serializer = self.get_serializer(workout_plan)
+            return Response(serializer.data)
+        except WorkoutPlan.DoesNotExist:
+            return Response({'detail': 'Workout plan not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request, *args, **kwargs):
         user = request.user
-        try:
-            # Check if a workout plan already exists
-            workout_plan = WorkoutPlan.objects.filter(user=user).first()
-            if workout_plan:
-                serializer = WorkoutPlanSerializer(workout_plan)
-                #serializer = self.get_serializer(workout_plan)
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            else:
-                # Ensure the user has an associated UserProfile
-                if not hasattr(user, 'userprofile'):
-                    return Response(
-                        {'detail': 'UserProfile does not exist for this user.'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+        plan_data = request.data.get('plan_data', '')
 
-                # Generate the workout plan
-                plan_data = generate_workout_plan(user)
-                if not plan_data:
-                    logger.error('Failed to generate workout plan.')
-                    return Response(
-                        {'detail': 'Failed to generate workout plan.'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-
-                workout_plan = WorkoutPlan.objects.create(user=user, plan_data=plan_data)
-                serializer = WorkoutPlanSerializer(workout_plan)
-                #serializer = self.get_serializer(workout_plan)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            logger.error(f'Error creating workout plan: {str(e)}', exc_info=True)
+        if not plan_data:
             return Response(
-                {'detail': 'An error occurred while creating the workout plan.'},
+                {'detail': 'No plan data provided.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            workout_plan, created = WorkoutPlan.objects.update_or_create(
+                user=user,
+                defaults={'plan_data': plan_data}
+            )
+            serializer = WorkoutPlanSerializer(workout_plan)
+            status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+            return Response(serializer.data, status=status_code)
+        except Exception as e:
+            logger.error(f'Error creating/updating workout plan: {str(e)}', exc_info=True)
+            return Response(
+                {'detail': 'An error occurred while creating/updating the workout plan.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def update(self, request, *args, **kwargs):
+        user = request.user
+        plan_data = request.data.get('plan_data', '')
+
+        if not plan_data:
+            return Response(
+                {'detail': 'No plan data provided.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            workout_plan, created = WorkoutPlan.objects.update_or_create(
+                user=user,
+                defaults={'plan_data': plan_data}
+            )
+            serializer = WorkoutPlanSerializer(workout_plan)
+            status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+            return Response(serializer.data, status=status_code)
+        except Exception as e:
+            logger.error(f'Error updating workout plan: {str(e)}', exc_info=True)
+            return Response(
+                {'detail': 'An error occurred while updating the workout plan.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 class WorkoutLogViewSet(viewsets.ModelViewSet):
+    queryset = WorkoutLog.objects.all()
     serializer_class = WorkoutLogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return WorkoutLog.objects.filter(user=self.request.user)
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+class ExerciseLogViewSet(viewsets.ModelViewSet):
+    queryset = ExerciseLog.objects.all()
+    serializer_class = ExerciseLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        return ExerciseLog.objects.filter(workout_log__user=self.request.user)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_user(request):
-    try:
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
-    except Exception as e:
-        logger.error(f'Error fetching user data: {str(e)}')
-        return Response(
-            {'detail': 'An error occurred while fetching user data.'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)
 
 class CustomAuthToken(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
-        try:
-            serializer = self.serializer_class(
-                data=request.data, context={'request': request}
-            )
-            serializer.is_valid(raise_exception=True)
-            user = serializer.validated_data['user']
-            token, _ = Token.objects.get_or_create(user=user)
-            return Response({'token': token.key})
-        except Exception as e:
-            logger.error(f'Login error: {str(e)}')
-            return Response(
-                {'detail': 'Invalid credentials'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer = self.serializer_class(data=request.data,
+                                           context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({'token': token.key})
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
     serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
-        user = serializer.save()
-        # Create a token for the new user
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({'message': 'User registered successfully.', 'token': token.key}, status=status.HTTP_201_CREATED)
-    else:
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_workout_plan(request):
-    user = request.user
-    try:
-        # Check if a workout plan already exists for the user
-        workout_plan = WorkoutPlan.objects.filter(user=user).first()
-        if workout_plan:
-            # Return the existing workout plan
-            serializer = WorkoutPlanSerializer(workout_plan)
-            return Response(serializer.data, status=200)
-        else:
-            # Ensure the user has an associated UserProfile
-            if not hasattr(user, 'userprofile'):
-                return Response({'error': 'UserProfile does not exist for this user.'}, status=400)
-
-            # Generate the workout plan by passing the user object
-            plan_data = generate_workout_plan(user)
-            if plan_data:
-                # Save the new workout plan
-                workout_plan = WorkoutPlan.objects.create(user=user, plan_data=plan_data)
-                serializer = WorkoutPlanSerializer(workout_plan)
-                return Response(serializer.data, status=201)
-            else:
-                logger.error('Failed to generate workout plan.')
-                return Response({'error': 'Could not generate workout plan.'}, status=500)
-
-    except Exception as e:
-        logger.error(f"Error in get_workout_plan: {str(e)}", exc_info=True)
-        return Response({'error': 'An error occurred while retrieving the workout plan.'}, status=500)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_workout_plan(request):
-    try:
-        user = request.user  # The authenticated user
-        workout_plan = generate_workout_plan(user)
-        if workout_plan:
-            return Response({'workout_plan': workout_plan}, status=200)
-        else:
-            return Response({'error': 'Could not generate workout plan.'}, status=500)
-    except Exception as e:
-        print(f"Error creating workout plan: {e}")
-        return Response({'error': str(e)}, status=500)
-
-@api_view(['GET'])
+@api_view(['GET'])  # Changed from 'POST' to 'GET'
 @permission_classes([IsAuthenticated])
 def verify_token(request):
-    return Response({'message': 'Token is valid.'}, status=200)
+    user = request.user
+    return Response({'token_valid': True, 'user': UserSerializer(user).data}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_user(request):
-    try:
-        request.user.auth_token.delete()
-        return Response({'message': 'Successfully logged out.'}, status=200)
-    except Exception as e:
-        return Response({'error': 'Failed to log out.'}, status=400)
+    request.user.auth_token.delete()
+    return Response(status=status.HTTP_200_OK)
