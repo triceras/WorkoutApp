@@ -57,11 +57,20 @@
   
   .navbar-link:hover {
     color: #e2e6ea;
+    border-bottom: none
   }
   
   .active-link {
     border-bottom: 2px solid #ffffff;
+    border-bottom: none;
   }
+
+  /* Specific class to remove underline from Dashboard */
+.no-underline.active-link {
+  border-bottom: none;
+  /* If underline is from text-decoration, ensure it's removed */
+  text-decoration: none;
+}
   
   /* Hamburger Menu Styles */
   .navbar-hamburger {
