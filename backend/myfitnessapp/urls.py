@@ -2,13 +2,31 @@
 
 from django.contrib import admin
 from django.urls import path, include
-# Removed the faulty import
-# from api.views import get_workout_plan
+from rest_framework import permissions
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="MyFitnessApp API",
+        default_version='v1',
+        description="API documentation for MyFitnessApp",
+        terms_of_service="https://www.google.com/policies/terms/",
+        contact=openapi.Contact(email="contact@myfitnessapp.local"),
+        license=openapi.License(name="BSD License"),
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+)
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),  # Include the URLs from your api app
-    # Removed the faulty URL pattern
-    # path('api/workout-plan/', get_workout_plan, name='get-workout-plan'),
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     path('auth/', include('allauth.urls')),
 ]
+
+

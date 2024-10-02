@@ -8,14 +8,14 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
-from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession
+from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User
 from .serializers import (
     ExerciseSerializer,
     WorkoutPlanSerializer,
     WorkoutLogSerializer,
     ExerciseLogSerializer,
     WorkoutSessionSerializer,
-    UserSerializer, 
+    UserSerializer,
     UserRegistrationSerializer
 )
 import logging
@@ -236,3 +236,22 @@ class UserDetailView(generics.RetrieveAPIView):
 
     def get_object(self):
         return self.request.user
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return User.objects.filter(id=self.request.user.id)
+
+    @action(detail=False, methods=['get', 'put'], url_path='me')
+    def me(self, request):
+        if request.method == 'GET':
+            serializer = self.get_serializer(request.user)
+            return Response(serializer.data)
+        elif request.method == 'PUT':
+            serializer = self.get_serializer(request.user, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)

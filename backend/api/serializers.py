@@ -55,6 +55,7 @@ class UserSerializer(serializers.ModelSerializer):
     # Ensure 'strength_goals' and 'equipment' are treated as strings
     strength_goals = serializers.CharField(required=True)
     equipment = serializers.CharField(required=True)
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = UserModel
@@ -62,7 +63,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name',
             'password', 'confirm_password', 'age', 'weight', 'height',
             'fitness_level', 'strength_goals', 'additional_goals',
-            'equipment', 'workout_time', 'workout_days'
+            'equipment', 'workout_time', 'workout_days', 'profile_picture'
         ]
         read_only_fields = ['id']
 

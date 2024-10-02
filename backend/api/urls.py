@@ -13,7 +13,8 @@ from .views import (
     register_user,
     verify_token,
     logout_user,
-    check_workout_plan_status
+    check_workout_plan_status,
+    UserViewSet
 )
 
 router = routers.DefaultRouter()
@@ -21,6 +22,8 @@ router.register(r'exercises', ExerciseViewSet)
 router.register(r'workout-plans', WorkoutPlanViewSet, basename='workoutplan')
 router.register(r'workout-logs', WorkoutLogViewSet, basename='workoutlog')
 router.register(r'workout-sessions', WorkoutSessionViewSet, basename='workoutsessions')
+router.register(r'users', UserViewSet, basename='user')
+
 
 urlpatterns = [
     path('user/', current_user),
