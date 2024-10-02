@@ -2,6 +2,7 @@
 
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import './WorkoutPlan.css'; // Ensure this path is correct
 
 function WorkoutPlan({ plan }) {
@@ -10,15 +11,24 @@ function WorkoutPlan({ plan }) {
    * Uses matchAll to capture all day headers and their content.
    */
   const parseWorkoutPlan = (plan) => {
+    if (typeof plan !== 'string') {
+      console.error('Invalid plan data:', plan);
+      return { workoutDays: [], additionalTips: '' };
+    }
+
     // Normalize line breaks to '\n'
     const cleanPlan = plan.replace(/\r\n/g, '\n');
 
-    // Define regex to match both training days and rest days, including multiple day numbers
-    const dayRegex = /\*\*Day\s+\d+(?:\s+and\s+\d+)*:\s+[^*\n]+?(?:\s*\(\d+\s+minutes\))?\*\*/g;
+    // Updated regex to match day headers like "**Day 1: Chest and Triceps (60 minutes)**"
+    const dayRegex = /\*\*Day\s+\d+:\s+[^*]+\*\*/g;
 
     // Use matchAll to find all day headers with their indices
     const matches = [...cleanPlan.matchAll(dayRegex)];
     const workoutDays = [];
+
+    if (matches.length === 0) {
+      console.warn('No workout days matched in the plan.');
+    }
 
     matches.forEach((match, index) => {
       const title = match[0].replace(/\*\*/g, '').trim(); 
@@ -70,7 +80,7 @@ function WorkoutPlan({ plan }) {
                 {isRestDay ? (
                   <p>Take this day to rest and recover.</p>
                 ) : (
-                  <ReactMarkdown>{day.content}</ReactMarkdown>
+                  <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{day.content}</ReactMarkdown>
                 )}
               </div>
             </div>
@@ -83,7 +93,7 @@ function WorkoutPlan({ plan }) {
       {additionalTips && (
         <div className="additional-tips">
           <h4>Additional Tips:</h4>
-          <ReactMarkdown>{additionalTips}</ReactMarkdown>
+          <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{additionalTips}</ReactMarkdown>
         </div>
       )}
     </div>

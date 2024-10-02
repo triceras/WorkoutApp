@@ -1,10 +1,14 @@
-# api/models.py
+# backend/api/models.py
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 
 class User(AbstractUser):
+    username = models.CharField(max_length=150, unique=True)
+    first_name = models.CharField(max_length=30, blank=True)
+    last_name = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True, null=True)
     age = models.PositiveIntegerField(null=True, blank=True)
     weight = models.FloatField(null=True, blank=True)
     height = models.FloatField(null=True, blank=True)
@@ -25,6 +29,15 @@ class User(AbstractUser):
     workout_days = models.CharField(max_length=50, null=True, blank=True)
     additional_goals = models.TextField(blank=True, null=True)  # Integrated from UserProfile
     # Add additional fields as needed
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['email'],
+                condition=models.Q(email__isnull=False),
+                name='unique_email_when_not_null'
+            )
+        ]
 
     def __str__(self):
         return self.username
@@ -65,3 +78,10 @@ class ExerciseLog(models.Model):
     def __str__(self):
         return f"{self.exercise.name} - {self.sets} sets x {self.reps} reps @ {self.weight}kg"
 
+class WorkoutSession(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workouts')
+    date = models.DateTimeField(auto_now_add=True)
+    # Add other relevant fields like workout type, duration, etc.
+
+    def __str__(self):
+        return f"{self.user.username} - {self.date.strftime('%Y-%m-%d %H:%M')}"

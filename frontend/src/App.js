@@ -1,33 +1,45 @@
 // src/App.js
 
-//import React from 'react';
-import { useContext, useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import RegistrationPage from './pages/RegistrationPage';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
+import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import WorkoutPlan from './components/WorkoutPlan';
+import AuthListener from './components/AuthListener';
 import Navbar from './components/Navbar'; // Import Navbar
-import { AuthProvider, AuthContext } from './context/AuthContext'; // Import AuthProvider and AuthContext
-import axiosInstance from './api/axiosInstance'; // Ensure axiosInstance is imported
+import { AuthProvider } from './context/AuthContext';
+import GeneratingWorkout from './pages/GeneratingWorkout';
+import Logout from './pages/LogoutPage'; // Import LogoutPage
+import NotFoundPage from './pages/NotFoundPage'; // Ensure this exists
 
 function App() {
   return (
     <AuthProvider> {/* Wrap the entire app with AuthProvider */}
-      <Router>
+      <Router> {/* Wrap routing components within Router */}
         <Navbar /> {/* Navbar is always rendered except on Login and Register pages */}
+        <AuthListener />
         <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegistrationPage />} />
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
             }
           />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegistrationPage />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/workout-plan"
             element={
@@ -37,6 +49,10 @@ function App() {
             }
           />
           <Route
+            path="/generating-workout"
+            element={<GeneratingWorkout />}
+          />
+          <Route
             path="/logout"
             element={
               <ProtectedRoute>
@@ -44,41 +60,12 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Router>
     </AuthProvider>
   );
 }
-
-const Logout = () => {
-  const { logout } = useContext(AuthContext); // Correct: Use AuthContext
-  const navigate = useNavigate();
-  const [error, setError] = useState(null); // State to handle errors
-
-  useEffect(() => {
-    const performLogout = async () => {
-      try {
-        // Send POST request to backend to logout
-        await axiosInstance.post('logout/');
-      } catch (error) {
-        console.error('Error during logout:', error);
-        setError('Failed to logout. Please try again.');
-      } finally {
-        // Call logout from context to clear auth state
-        logout();
-        // Redirect to login page
-        navigate('/login');
-      }
-    };
-
-    performLogout();
-  }, [logout, navigate]);
-
-  return (
-    <div>
-      {error ? <p style={{ color: 'red' }}>{error}</p> : <p>Logging out...</p>}
-    </div>
-  );
-};
 
 export default App;

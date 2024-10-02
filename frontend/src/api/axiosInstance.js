@@ -1,52 +1,36 @@
-// src/api/axiosInstance.js
+// frontend/src/api/axiosInstance.js
 
 import axios from 'axios';
 
-// Create an instance of axios
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:8000/api/',
-  timeout: 5000,
+  baseURL: 'http://localhost:8000/api/', // Adjust baseURL as needed
 });
 
-// Request interceptor to add auth token to headers
+// Request interceptor to attach the token
 axiosInstance.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem('authToken');
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    const nonAuthEndpoints = ['register/', 'auth/login/', 'auth/verify-token/'];
+    const requiresAuth = !nonAuthEndpoints.some((endpoint) => config.url.endsWith(endpoint));
 
-      // List of endpoints that do not require authentication
-      const nonAuthEndpoints = ['/register/', '/login/', '/auth/verify-token/'];
+    if (token && requiresAuth) {
+      config.headers.Authorization = `Token ${token}`;
+    } else {
+      delete config.headers.Authorization;
+    }
 
-      // Check if the request URL ends with any of the non-auth endpoints
-      const requiresAuth = !nonAuthEndpoints.some((endpoint) =>
-        config.url.endsWith(endpoint)
-      );
-
-      if (token && requiresAuth) {
-        // Attach the token to the headers
-        config.headers.Authorization = `Token ${token}`;
-        console.log('Token attached to request:', config.headers.Authorization); // Add logging
-      } else {
-        delete config.headers.Authorization;
-        console.log('No token found');
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
-axiosInstance.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        config.headers.Authorization = `Token ${token}`;
-        console.log('Token attached to request:', token);
-      } else {
-        console.log('No token found');
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
+// Optional: Response interceptor for handling global responses
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle errors globally if needed
+    return Promise.reject(error);
+  }
 );
 
 export default axiosInstance;

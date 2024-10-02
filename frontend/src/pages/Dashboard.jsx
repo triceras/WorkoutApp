@@ -32,9 +32,9 @@ function Dashboard() {
         const workoutPlanResponse = await axiosInstance.get('workout-plans/current/');
         console.log('Workout plan response:', workoutPlanResponse.data);
 
-        if (workoutPlanResponse.data && workoutPlanResponse.data.plan_data) {
-          setWorkoutPlan(workoutPlanResponse.data.plan_data.plan);
-          setAdditionalTips(workoutPlanResponse.data.plan_data.additionalTips || '');
+        if (workoutPlanResponse.data && workoutPlanResponse.data.plan_data && workoutPlanResponse.data.plan_data.plan) {
+          setWorkoutPlan(workoutPlanResponse.data.plan_data.plan); // Pass the plan string
+          // Note: 'additionalTips' are parsed within WorkoutPlan.jsx from the 'plan' string
         } else {
           setError('No workout plan available.');
         }
@@ -74,7 +74,7 @@ function Dashboard() {
         {/* Update user name access */}
         <h2>Welcome {userData?.first_name || userData?.username || 'Valued User'}</h2>
         {workoutPlan ? (
-          <WorkoutPlan plan={workoutPlan} additionalTips={additionalTips} />
+          <WorkoutPlan plan={workoutPlan} />
         ) : (
           <p>Loading your workout plan...</p>
         )}

@@ -1,60 +1,48 @@
-// src/context/AuthContext.jsx
+// frontend/src/context/AuthContext.jsx
 
 import React, { createContext, useState, useEffect } from 'react';
-import axiosInstance from '../api/axiosInstance'; // Ensure axiosInstance is correctly set up
+import axiosInstance from '../api/axiosInstance';
+import PropTypes from 'prop-types';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [authToken, setAuthToken] = useState(null);
+  const [authToken, setAuthToken] = useState(localStorage.getItem('authToken'));
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // To handle the initial loading state
 
-  // Initialize auth state from localStorage
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    const userData = localStorage.getItem('userData');
-
-    if (token) {
-      setAuthToken(token);
-      if (userData) {
-        setUser(JSON.parse(userData));
-      } else {
-        // Fetch user data from the backend if not present in localStorage
-        axiosInstance.get('user/')
-          .then(response => {
-            setUser(response.data);
-            localStorage.setItem('userData', JSON.stringify(response.data));
-          })
-          .catch(error => {
-            console.error('Error fetching user data:', error);
-            logout(); // If fetching user fails, perform logout
-          });
+    const fetchUser = async () => {
+      if (authToken) {
+        try {
+          const response = await axiosInstance.get('user/');
+          setUser(response.data);
+        } catch (error) {
+          console.error('Error fetching user:', error);
+          setAuthToken(null);
+          localStorage.removeItem('authToken');
+        }
       }
-    }
+      setLoading(false);
+    };
 
-    setLoading(false);
-  }, []);
+    fetchUser();
+  }, [authToken]);
 
-  // Function to handle login
-  const login = (token, userData) => {
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('userData', JSON.stringify(userData));
-    setAuthToken(token);
-    setUser(userData);
-  };
-
-  // Function to handle logout
   const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
     setAuthToken(null);
     setUser(null);
+    localStorage.removeItem('authToken');
+    delete axiosInstance.defaults.headers['Authorization'];
   };
 
   return (
-    <AuthContext.Provider value={{ authToken, user, login, logout, loading }}>
+    <AuthContext.Provider value={{ authToken, setAuthToken, user, setUser, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+AuthProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };

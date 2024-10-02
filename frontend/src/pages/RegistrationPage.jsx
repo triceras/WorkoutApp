@@ -11,24 +11,27 @@ import Availability from '../components/RegistrationSteps/Availability';
 import ReviewSubmit from '../components/RegistrationSteps/ReviewSubmit';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-
+import { Typography, Box } from '@mui/material'; // Import Typography and Box for error display
 
 function RegistrationPage() {
   const [step, setStep] = useState(1);
+  const [errors, setErrors] = useState({}); // Used to display error messages
   const navigate = useNavigate();
 
   const initialValues = {
     username: '',
     password: '',
     confirmPassword: '',
-    name: '',
+    firstName: '', // Added
+    lastName: '',  // Added
+    email: '',
     age: '',
     weight: '',
     height: '',
     fitnessLevel: '',
-    strengthGoals: [],
+    strengthGoals: [],    // Array to be joined into a string
     additionalGoals: '',
-    equipment: [],
+    equipment: [],       // Array to be joined into a string
     workoutTime: 30,
     workoutDays: 3,
   };
@@ -39,7 +42,9 @@ function RegistrationPage() {
     confirmPassword: Yup.string()
       .oneOf([Yup.ref('password'), null], 'Passwords must match')
       .required('Confirm Password is required'),
-    name: Yup.string().required('Name is required'),
+    firstName: Yup.string().required('First Name is required'), // Added
+    lastName: Yup.string().required('Last Name is required'),   // Added
+    email: Yup.string().email('Invalid email').required('Email is required'),
     age: Yup.number().required('Age is required').positive().integer(),
     weight: Yup.number().required('Weight is required').positive(),
     height: Yup.number().required('Height is required').positive(),
@@ -59,44 +64,48 @@ function RegistrationPage() {
   const handleSubmit = (values) => {
     // Prepare data to send to backend
     const data = {
-        username: values.username,
-        password: values.password,
-        confirm_password: values.confirmPassword,
-        userprofile: {
-          name: values.name,
-          age: values.age,
-          weight: values.weight,
-          height: values.height,
-          fitness_level: values.fitnessLevel,
-          strength_goals: values.strengthGoals.join(', '),
-          additional_goals: values.additionalGoals,
-          equipment: values.equipment.join(', '),
-          workout_time: values.workoutTime,
-          workout_days: values.workoutDays,
-        },
-      };  
-    delete data.confirmPassword; // Remove confirmPassword from data
+      username: values.username,
+      email: values.email,
+      first_name: values.firstName,        // Correct field name
+      last_name: values.lastName,          // Correct field name
+      password: values.password,
+      confirm_password: values.confirmPassword,
+      age: values.age,
+      weight: values.weight,
+      height: values.height,
+      fitness_level: values.fitnessLevel,
+      strength_goals: values.strengthGoals.join(', '), // Join array into string
+      additional_goals: values.additionalGoals,
+      equipment: values.equipment.join(', '),           // Join array into string
+      workout_time: values.workoutTime,
+      workout_days: values.workoutDays,
+    };
 
     axios
       .post('http://localhost:8000/api/register/', data)
       .then((response) => {
         // Registration successful
         localStorage.setItem('authToken', response.data.token);
-        navigate('/'); // Redirect to dashboard or desired page
+        // Navigate to the "Generating Workout Plan" page
+        navigate('/generating-workout');
       })
       .catch((error) => {
         if (error.response) {
-            // The request was made, and the server responded with a status code
-            console.error('Registration error:', error.response.data);
-            // Display error messages to the user based on error.response.data
-          } else if (error.request) {
-            // The request was made, but no response was received
-            console.error('No response received:', error.request);
-            // Inform the user of network issues
-          } else {
-            // Something else happened while setting up the request
-            console.error('Error:', error.message);
-          }
+          // The request was made, and the server responded with a status code
+          // that falls out of the range of 2xx
+          console.error('Registration error:', error.response.data);
+          setErrors(error.response.data);
+          // Display error messages to the user based on error.response.data
+        } else if (error.request) {
+          // The request was made, but no response was received
+          console.error('No response received:', error.request);
+          setErrors({ general: 'No response from server. Please try again later.' });
+          // Inform the user of network issues
+        } else {
+          // Something else happened while setting up the request
+          console.error('Error:', error.message);
+          setErrors({ general: 'An unexpected error occurred. Please try again.' });
+        }
       });
   };
 
@@ -112,61 +121,92 @@ function RegistrationPage() {
     <Formik
       initialValues={initialValues}
       validationSchema={validationSchema}
-      onSubmit={handleSubmit}
+      onSubmit={handleSubmit} // Ensure handleSubmit is passed here
     >
-      {({ values, errors, touched }) => (
+      {({ values, touched, handleChange, handleBlur, errors }) => (
         <Form>
-          {step === 1 && (
-            <AccountDetailsForm
-              nextStep={nextStep}
-              values={values}
-              errors={errors}
-              touched={touched}
-            />
-          )}
-          {step === 2 && (
-            <PersonalInfo
-              nextStep={nextStep}
-              prevStep={prevStep}
-              values={values}
-              errors={errors}
-              touched={touched}
-            />
-          )}
-          {step === 3 && (
-            <FitnessGoals
-              nextStep={nextStep}
-              prevStep={prevStep}
-              values={values}
-              errors={errors}
-              touched={touched}
-            />
-          )}
-          {step === 4 && (
-            <Equipment
-              nextStep={nextStep}
-              prevStep={prevStep}
-              values={values}
-              errors={errors}
-              touched={touched}
-            />
-          )}
-          {step === 5 && (
-            <Availability
-              nextStep={nextStep}
-              prevStep={prevStep}
-              values={values}
-              errors={errors}
-              touched={touched}
-            />
-          )}
-          {step === 6 && (
-            <ReviewSubmit
-              handleSubmit={handleSubmit}
-              prevStep={prevStep}
-              values={values}
-            />
-          )}
+          <Box width="100%" maxWidth="600px" margin="0 auto">
+            {/* Display General Errors */}
+            {errors.general && (
+              <Typography variant="body1" color="error" align="center" gutterBottom>
+                {errors.general}
+              </Typography>
+            )}
+            {/* Display Field-Specific Errors */}
+            {Object.keys(errors).map((key) => {
+              if (key !== 'general') {
+                return (
+                  <Typography key={key} variant="body2" color="error" gutterBottom>
+                    {Array.isArray(errors[key]) ? errors[key].join(' ') : errors[key]}
+                  </Typography>
+                );
+              }
+              return null;
+            })}
+
+            {/* Render the current step component */}
+            {step === 1 && (
+              <AccountDetailsForm
+                nextStep={nextStep}
+                values={values}
+                handleChange={handleChange}
+                handleBlur={handleBlur}
+                touched={touched}
+                errors={errors}
+              />
+            )}
+            {step === 2 && (
+              <PersonalInfo
+                nextStep={nextStep}
+                prevStep={prevStep}
+                values={values}
+                handleChange={handleChange}
+                handleBlur={handleBlur}
+                touched={touched}
+                errors={errors}
+              />
+            )}
+            {step === 3 && (
+              <FitnessGoals
+                nextStep={nextStep}
+                prevStep={prevStep}
+                values={values}
+                handleChange={handleChange}
+                handleBlur={handleBlur}
+                touched={touched}
+                errors={errors}
+              />
+            )}
+            {step === 4 && (
+              <Equipment
+                nextStep={nextStep}
+                prevStep={prevStep}
+                values={values}
+                handleChange={handleChange}
+                handleBlur={handleBlur}
+                touched={touched}
+                errors={errors}
+              />
+            )}
+            {step === 5 && (
+              <Availability
+                nextStep={nextStep}
+                prevStep={prevStep}
+                values={values}
+                handleChange={handleChange}
+                handleBlur={handleBlur}
+                touched={touched}
+                errors={errors}
+              />
+            )}
+            {step === 6 && (
+              <ReviewSubmit
+                handleSubmit={handleSubmit}
+                prevStep={prevStep}
+                values={values}
+              />
+            )}
+          </Box>
         </Form>
       )}
     </Formik>

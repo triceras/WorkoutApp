@@ -26,6 +26,12 @@ def generate_workout_plan(user):
     workout_days = user.workout_days
     workout_time = user.workout_time
 
+    # Log user data for debugging
+    logger.info(f"Generating workout plan for user: {user.username}")
+    logger.info(f"Age: {age}, Weight: {weight}, Height: {height}")
+    logger.info(f"Fitness Level: {fitness_level}, Strength Goals: {strength_goals}")
+    logger.info(f"Equipment: {equipment}, Workout Days: {workout_days}, Workout Time: {workout_time}")
+
     # Create the prompt
     user_data = {
         'age': age,
@@ -36,6 +42,7 @@ def generate_workout_plan(user):
         'equipment': equipment,
         'workout_days': workout_days,
         'workout_time': workout_time,
+        'additional_goals': user.additional_goals,
     }
     prompt = create_prompt(user_data)
 
@@ -64,13 +71,20 @@ def generate_workout_plan(user):
             input=inputs,
         )
 
+        # Log the AI response
+        logger.info(f"Replicate AI Output: {output}")
+
         # Parse the AI response
         workout_plan = parse_ai_response(output)
 
         return workout_plan
 
+    except replicate.ClientError as e:
+        logger.error(f"Replicate API Client Error: {e}", exc_info=True)
+    except replicate.APIError as e:
+        logger.error(f"Replicate API Error: {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"Error generating workout plan: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error generating workout plan: {e}", exc_info=True)
         return None
 
 def create_prompt(user_data):
@@ -107,4 +121,3 @@ def parse_ai_response(ai_response):
         workout_plan_text = 'No workout plan generated.'
 
     return {'plan': workout_plan_text}
-

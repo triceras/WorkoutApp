@@ -2,117 +2,184 @@
 
 /* Reset default margin and padding */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
-  .navbar {
-    background-color: #007BFF; /* Bootstrap primary blue */
-    position: fixed;
-    top: 0;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.navbar {
+  background-color: #007BFF; /* Bootstrap primary blue */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.navbar-container {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-logo a {
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-decoration: none;
+  margin-left: 76px; /* Approximately 2 cm */
+  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
+}
+
+.navbar-menu {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  margin-right: 40px;
+  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
+}
+
+.navbar-item {
+  margin-left: 2rem;
+}
+
+.navbar-menu .navbar-link {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 700; /* Make text bold */
+  transition: color 0.3s ease;
+  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
+}
+
+.navbar-menu .navbar-link:hover {
+  color: #e2e6ea;
+}
+
+.active-link {
+  border-bottom: 2px solid #ffffff;
+  text-decoration: none; /* Ensure no underline */
+}
+
+/* Dropdown Styles */
+.navbar-dropdown {
+  position: relative;
+}
+
+.navbar-dropdown .dropdown-toggle {
+  background: none;
+  border: none;
+  color: #ffffff; /* Explicitly set to white */
+  cursor: pointer;
+  font: inherit;
+  padding: 0.5rem 1rem;
+  transition: color 0.3s ease;
+  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
+  font-weight: 700; /* Make text bold */
+}
+
+.navbar-dropdown .dropdown-toggle:hover {
+  color: #e2e6ea;
+}
+
+.navbar-dropdown .dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #ffffff; /* White background */
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  min-width: 160px;
+  z-index: 1000;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.navbar-dropdown .dropdown-menu .dropdown-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: #333333; /* Dark text */
+  text-decoration: none;
+  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
+  font-weight: 700; /* Make text bold */
+}
+
+.navbar-dropdown .dropdown-menu .dropdown-item:hover,
+.navbar-dropdown .dropdown-menu .dropdown-item:focus {
+  background-color: #f1f1f1;
+  color: #000000;
+}
+
+/* Hamburger Menu Styles */
+.navbar-hamburger {
+  display: none;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.navbar-hamburger .bar {
+  width: 25px;
+  height: 3px;
+  background-color: #ffffff;
+  margin: 4px 0;
+  transition: 0.4s;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navbar-menu {
+    position: absolute;
+    top: 60px;
     left: 0;
     width: 100%;
-    height: 60px;
-    display: flex;
+    background-color: #007BFF;
+    flex-direction: column;
     align-items: center;
-    /* Removed justify-content: center; */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-  }
-  
-  .navbar-container {
-    width: 100%; /* Changed from 90% to 100% for full width */
-    max-width: 1200px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between; /* Ensures logo on left and menu on right */
-  }
-  
-  .navbar-logo a {
-    color: #ffffff;
-    font-size: 1.5rem;
-    font-weight: bold;
-    text-decoration: none;
-    margin-left: 76px; /* Approximately 2 cm (adjust as needed) */
-  }
-  
-  .navbar-menu {
-    list-style: none;
-    display: flex;
-    align-items: center;
-    margin-right: 40px; /* Increased spacing from the right border */
-  }
-  
-  .navbar-item {
-    margin-left: 2rem;
-  }
-  
-  .navbar-link {
-    color: #ffffff;
-    text-decoration: none;
-    font-size: 1rem;
-    transition: color 0.3s ease;
-  }
-  
-  .navbar-link:hover {
-    color: #e2e6ea;
-    border-bottom: none
-  }
-  
-  .active-link {
-    border-bottom: 2px solid #ffffff;
-    border-bottom: none;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+    margin-right: 40px;
   }
 
-  /* Specific class to remove underline from Dashboard */
-.no-underline.active-link {
-  border-bottom: none;
-  /* If underline is from text-decoration, ensure it's removed */
-  text-decoration: none;
-}
-  
-  /* Hamburger Menu Styles */
+  .navbar-menu.active {
+    max-height: 300px; /* Adjust based on number of menu items */
+  }
+
+  .navbar-item {
+    margin: 1.5rem 0;
+  }
+
   .navbar-hamburger {
-    display: none;
-    flex-direction: column;
-    cursor: pointer;
+    display: flex;
   }
-  
-  .navbar-hamburger .bar {
-    width: 25px;
-    height: 3px;
-    background-color: #ffffff;
-    margin: 4px 0;
-    transition: 0.4s;
-  }
-  
-  /* Responsive Design */
-  @media (max-width: 768px) {
-    .navbar-menu {
-      position: absolute;
-      top: 60px; /* Height of the Navbar */
-      left: 0;
-      width: 100%;
-      background-color: #007BFF;
-      flex-direction: column;
-      align-items: center;
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease-in-out;
-      margin-right: 40px;
-    }
-  
-    .navbar-menu.active {
-      max-height: 300px; /* Adjust based on number of menu items */
-    }
-  
-    .navbar-item {
-      margin: 1.5rem 0;
-    }
-  
-    .navbar-hamburger {
-      display: flex;
-    }
-  }
-  
+}
+
+/* Ensure dropdown-toggle inherits white color */
+.navbar-menu .navbar-dropdown .dropdown-toggle {
+  color: #ffffff;
+}
+
+/* Additional Specificity to Prevent Style Overrides */
+.navbar-container .navbar-dropdown .dropdown-toggle {
+  color: #ffffff;
+  background-color: transparent;
+  font-weight: 700; /* Ensure bold */
+}
+
+.navbar-container .navbar-dropdown .dropdown-menu .dropdown-item {
+  color: #333333;
+  background-color: #ffffff;
+  font-weight: 700; /* Ensure bold */
+}
+
+.navbar-container .navbar-dropdown .dropdown-menu .dropdown-item:hover,
+.navbar-container .navbar-dropdown .dropdown-menu .dropdown-item:focus {
+  background-color: #f1f1f1;
+  color: #000000;
+}

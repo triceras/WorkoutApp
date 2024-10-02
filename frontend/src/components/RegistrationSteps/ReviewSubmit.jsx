@@ -1,12 +1,15 @@
-// src/components/RegistrationSteps/ReviewSubmit.jsx
+// frontend/src/components/RegistrationSteps/ReviewSubmit.jsx
 
 import React from 'react';
 import { Button } from '@mui/material';
+import PropTypes from 'prop-types';
 
 function ReviewSubmit({ prevStep, values }) {
   const {
     username,
-    name,
+    firstName,
+    lastName,
+    email,
     age,
     weight,
     height,
@@ -23,7 +26,9 @@ function ReviewSubmit({ prevStep, values }) {
       <h2>Review Your Information</h2>
       <ul>
         <li><strong>Username:</strong> {username}</li>
-        <li><strong>Name:</strong> {name}</li>
+        <li><strong>First Name:</strong> {firstName}</li>
+        <li><strong>Last Name:</strong> {lastName}</li>
+        <li><strong>Email:</strong> {email}</li>
         <li><strong>Age:</strong> {age}</li>
         <li><strong>Weight:</strong> {weight} kg</li>
         <li><strong>Height:</strong> {height} cm</li>
@@ -41,7 +46,7 @@ function ReviewSubmit({ prevStep, values }) {
         <Button
           variant="contained"
           color="primary"
-          type="submit" // Submits the Formik form
+          type="submit" // Ensures Formik's handleSubmit is called
           style={{ marginLeft: '10px' }}
         >
           Submit
@@ -50,5 +55,11 @@ function ReviewSubmit({ prevStep, values }) {
     </div>
   );
 }
+
+// Define PropTypes for better type checking
+ReviewSubmit.propTypes = {
+  prevStep: PropTypes.func.isRequired,
+  values: PropTypes.object.isRequired,
+};
 
 export default ReviewSubmit;

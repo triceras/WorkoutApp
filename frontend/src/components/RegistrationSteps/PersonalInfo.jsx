@@ -1,70 +1,143 @@
 // src/components/RegistrationSteps/PersonalInfo.jsx
 
 import React from 'react';
-import { Field, ErrorMessage } from 'formik';
-import { TextField, Button } from '@mui/material';
+import { TextField, Button, Box, Typography } from '@mui/material';
+import PropTypes from 'prop-types';
 
-function PersonalInfo({ nextStep, prevStep }) {
+function PersonalInfo({
+  nextStep,
+  prevStep,
+  values,
+  errors,
+  touched,
+  handleChange,
+  handleBlur,
+}) {
+  // Function to check if the current step's fields are valid
+  const isStepValid = () => {
+    const requiredFields = ['firstName', 'lastName', 'email', 'age', 'weight', 'height'];
+    return requiredFields.every(
+      (field) => touched[field] && !errors[field] && values[field] !== ''
+    );
+  };
+
   return (
-    <div>
-      <Field
-        name="name"
-        as={TextField}
-        label="Name"
+    <Box width="100%" maxWidth="600px" margin="0 auto">
+      <Typography variant="h5" gutterBottom>
+        Personal Information
+      </Typography>
+
+      <TextField
+        label="First Name"
+        name="firstName"
+        value={values.firstName}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        error={touched.firstName && Boolean(errors.firstName)}
+        helperText={touched.firstName && errors.firstName}
         fullWidth
         margin="normal"
         required
       />
-      <ErrorMessage name="name" component="div" style={{ color: 'red' }} />
 
-      <Field
-        name="age"
-        as={TextField}
+      <TextField
+        label="Last Name"
+        name="lastName"
+        value={values.lastName}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        error={touched.lastName && Boolean(errors.lastName)}
+        helperText={touched.lastName && errors.lastName}
+        fullWidth
+        margin="normal"
+        required
+      />
+
+      <TextField
+        label="Email"
+        name="email"
+        type="email"
+        value={values.email}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        error={touched.email && Boolean(errors.email)}
+        helperText={touched.email && errors.email}
+        fullWidth
+        margin="normal"
+        required
+      />
+
+      <TextField
         label="Age"
+        name="age"
         type="number"
+        value={values.age}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        error={touched.age && Boolean(errors.age)}
+        helperText={touched.age && errors.age}
         fullWidth
         margin="normal"
         required
+        InputProps={{ inputProps: { min: 1 } }}
       />
-      <ErrorMessage name="age" component="div" style={{ color: 'red' }} />
 
-      <Field
-        name="weight"
-        as={TextField}
+      <TextField
         label="Weight (kg)"
+        name="weight"
         type="number"
+        value={values.weight}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        error={touched.weight && Boolean(errors.weight)}
+        helperText={touched.weight && errors.weight}
         fullWidth
         margin="normal"
         required
+        InputProps={{ inputProps: { min: 1 } }}
       />
-      <ErrorMessage name="weight" component="div" style={{ color: 'red' }} />
 
-      <Field
-        name="height"
-        as={TextField}
+      <TextField
         label="Height (cm)"
+        name="height"
         type="number"
+        value={values.height}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        error={touched.height && Boolean(errors.height)}
+        helperText={touched.height && errors.height}
         fullWidth
         margin="normal"
         required
+        InputProps={{ inputProps: { min: 1 } }}
       />
-      <ErrorMessage name="height" component="div" style={{ color: 'red' }} />
 
-      <div style={{ marginTop: '20px' }}>
-        <Button variant="contained" onClick={prevStep}>
+      <Box display="flex" justifyContent="space-between" marginTop="20px">
+        <Button variant="contained" color="secondary" onClick={prevStep}>
           Back
         </Button>
         <Button
           variant="contained"
           color="primary"
           onClick={nextStep}
-          style={{ marginLeft: '10px' }}
+          disabled={!isStepValid()}
         >
           Next
         </Button>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
+
+// Define PropTypes for better type checking
+PersonalInfo.propTypes = {
+  nextStep: PropTypes.func.isRequired,
+  prevStep: PropTypes.func.isRequired,
+  values: PropTypes.object.isRequired,
+  errors: PropTypes.object.isRequired,
+  touched: PropTypes.object.isRequired,
+  handleChange: PropTypes.func.isRequired,
+  handleBlur: PropTypes.func.isRequired,
+};
 
 export default PersonalInfo;

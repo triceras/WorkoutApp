@@ -1,12 +1,14 @@
 // src/pages/LoginPage.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { Link, useNavigate } from 'react-router-dom';
 import './LoginPage.css'; // Import the corresponding CSS
+import { AuthContext } from '../context/AuthContext';
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { setAuthToken } = useContext(AuthContext);
   const [error, setError] = useState(null); // For handling error messages
   const [loading, setLoading] = useState(false); // For handling the loading state
 
@@ -36,9 +38,10 @@ function LoginPage() {
       const { token } = response.data;
       // Store the token
       localStorage.setItem('authToken', token);
+      setAuthToken(token); // Update context
       console.log('Token stored:', token); // For debugging
       // Redirect to the dashboard
-      navigate('/');
+      navigate('/dashboard'); // Ensure this route exists
     } catch (error) {
       if (error.response && error.response.status === 400) {
         setError('Invalid username or password.');

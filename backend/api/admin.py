@@ -3,6 +3,7 @@
 from django.contrib import admin
 from .models import User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog
 
+
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = ('username', 'email', 'fitness_level', 'additional_goals')
