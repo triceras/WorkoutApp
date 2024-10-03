@@ -135,7 +135,8 @@ class ExerciseLogViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_user(request):
-    serializer = UserSerializer(request.user)
+    # serializer = UserSerializer(request.user)
+    serializer = UserSerializer(request.user, context={'request': request})  # Updated line
     logger.info(f"Retrieved user data for {request.user.username}: {serializer.data}")
     return Response(serializer.data)
 
@@ -153,31 +154,33 @@ class CustomAuthToken(ObtainAuthToken):
             logger.warning(f"Login failed. Errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register_user(request):
-    serializer = UserSerializer(data=request.data)
-    if serializer.is_valid():
-        try:
-            user = serializer.save()
+# @api_view(['POST'])
+# @permission_classes([AllowAny])
+# def register_user(request):
+#     serializer = UserSerializer(data=request.data)
+#     if serializer.is_valid():
+#         try:
+#             user = serializer.save()
+#             # Log user ID
+#             logger.info(f"Invoking generate_workout_plan_task for user ID: {user.id}")
 
-            # Enqueue the workout plan generation task
-            generate_workout_plan_task.delay(user.id)
+#             # Enqueue the workout plan generation task
+#             generate_workout_plan_task.delay(user.id)
 
-            # Create token for the new user
-            token, created = Token.objects.get_or_create(user=user)
-            logger.info(f"Token created for user: {user.username}")
+#             # Create token for the new user
+#             token, created = Token.objects.get_or_create(user=user)
+#             logger.info(f"Token created for user: {user.username}")
 
-            return Response({
-                'token': token.key,
-                'user': UserSerializer(user).data,
-                'message': 'Registration successful. Your workout plan is being generated. Please wait.'
-            }, status=status.HTTP_201_CREATED)
-        except IntegrityError as e:
-            logger.error(f"IntegrityError during registration: {str(e)}", exc_info=True)
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    logger.warning(f"Registration failed. Errors: {serializer.errors}")
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#             return Response({
+#                 'token': token.key,
+#                 'user': UserSerializer(user).data,
+#                 'message': 'Registration successful. Your workout plan is being generated. Please wait.'
+#             }, status=status.HTTP_201_CREATED)
+#         except IntegrityError as e:
+#             logger.error(f"IntegrityError during registration: {str(e)}", exc_info=True)
+#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#     logger.warning(f"Registration failed. Errors: {serializer.errors}")
+#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -215,18 +218,30 @@ def logout_user(request):
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            # Generate token if using token-based auth
-            token = generate_token_for_user(user)  # Replace with your token generation logic
-            return Response({
-                "token": token,
-                "user": UserSerializer(user).data,  # Replace with your user serializer
-                "message": "Registration successful. Your workout plan is being generated. Please wait."
-            }, status=status.HTTP_201_CREATED)
+            try:
+                user = serializer.save()
+                # Generate token using DRF's Token model
+                token, created = Token.objects.get_or_create(user=user)
+                logger.info(f"Token created for user: {user.username}")
+
+                # Enqueue the workout plan generation task
+                generate_workout_plan_task.delay(user.id)
+                logger.info(f"Invoking generate_workout_plan_task for user ID: {user.id}")
+
+                return Response({
+                    "token": token.key,
+                    "user": UserSerializer(user).data,
+                    "message": "Registration successful. Your workout plan is being generated. Please wait."
+                }, status=status.HTTP_201_CREATED)
+            except IntegrityError as e:
+                logger.error(f"IntegrityError during registration: {str(e)}", exc_info=True)
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        logger.warning(f"Registration failed. Errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserDetailView(generics.RetrieveAPIView):
@@ -243,14 +258,20 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Restrict queryset to the authenticated user
         return User.objects.filter(id=self.request.user.id)
 
-    @action(detail=False, methods=['get', 'put'], url_path='me')
+    @action(detail=False, methods=['get', 'patch'], url_path='me')
     def me(self, request):
+        """
+        Retrieve or update the authenticated user's profile.
+        GET: Retrieve user data.
+        PATCH: Update user data.
+        """
         if request.method == 'GET':
             serializer = self.get_serializer(request.user)
             return Response(serializer.data)
-        elif request.method == 'PUT':
+        elif request.method == 'PATCH':
             serializer = self.get_serializer(request.user, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()

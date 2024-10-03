@@ -27,7 +27,12 @@ class User(AbstractUser):
     equipment = models.TextField(null=True, blank=True)
     workout_time = models.CharField(max_length=50, null=True, blank=True)
     workout_days = models.CharField(max_length=50, null=True, blank=True)
-    additional_goals = models.TextField(blank=True, null=True)  # Integrated from UserProfile
+    additional_goals = models.TextField(blank=True, null=True)
+    profile_picture = models.ImageField(
+        upload_to='profile_pictures/',
+        null=True,
+        blank=True
+    )
     # Add additional fields as needed
 
     class Meta:

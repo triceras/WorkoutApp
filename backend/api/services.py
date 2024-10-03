@@ -25,12 +25,19 @@ def generate_workout_plan(user):
     equipment = user.equipment
     workout_days = user.workout_days
     workout_time = user.workout_time
+    additional_goals = user.additional_goals
+    
+    # Log the additional_goals
+    logger.info(f"Additional Goals in generate_workout_plan: {additional_goals}")
+
 
     # Log user data for debugging
     logger.info(f"Generating workout plan for user: {user.username}")
     logger.info(f"Age: {age}, Weight: {weight}, Height: {height}")
     logger.info(f"Fitness Level: {fitness_level}, Strength Goals: {strength_goals}")
     logger.info(f"Equipment: {equipment}, Workout Days: {workout_days}, Workout Time: {workout_time}")
+    logger.info(f"Additional Goals: {additional_goals}")
+
 
     # Create the prompt
     user_data = {
@@ -42,9 +49,10 @@ def generate_workout_plan(user):
         'equipment': equipment,
         'workout_days': workout_days,
         'workout_time': workout_time,
-        'additional_goals': user.additional_goals,
+        'additional_goals': additional_goals,
     }
     prompt = create_prompt(user_data)
+    logger.info(f"AI Prompt: {prompt}")
 
     try:
         # Initialize Replicate client with your API token
@@ -88,15 +96,6 @@ def generate_workout_plan(user):
         return None
 
 def create_prompt(user_data):
-    """
-    Create a prompt for the AI model based on user data.
-
-    Args:
-        user_data (dict): User information.
-
-    Returns:
-        str: The prompt string.
-    """
     prompt = (
         f"Create a personalized weekly workout plan for the following user:\n"
         f"- Age: {user_data.get('age')}\n"
@@ -104,8 +103,10 @@ def create_prompt(user_data):
         f"- Height: {user_data.get('height')} cm\n"
         f"- Fitness Level: {user_data.get('fitness_level')}\n"
         f"- Strength Goals: {user_data.get('strength_goals')}\n"
+        f"- Additional Goals: {user_data.get('additional_goals')}\n"
         f"- Available Equipment: {user_data.get('equipment')}\n"
         f"- Workout Time Availability: {user_data.get('workout_time')} minutes per session, {user_data.get('workout_days')} days per week\n\n"
+        f"**Important:** Ensure that the workout plan specifically incorporates the additional goals mentioned above. For example, include kettlebell exercises three times a week and jump rope sessions as per the user's additional goals.\n\n"
         f"Please provide a detailed workout plan including exercises, sets, reps, and any necessary instructions."
     )
     return prompt

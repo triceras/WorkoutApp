@@ -9,7 +9,7 @@ function GeneratingWorkout() {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
   const [attempts, setAttempts] = useState(0); // Still needed for logic
-  const maxAttempts = 20; // e.g., 20 attempts * 3 seconds = 60 seconds
+  const maxAttempts = 30; // e.g., 20 attempts * 3 seconds = 60 seconds
 
   useEffect(() => {
     const interval = setInterval(async () => {

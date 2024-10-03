@@ -1,10 +1,10 @@
-// frontend/src/components/RegistrationSteps/ReviewSubmit.jsx
+// src/components/RegistrationSteps/ReviewSubmit.jsx
 
 import React from 'react';
 import { Button } from '@mui/material';
 import PropTypes from 'prop-types';
 
-function ReviewSubmit({ prevStep, values }) {
+function ReviewSubmit({ prevStep, values, isSubmitting }) {
   const {
     username,
     firstName,
@@ -39,6 +39,10 @@ function ReviewSubmit({ prevStep, values }) {
         <li><strong>Workout Time:</strong> {workoutTime} minutes</li>
         <li><strong>Workout Days per Week:</strong> {workoutDays}</li>
       </ul>
+
+      {/* Optionally, remove the JSON.stringify if not needed */}
+      {/* <pre>{JSON.stringify(values, null, 2)}</pre> */}
+
       <div style={{ marginTop: '20px' }}>
         <Button variant="contained" onClick={prevStep}>
           Back
@@ -46,10 +50,11 @@ function ReviewSubmit({ prevStep, values }) {
         <Button
           variant="contained"
           color="primary"
-          type="submit" // Ensures Formik's handleSubmit is called
+          type="submit" // Changed from onClick to type="submit"
           style={{ marginLeft: '10px' }}
+          disabled={isSubmitting}
         >
-          Submit
+          {isSubmitting ? 'Submitting...' : 'Submit'}
         </Button>
       </div>
     </div>
@@ -60,6 +65,7 @@ function ReviewSubmit({ prevStep, values }) {
 ReviewSubmit.propTypes = {
   prevStep: PropTypes.func.isRequired,
   values: PropTypes.object.isRequired,
+  isSubmitting: PropTypes.bool.isRequired,
 };
 
 export default ReviewSubmit;

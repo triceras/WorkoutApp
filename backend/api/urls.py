@@ -10,7 +10,7 @@ from .views import (
     WorkoutSessionViewSet,
     current_user,
     CustomAuthToken,
-    register_user,
+    RegisterView,  # Import the RegisterView
     verify_token,
     logout_user,
     check_workout_plan_status,
@@ -22,13 +22,12 @@ router.register(r'exercises', ExerciseViewSet)
 router.register(r'workout-plans', WorkoutPlanViewSet, basename='workoutplan')
 router.register(r'workout-logs', WorkoutLogViewSet, basename='workoutlog')
 router.register(r'workout-sessions', WorkoutSessionViewSet, basename='workoutsessions')
-router.register(r'users', UserViewSet, basename='user')
-
+router.register(r'user', UserViewSet, basename='user')
 
 urlpatterns = [
     path('user/', current_user),
     path('auth/login/', CustomAuthToken.as_view()),
-    path('register/', register_user, name='register'),
+    path('register/', RegisterView.as_view(), name='register'),  # Updated line
     path('auth/verify-token/', verify_token, name='verify-token'),
     path('logout/', logout_user, name='logout'),
     path('check-workout-plan/', check_workout_plan_status, name='check-workout-plan'),

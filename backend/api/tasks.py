@@ -15,8 +15,12 @@ User = get_user_model()
 @shared_task
 def generate_workout_plan_task(user_id):
     try:
+        logger.info(f"generate_workout_plan_task received user ID: {user_id}")
         # Retrieve the user instance
         user = User.objects.get(id=user_id)
+        
+        # Log user instance
+        logger.info(f"User instance retrieved: {user}")
 
         # Load the Replicate API token from environment variables
         replicate_token = os.getenv('REPLICATE_API_TOKEN')
@@ -32,13 +36,16 @@ def generate_workout_plan_task(user_id):
             logger.error(f"Failed to generate workout plan for user {user.username}.")
             return
 
+        # Log the generated workout plan data
+        logger.info(f"Workout Plan Data: {workout_plan_data}")
+
         # Create or update the WorkoutPlan instance
         workout_plan, created = WorkoutPlan.objects.update_or_create(
             user=user,
             defaults={'plan_data': workout_plan_data},
         )
 
-        logger.info(f"Workout plan generated for user {user.username}.")
+        logger.info(f"Workout plan {'created' if created else 'updated'} for user {user.username}.")
 
         # Retrieve the channel layer
         channel_layer = get_channel_layer()
@@ -54,7 +61,7 @@ def generate_workout_plan_task(user_id):
             group_name,
             {
                 'type': 'workout_plan_generated',
-                'plan_data': workout_plan.plan_data,  # Corrected attribute access
+                'plan_data': workout_plan.plan_data, 
             }
         )
         logger.info(f"Workout plan sent to group: {group_name}")

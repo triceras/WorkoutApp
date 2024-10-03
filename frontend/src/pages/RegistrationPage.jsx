@@ -1,39 +1,42 @@
 // src/pages/RegistrationPage.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import AccountDetailsForm from '../components/RegistrationSteps/AccountDetailsForm';
 import PersonalInfo from '../components/RegistrationSteps/PersonalInfo';
 import FitnessGoals from '../components/RegistrationSteps/FitnessGoals';
+import FitnessLevel from '../components/RegistrationSteps/FitnessLevel'; // Import FitnessLevel
 import Equipment from '../components/RegistrationSteps/Equipment';
 import Availability from '../components/RegistrationSteps/Availability';
 import ReviewSubmit from '../components/RegistrationSteps/ReviewSubmit';
-import axios from 'axios';
+import axiosInstance from '../api/axiosInstance'; // Use axiosInstance for consistent baseURL and interceptors
 import { useNavigate } from 'react-router-dom';
-import { Typography, Box } from '@mui/material'; // Import Typography and Box for error display
+import { Typography, Box } from '@mui/material';
+import { AuthContext } from '../context/AuthContext';
 
 function RegistrationPage() {
   const [step, setStep] = useState(1);
-  const [errors, setErrors] = useState({}); // Used to display error messages
+  const [errors, setErrors] = useState({});
   const navigate = useNavigate();
+  const { setAuthToken, setUser } = useContext(AuthContext);
 
   const initialValues = {
     username: '',
     password: '',
     confirmPassword: '',
-    firstName: '', // Added
-    lastName: '',  // Added
+    firstName: '',
+    lastName: '',
     email: '',
     age: '',
     weight: '',
     height: '',
     fitnessLevel: '',
-    strengthGoals: [],    // Array to be joined into a string
+    strengthGoals: [], // Array
     additionalGoals: '',
-    equipment: [],       // Array to be joined into a string
+    equipment: [],    // Array
     workoutTime: 30,
-    workoutDays: 3,
+    workoutDays: 4,
   };
 
   const validationSchema = Yup.object().shape({
@@ -42,8 +45,8 @@ function RegistrationPage() {
     confirmPassword: Yup.string()
       .oneOf([Yup.ref('password'), null], 'Passwords must match')
       .required('Confirm Password is required'),
-    firstName: Yup.string().required('First Name is required'), // Added
-    lastName: Yup.string().required('Last Name is required'),   // Added
+    firstName: Yup.string().required('First Name is required'),
+    lastName: Yup.string().required('Last Name is required'),
     email: Yup.string().email('Invalid email').required('Email is required'),
     age: Yup.number().required('Age is required').positive().integer(),
     weight: Yup.number().required('Weight is required').positive(),
@@ -59,71 +62,73 @@ function RegistrationPage() {
       .required('Workout days per week is required')
       .min(1)
       .max(7),
+    additionalGoals: Yup.string().notRequired(),
   });
 
-  const handleSubmit = (values) => {
-    // Prepare data to send to backend
+  const handleSubmit = (values, actions) => {
+    console.log('handleSubmit called with values:', values); // Debugging log
     const data = {
       username: values.username,
-      email: values.email,
-      first_name: values.firstName,        // Correct field name
-      last_name: values.lastName,          // Correct field name
       password: values.password,
       confirm_password: values.confirmPassword,
+      first_name: values.firstName,
+      last_name: values.lastName,
+      email: values.email,
       age: values.age,
       weight: values.weight,
       height: values.height,
       fitness_level: values.fitnessLevel,
-      strength_goals: values.strengthGoals.join(', '), // Join array into string
+      strength_goals: values.strengthGoals.join(', '), // Convert array to string
       additional_goals: values.additionalGoals,
-      equipment: values.equipment.join(', '),           // Join array into string
+      equipment: values.equipment.join(', '),           // Convert array to string
       workout_time: values.workoutTime,
       workout_days: values.workoutDays,
     };
 
-    axios
-      .post('http://localhost:8000/api/register/', data)
+    axiosInstance.post('register/', data)
       .then((response) => {
         // Registration successful
-        localStorage.setItem('authToken', response.data.token);
+        const { token, user } = response.data;
+
+        // Handle successful registration
+        localStorage.setItem('authToken', token);
+        setAuthToken(token); // Update AuthContext with the new token
+        setUser(user);       // Update AuthContext with the new user data
+
         // Navigate to the "Generating Workout Plan" page
         navigate('/generating-workout');
       })
       .catch((error) => {
         if (error.response) {
-          // The request was made, and the server responded with a status code
-          // that falls out of the range of 2xx
-          console.error('Registration error:', error.response.data);
+          // Handle specific field errors
           setErrors(error.response.data);
-          // Display error messages to the user based on error.response.data
+          // Set errors in Formik
+          actions.setErrors(error.response.data);
         } else if (error.request) {
-          // The request was made, but no response was received
-          console.error('No response received:', error.request);
+          // Handle network errors
           setErrors({ general: 'No response from server. Please try again later.' });
-          // Inform the user of network issues
+          actions.setErrors({ general: 'No response from server. Please try again later.' });
         } else {
-          // Something else happened while setting up the request
-          console.error('Error:', error.message);
+          // Handle other errors
           setErrors({ general: 'An unexpected error occurred. Please try again.' });
+          actions.setErrors({ general: 'An unexpected error occurred. Please try again.' });
         }
+      })
+      .finally(() => {
+        actions.setSubmitting(false);
       });
   };
 
-  const nextStep = () => {
-    setStep((prev) => prev + 1);
-  };
-
-  const prevStep = () => {
-    setStep((prev) => prev - 1);
-  };
+  const nextStep = () => setStep(prev => prev + 1);
+  const prevStep = () => setStep(prev => prev - 1);
 
   return (
     <Formik
       initialValues={initialValues}
       validationSchema={validationSchema}
-      onSubmit={handleSubmit} // Ensure handleSubmit is passed here
+      onSubmit={handleSubmit}
     >
-      {({ values, touched, handleChange, handleBlur, errors }) => (
+      {(formikProps) => (
         <Form>
           <Box width="100%" maxWidth="600px" margin="0 auto">
             {/* Display General Errors */}
@@ -132,7 +137,6 @@ function RegistrationPage() {
                 {errors.general}
               </Typography>
             )}
-            {/* Display Field-Specific Errors */}
             {Object.keys(errors).map((key) => {
               if (key !== 'general') {
                 return (
@@ -144,66 +148,88 @@ function RegistrationPage() {
               return null;
             })}
 
-            {/* Render the current step component */}
+            {/* Display Formik Validation Errors */}
+            {Object.keys(formikProps.errors).length > 0 && formikProps.submitCount > 0 && (
+              <div style={{ color: 'red', marginBottom: '10px' }}>
+                <ul>
+                  {Object.entries(formikProps.errors).map(([field, error]) => (
+                    <li key={field}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Render Current Step */}
             {step === 1 && (
               <AccountDetailsForm
                 nextStep={nextStep}
-                values={values}
-                handleChange={handleChange}
-                handleBlur={handleBlur}
-                touched={touched}
-                errors={errors}
+                values={formikProps.values}
+                errors={formikProps.errors}
+                touched={formikProps.touched}
+                handleChange={formikProps.handleChange}
+                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 2 && (
               <PersonalInfo
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={values}
-                handleChange={handleChange}
-                handleBlur={handleBlur}
-                touched={touched}
-                errors={errors}
+                values={formikProps.values}
+                errors={formikProps.errors}
+                touched={formikProps.touched}
+                handleChange={formikProps.handleChange}
+                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 3 && (
               <FitnessGoals
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={values}
-                handleChange={handleChange}
-                handleBlur={handleBlur}
-                touched={touched}
-                errors={errors}
+                values={formikProps.values}
+                errors={formikProps.errors}
+                touched={formikProps.touched}
+                handleChange={formikProps.handleChange}
+                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 4 && (
-              <Equipment
+              <FitnessLevel
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={values}
-                handleChange={handleChange}
-                handleBlur={handleBlur}
-                touched={touched}
-                errors={errors}
+                values={formikProps.values}
+                errors={formikProps.errors}
+                touched={formikProps.touched}
+                handleChange={formikProps.handleChange}
+                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 5 && (
-              <Availability
+              <Equipment
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={values}
-                handleChange={handleChange}
-                handleBlur={handleBlur}
-                touched={touched}
-                errors={errors}
+                values={formikProps.values}
+                errors={formikProps.errors}
+                touched={formikProps.touched}
+                handleChange={formikProps.handleChange}
+                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 6 && (
-              <ReviewSubmit
-                handleSubmit={handleSubmit}
+              <Availability
+                nextStep={nextStep}
                 prevStep={prevStep}
-                values={values}
+                values={formikProps.values}
+                errors={formikProps.errors}
+                touched={formikProps.touched}
+                handleChange={formikProps.handleChange}
+                handleBlur={formikProps.handleBlur}
+              />
+            )}
+            {step === 7 && (
+              <ReviewSubmit
+                prevStep={prevStep}
+                values={formikProps.values}
+                isSubmitting={formikProps.isSubmitting}
               />
             )}
           </Box>
