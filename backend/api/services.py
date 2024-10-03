@@ -18,6 +18,7 @@ def generate_workout_plan(user):
     """
     # Directly access User fields
     age = user.age
+    sex = user.sex
     weight = user.weight
     height = user.height
     fitness_level = user.fitness_level
@@ -26,10 +27,9 @@ def generate_workout_plan(user):
     workout_days = user.workout_days
     workout_time = user.workout_time
     additional_goals = user.additional_goals
-    
+
     # Log the additional_goals
     logger.info(f"Additional Goals in generate_workout_plan: {additional_goals}")
-
 
     # Log user data for debugging
     logger.info(f"Generating workout plan for user: {user.username}")
@@ -37,11 +37,12 @@ def generate_workout_plan(user):
     logger.info(f"Fitness Level: {fitness_level}, Strength Goals: {strength_goals}")
     logger.info(f"Equipment: {equipment}, Workout Days: {workout_days}, Workout Time: {workout_time}")
     logger.info(f"Additional Goals: {additional_goals}")
-
+    logger.info(f"Sex: {sex}")  # Corrected to use f-string
 
     # Create the prompt
     user_data = {
         'age': age,
+        'sex': sex,
         'weight': weight,
         'height': height,
         'fitness_level': fitness_level,
@@ -70,7 +71,7 @@ def generate_workout_plan(user):
         inputs = {
             'prompt': prompt,
             'temperature': 0.7,
-            'max_new_tokens': 2000,  # Adjust as needed
+            'max_new_tokens': 2500,  # Adjust as needed
         }
 
         # Run the model prediction
@@ -99,6 +100,7 @@ def create_prompt(user_data):
     prompt = (
         f"Create a personalized weekly workout plan for the following user:\n"
         f"- Age: {user_data.get('age')}\n"
+        f"- Sex: {user_data.get('sex')}\n"  # Ensure this line is present
         f"- Weight: {user_data.get('weight')} kg\n"
         f"- Height: {user_data.get('height')} cm\n"
         f"- Fitness Level: {user_data.get('fitness_level')}\n"
@@ -110,7 +112,6 @@ def create_prompt(user_data):
         f"Please provide a detailed workout plan including exercises, sets, reps, and any necessary instructions."
     )
     return prompt
-
 
 def parse_ai_response(ai_response):
     if isinstance(ai_response, list):

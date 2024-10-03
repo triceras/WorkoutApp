@@ -50,6 +50,7 @@ class UserSerializer(serializers.ModelSerializer):
     # Handle password fields
     password = serializers.CharField(write_only=True, required=False)
     confirm_password = serializers.CharField(write_only=True, required=False)
+    sex = serializers.CharField(required=True)
     # Explicitly define first and last name
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
@@ -63,7 +64,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserModel
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
+            'id', 'username', 'email', 'first_name', 'last_name', 'sex',
             'password', 'confirm_password', 'age', 'weight', 'height',
             'fitness_level', 'strength_goals', 'additional_goals',
             'equipment', 'workout_time', 'workout_days', 'profile_picture',
@@ -137,6 +138,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)
+    sex = serializers.ChoiceField(choices=User.SEX_CHOICES, required=True)
 
     class Meta:
         model = User
@@ -144,7 +146,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'username', 'password', 'confirm_password', 'first_name',
             'last_name', 'email', 'age', 'weight', 'height',
             'fitness_level', 'strength_goals', 'additional_goals',
-            'equipment', 'workout_time', 'workout_days'
+            'equipment', 'workout_time', 'workout_days', 'sex'
         ]
         extra_kwargs = {
             'password': {'write_only': True}

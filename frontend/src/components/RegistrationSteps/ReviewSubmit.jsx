@@ -11,6 +11,7 @@ function ReviewSubmit({ prevStep, values, isSubmitting }) {
     lastName,
     email,
     age,
+    sex,
     weight,
     height,
     fitnessLevel,
@@ -30,6 +31,7 @@ function ReviewSubmit({ prevStep, values, isSubmitting }) {
         <li><strong>Last Name:</strong> {lastName}</li>
         <li><strong>Email:</strong> {email}</li>
         <li><strong>Age:</strong> {age}</li>
+        <li><strong>Sex:</strong> {sex}</li>
         <li><strong>Weight:</strong> {weight} kg</li>
         <li><strong>Height:</strong> {height} cm</li>
         <li><strong>Fitness Level:</strong> {fitnessLevel}</li>

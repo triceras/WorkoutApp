@@ -21,6 +21,7 @@ def generate_workout_plan_task(user_id):
         
         # Log user instance
         logger.info(f"User instance retrieved: {user}")
+        logger.info(f"Sex: {user.sex}")
 
         # Load the Replicate API token from environment variables
         replicate_token = os.getenv('REPLICATE_API_TOKEN')

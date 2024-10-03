@@ -33,6 +33,13 @@ class User(AbstractUser):
         null=True,
         blank=True
     )
+    SEX_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+        ('Prefer not to say', 'Prefer not to say'),
+    ]
+    sex = models.CharField(max_length=20, choices=SEX_CHOICES, default='Prefer not to say')
     # Add additional fields as needed
 
     class Meta:

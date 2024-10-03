@@ -3,6 +3,8 @@
 import React from 'react';
 import { TextField, Button, Box, Typography } from '@mui/material';
 import PropTypes from 'prop-types';
+import { FormControl, InputLabel, Select, MenuItem, FormHelperText } from '@mui/material';
+
 
 function PersonalInfo({
   nextStep,
@@ -82,6 +84,36 @@ function PersonalInfo({
         InputProps={{ inputProps: { min: 1 } }}
       />
 
+       {/* add sex Field */}
+       <Box mt={2}>
+        <FormControl
+          fullWidth
+          error={touched.sex && Boolean(errors.sex)}
+        >
+          <InputLabel id="sex-label">Sex</InputLabel>
+          <Select
+            labelId="sex-label"
+            id="sex"
+            name="sex"
+            value={values.sex}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            label="Sex"
+          >
+            <MenuItem value="">
+              <em>Select your sex</em>
+            </MenuItem>
+            <MenuItem value="Male">Male</MenuItem>
+            <MenuItem value="Female">Female</MenuItem>
+            <MenuItem value="Other">Other</MenuItem>
+            <MenuItem value="Prefer not to say">Prefer not to say</MenuItem>
+          </Select>
+          {touched.sex && errors.sex && (
+            <FormHelperText>{errors.sex}</FormHelperText>
+          )}
+        </FormControl>
+      </Box>
+
       <TextField
         label="Weight (kg)"
         name="weight"
@@ -129,7 +161,7 @@ function PersonalInfo({
   );
 }
 
-// Define PropTypes for better type checking
+
 PersonalInfo.propTypes = {
   nextStep: PropTypes.func.isRequired,
   prevStep: PropTypes.func.isRequired,
