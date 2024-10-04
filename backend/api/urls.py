@@ -6,15 +6,16 @@ from .views import (
     ExerciseViewSet,
     WorkoutPlanViewSet,
     WorkoutLogViewSet,
-    ExerciseLogViewSet,
+    TrainingSessionViewSet,
     WorkoutSessionViewSet,
     current_user,
     CustomAuthToken,
-    RegisterView,  # Import the RegisterView
+    RegisterView,  
     verify_token,
     logout_user,
     check_workout_plan_status,
-    UserViewSet
+    UserViewSet,
+    user_progression
 )
 
 router = routers.DefaultRouter()
@@ -23,6 +24,7 @@ router.register(r'workout-plans', WorkoutPlanViewSet, basename='workoutplan')
 router.register(r'workout-logs', WorkoutLogViewSet, basename='workoutlog')
 router.register(r'workout-sessions', WorkoutSessionViewSet, basename='workoutsessions')
 router.register(r'user', UserViewSet, basename='user')
+router.register(r'training_sessions', TrainingSessionViewSet, basename='training_sessions')
 
 urlpatterns = [
     path('user/', current_user),
@@ -31,5 +33,6 @@ urlpatterns = [
     path('auth/verify-token/', verify_token, name='verify-token'),
     path('logout/', logout_user, name='logout'),
     path('check-workout-plan/', check_workout_plan_status, name='check-workout-plan'),
+    path('user/progression/', user_progression, name='user-progression'),
     path('', include(router.urls)),
 ]

@@ -3,15 +3,22 @@
 import React, { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import WorkoutPlan from '../components/WorkoutPlan';
+import LogSessionForm from '../components/LogSessionForm';
 import ErrorMessage from '../components/ErrorMessage';
 import './Dashboard.css'; 
 
 function Dashboard() {
   const [userData, setUserData] = useState(null);
-  const [workoutPlan, setWorkoutPlan] = useState(null);
-  const [additionalTips, setAdditionalTips] = useState('');
+  const [workoutPlans, setWorkoutPlans] = useState([]);
+  const [currentPlan, setCurrentPlan] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Function to handle when a session is logged
+  const handleSessionLogged = (sessionData) => {
+    console.log('Session logged:', sessionData);
+    // You can update state or provide feedback to the user here
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -20,7 +27,7 @@ function Dashboard() {
     // Set timeout to 60 seconds
     axiosInstance.defaults.timeout = 60000;
   
-    // Fetch user data and workout plan
+    // Fetch user data and workout plans
     const fetchData = async () => {
       try {
         // Fetch user data
@@ -28,21 +35,21 @@ function Dashboard() {
         console.log('User data response:', userResponse.data);
         setUserData(userResponse.data);
 
-        // Fetch workout plan using the updated endpoint
-        const workoutPlanResponse = await axiosInstance.get('workout-plans/current/');
-        console.log('Workout plan response:', workoutPlanResponse.data);
+        // Fetch all workout plans
+        const workoutPlansResponse = await axiosInstance.get('workout-plans/');
+        console.log('Workout plans response:', workoutPlansResponse.data);
 
-        if (workoutPlanResponse.data && workoutPlanResponse.data.plan_data && workoutPlanResponse.data.plan_data.plan) {
-          setWorkoutPlan(workoutPlanResponse.data.plan_data.plan); // Pass the plan string
-          // Note: 'additionalTips' are parsed within WorkoutPlan.jsx from the 'plan' string
+        if (workoutPlansResponse.data && workoutPlansResponse.data.length > 0) {
+          setWorkoutPlans(workoutPlansResponse.data);
+          setCurrentPlan(workoutPlansResponse.data[0]); // Set the first plan as the current plan
         } else {
-          setError('No workout plan available.');
+          setError('No workout plans available.');
         }
       } catch (error) {
         console.error('Error fetching data:', error);
         if (error.response) {
           if (error.response.status === 404) {
-            setError('No workout plan found. Please create one.');
+            setError('No workout plans found. Please create one.');
           } else if (error.response.status === 401) {
             setError('Unauthorized access. Please log in again.');
             // Optionally, redirect to login page
@@ -71,12 +78,17 @@ function Dashboard() {
   return (
     <div>
       <div className="dashboard-content">
-        {/* Update user name access */}
         <h2>Welcome {userData?.first_name || userData?.username || 'Valued User'}</h2>
-        {workoutPlan ? (
-          <WorkoutPlan plan={workoutPlan} />
+        {workoutPlans.length > 0 ? (
+          <>
+            {currentPlan && <WorkoutPlan plan={currentPlan.plan_data.plan} />}
+            <LogSessionForm
+              workoutPlans={workoutPlans}
+              onSessionLogged={handleSessionLogged}
+            />
+          </>
         ) : (
-          <p>Loading your workout plan...</p>
+          <p>No workout plans available.</p>
         )}
         {/* Rest of your dashboard components */}
       </div>

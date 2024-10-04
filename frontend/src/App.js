@@ -14,6 +14,8 @@ import { AuthProvider } from './context/AuthContext';
 import GeneratingWorkout from './pages/GeneratingWorkout';
 import Logout from './pages/LogoutPage'; // Import LogoutPage
 import NotFoundPage from './pages/NotFoundPage'; // Ensure this exists
+import TrainingSessionDetail from './pages/TrainingSessionDetail';
+import TrainingSessionList from './pages/TrainingSessionList';
 
 function App() {
   return (
@@ -51,6 +53,22 @@ function App() {
           <Route
             path="/generating-workout"
             element={<GeneratingWorkout />}
+          />
+          <Route
+            path="/training_sessions"
+            element={
+              <ProtectedRoute>
+                <TrainingSessionList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/training_sessions/:id"
+            element={
+              <ProtectedRoute>
+                <TrainingSessionDetail />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/logout"

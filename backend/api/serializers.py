@@ -1,39 +1,16 @@
 # backend/api/serializers.py
 
 from rest_framework import serializers
-from .models import User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession
+from .models import (
+    User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog,
+    WorkoutSession, SessionFeedback, TrainingSession
+)
 from django.contrib.auth import get_user_model
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.hashers import make_password
+from django.db import IntegrityError
 
 UserModel = get_user_model()
-
-class ExerciseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Exercise
-        fields = '__all__'
-
-class WorkoutPlanSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WorkoutPlan
-        fields = ['id', 'user', 'plan_data', 'created_at']
-        read_only_fields = ['id', 'user', 'created_at']
-
-class WorkoutLogSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WorkoutLog
-        fields = '__all__'
-
-class ExerciseLogSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ExerciseLog
-        fields = '__all__'
-
-class WorkoutSessionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WorkoutSession
-        fields = ['id', 'user', 'date']
-        read_only_fields = ['id', 'user', 'date']
 
 class UserSerializer(serializers.ModelSerializer):
     # Ensure 'username' is unique and read-only
@@ -136,6 +113,37 @@ class UserSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.profile_picture.url)
         return None
 
+class ExerciseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Exercise
+        fields = '__all__'
+
+class WorkoutPlanSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = WorkoutPlan
+        fields = ['id', 'user', 'plan_data', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']
+
+class WorkoutLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkoutLog
+        fields = '__all__'
+
+class ExerciseLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExerciseLog
+        fields = '__all__'
+
+class WorkoutSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkoutSession
+        fields = ['id', 'user', 'date']
+        read_only_fields = ['id', 'user', 'date']
+
+
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)
     sex = serializers.ChoiceField(choices=User.SEX_CHOICES, required=True)
@@ -169,3 +177,42 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.set_password(password)  # This hashes the password
         user.save()
         return user
+
+class SessionFeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SessionFeedback
+        fields = ['id', 'user', 'training_session', 'session_name', 'emoji_feedback']
+        read_only_fields = ['id', 'user']
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        session_id = self.context.get('session_id')
+        session = TrainingSession.objects.get(id=session_id, user=request.user)
+        feedback, created = SessionFeedback.objects.update_or_create(
+            session=session,
+            defaults=validated_data
+        )
+        return feedback
+    
+class TrainingSessionSerializer(serializers.ModelSerializer):
+    workout_plan = WorkoutPlanSerializer(read_only=True)
+    feedback = SessionFeedbackSerializer(read_only=True)
+    workout_plan_id = serializers.PrimaryKeyRelatedField(
+        queryset=WorkoutPlan.objects.all(),
+        source='workout_plan',
+        write_only=True,
+        required=False
+    )
+
+    class Meta:
+        model = TrainingSession
+        fields = ['id', 'user', 'date', 'workout_plan', 'workout_plan_id', 'feedback']
+        read_only_fields = ['id', 'user', 'date', 'feedback']
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        user = request.user
+        validated_data['user'] = user
+        return super().create(validated_data)
+
+

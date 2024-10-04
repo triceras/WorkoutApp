@@ -3,8 +3,13 @@
 import os
 import replicate
 import logging
+import requests
+
 
 logger = logging.getLogger(__name__)
+class ReplicateServiceUnavailable(Exception):
+    """Exception raised when the Replicate service is unavailable."""
+    pass
 
 def generate_workout_plan(user):
     """
@@ -90,11 +95,16 @@ def generate_workout_plan(user):
 
     except replicate.ClientError as e:
         logger.error(f"Replicate API Client Error: {e}", exc_info=True)
+        raise ReplicateServiceUnavailable(str(e))
     except replicate.APIError as e:
         logger.error(f"Replicate API Error: {e}", exc_info=True)
+        raise ReplicateServiceUnavailable(str(e))
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error while calling Replicate API: {e}", exc_info=True)
+        raise ReplicateServiceUnavailable(str(e))
     except Exception as e:
         logger.error(f"Unexpected error generating workout plan: {e}", exc_info=True)
-        return None
+        raise  # Re-raise the exception to be handled by the calling function
 
 def create_prompt(user_data):
     prompt = (

@@ -3,6 +3,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.utils import timezone
 
 class User(AbstractUser):
     username = models.CharField(max_length=150, unique=True)
@@ -64,13 +65,17 @@ class Exercise(models.Model):
         return self.name
 
 class WorkoutPlan(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='workout_plans'  # Allows reverse lookup
+    )
     plan_data = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
     # Store plan details as JSON
 
     def __str__(self):
-        return f"Workout Plan for {self.user.username}"
+        return f"Workout Plan {self.id} for {self.user.username}"
 
 class WorkoutLog(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -97,3 +102,18 @@ class WorkoutSession(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.date.strftime('%Y-%m-%d %H:%M')}"
+
+class TrainingSession(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    date = models.DateField(default=timezone.now)
+    workout_plan = models.ForeignKey(WorkoutPlan, on_delete=models.CASCADE)
+
+class SessionFeedback(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    training_session = models.OneToOneField('TrainingSession', on_delete=models.CASCADE, null=True, blank=True)
+    date = models.DateField(default=timezone.now)
+    session_name = models.CharField(max_length=255, null=True, blank=True)
+    emoji_feedback = models.CharField(max_length=10, null=True, blank=True)  # Emojis are Unicode characters
+
+    def __str__(self):
+        return f"{self.user.username} - {self.session_name or 'Session'} on {self.date}"

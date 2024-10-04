@@ -10,18 +10,19 @@ import './ProfilePage.css';
 function ProfilePage() {
   //const { authToken } = useContext(AuthContext);
   const [userInfo, setUserInfo] = useState(null);
-  const [workoutCount, setWorkoutCount] = useState(0);
+  const [progressionData, setProgressionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const userResponse = await axiosInstance.get('user/me/'); // Updated endpoint
+        const userResponse = await axiosInstance.get('user/me/');
         setUserInfo(userResponse.data);
 
-        const workoutsResponse = await axiosInstance.get('workout-sessions/');
-        setWorkoutCount(workoutsResponse.data.length);
+        // Fetch progression data
+        const progressionResponse = await axiosInstance.get('user/progression/');
+        setProgressionData(progressionResponse.data);
       } catch (err) {
         console.error('Error fetching profile data:', err);
         if (err.response && err.response.status === 401) {
@@ -59,7 +60,6 @@ function ProfilePage() {
             <img
               src={
                 userInfo.profile_picture
-                  // ? `${axiosInstance.defaults.baseURL}${userInfo.profile_picture}`
                   ? userInfo.profile_picture_url
                   : '/default-profile.png'
               }
@@ -71,14 +71,21 @@ function ProfilePage() {
           <p><strong>First Name:</strong> {userInfo.first_name || 'N/A'}</p>
           <p><strong>Last Name:</strong> {userInfo.last_name || 'N/A'}</p>
           <p><strong>Email:</strong> {userInfo.email || 'N/A'}</p>
-          {/* Existing edit profile functionality remains unchanged */}
         </div>
         <div className="profile-section">
           <h3>Your Progress</h3>
-          <p><strong>Workouts Completed:</strong> {workoutCount}</p>
+          {progressionData ? (
+            <>
+              <p><strong>Workouts Completed:</strong> {progressionData.total_sessions}</p>
+              <p><strong>Feedback Given:</strong> {progressionData.feedback_count}</p>
+              <p><strong>Average Rating:</strong> {progressionData.average_rating ? progressionData.average_rating.toFixed(1) : 'N/A'}</p>
+              {/* Include other progression metrics here */}
+            </>
+          ) : (
+            <p>Loading progression data...</p>
+          )}
         </div>
       </div>
-      {/* Add the UploadProfilePicture component below existing sections */}
       <UploadProfilePicture onUploadSuccess={handleUploadSuccess} />
     </div>
   );

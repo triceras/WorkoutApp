@@ -1,9 +1,10 @@
 # backend/api/tasks.py
 
 from celery import shared_task
+from celery.exceptions import MaxRetriesExceededError
 from django.contrib.auth import get_user_model
-from .models import WorkoutPlan
-from .services import generate_workout_plan
+from .models import WorkoutPlan, User
+from .services import generate_workout_plan, ReplicateServiceUnavailable
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
@@ -12,8 +13,8 @@ import os
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
-@shared_task
-def generate_workout_plan_task(user_id):
+@shared_task(bind=True, max_retries=1)
+def generate_workout_plan_task(self, user_id):
     try:
         logger.info(f"generate_workout_plan_task received user ID: {user_id}")
         # Retrieve the user instance
@@ -67,7 +68,14 @@ def generate_workout_plan_task(user_id):
         )
         logger.info(f"Workout plan sent to group: {group_name}")
 
+    except ReplicateServiceUnavailable as e:
+        logger.error(f"Replicate service unavailable for user_id {user_id}: {e}")
+        try:
+            # Retry the task after a delay (e.g., 60 seconds)
+            self.retry(exc=e, countdown=60)
+        except MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for user_id {user_id}")
     except User.DoesNotExist:
-        logger.error(f"User with id {user_id} does not exist.")
+        logger.error(f"User with ID {user_id} does not exist.")
     except Exception as e:
         logger.error(f"Error generating workout plan for user_id {user_id}: {str(e)}", exc_info=True)

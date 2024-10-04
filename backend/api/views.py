@@ -8,7 +8,8 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
-from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User
+from django.db.models import Avg, Count
+from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, SessionFeedback, TrainingSession, SessionFeedback
 from .serializers import (
     ExerciseSerializer,
     WorkoutPlanSerializer,
@@ -16,7 +17,10 @@ from .serializers import (
     ExerciseLogSerializer,
     WorkoutSessionSerializer,
     UserSerializer,
-    UserRegistrationSerializer
+    UserRegistrationSerializer,
+    SessionFeedbackSerializer,
+    TrainingSessionSerializer,
+    SessionFeedbackSerializer
 )
 import logging
 from .tasks import generate_workout_plan_task 
@@ -276,3 +280,62 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data)
+
+class TrainingSessionViewSet(viewsets.ModelViewSet):
+    queryset = TrainingSession.objects.all()
+    serializer_class = TrainingSessionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return TrainingSession.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post', 'get'])
+    def feedback(self, request, pk=None):
+        session = self.get_object()
+        if request.method == 'POST':
+            serializer = SessionFeedbackSerializer(
+                data=request.data,
+                context={'request': request, 'session': session}
+            )
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        elif request.method == 'GET':
+            try:
+                feedback = SessionFeedback.objects.get(session=session)
+                serializer = SessionFeedbackSerializer(feedback)
+                return Response(serializer.data)
+            except SessionFeedback.DoesNotExist:
+                return Response({'detail': 'No feedback found for this session.'}, status=status.HTTP_404_NOT_FOUND)
+
+class SessionFeedbackViewSet(viewsets.ModelViewSet):
+    queryset = SessionFeedback.objects.all()
+    serializer_class = SessionFeedbackSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+        
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def user_progression(request):
+    user = request.user
+    total_sessions = TrainingSession.objects.filter(user=user).count()
+    average_rating = SessionFeedback.objects.filter(session__user=user).aggregate(Avg('rating'))['rating__avg']
+    feedback_count = SessionFeedback.objects.filter(session__user=user).count()
+
+    # Additional progression metrics can be calculated here
+
+    progression_data = {
+        'total_sessions': total_sessions,
+        'average_rating': average_rating,
+        'feedback_count': feedback_count,
+        # Include other metrics as needed
+    }
+
+    return Response(progression_data)
