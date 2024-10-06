@@ -5,6 +5,16 @@ import axiosInstance from '../api/axiosInstance';
 import './LogSessionForm.css';
 import PropTypes from 'prop-types';
 
+// Define the fixed emojis with corresponding values and descriptions
+const EMOJIS = [
+  { value: 0, emoji: '😞', label: 'Terrible' },
+  { value: 1, emoji: '😟', label: 'Very Bad' },
+  { value: 2, emoji: '😐', label: 'Bad' },
+  { value: 3, emoji: '🙂', label: 'Okay' },
+  { value: 4, emoji: '😃', label: 'Good' },
+  { value: 5, emoji: '😄', label: 'Awesome' },
+];
+
 const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
   // State variables
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -13,21 +23,12 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
   );
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState('');
-  const [emojiFeedback, setEmojiFeedback] = useState('');
+  const [emojiFeedback, setEmojiFeedback] = useState(null);
+  const [comments, setComments] = useState('');
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(false);
-
-  // Predefined emojis representing feelings from 0 to 5
-  const feelings = [
-    { id: 0, emoji: '😞', label: 'Terrible' },
-    { id: 1, emoji: '😟', label: 'Very Bad' },
-    { id: 2, emoji: '😐', label: 'Bad' },
-    { id: 3, emoji: '🙂', label: 'Okay' },
-    { id: 4, emoji: '😃', label: 'Good' },
-    { id: 5, emoji: '😄', label: 'Awesome' },
-  ];
 
   // Parsing function to extract sessions from plan string
   const parseWorkoutPlan = (plan) => {
@@ -91,9 +92,7 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
 
       setLoadingSessions(true);
       try {
-        const response = await axiosInstance.get(
-          `workout-plans/${workoutPlanId}/`
-        );
+        const response = await axiosInstance.get(`workout-plans/${workoutPlanId}/`);
         console.log('Workout plan response:', response.data);
 
         const planData = response.data.plan_data;
@@ -135,9 +134,9 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
     fetchSessions();
   }, [workoutPlanId]);
 
-  // Handle emoji selection
-  const handleEmojiSelect = (feelingId) => {
-    setEmojiFeedback(feelingId);
+  // Handle fixed emoji selection
+  const handleEmojiSelect = (value) => {
+    setEmojiFeedback(value);
   };
 
   // Handle form submission
@@ -152,12 +151,14 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         date,
         session_name: selectedSession,
         emoji_feedback: emojiFeedback,
+        comments: comments, // Include comments
       });
       console.log('Session logged:', response.data);
       onSessionLogged(response.data);
       // Reset form fields
       setDate(new Date().toISOString().split('T')[0]);
-      setEmojiFeedback('');
+      setEmojiFeedback(null);
+      setComments('');
       setSuccessMessage('Session logged successfully!');
     } catch (error) {
       console.error('Error logging session:', error);
@@ -177,8 +178,8 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         <label htmlFor="session-date">
           Date:
           <input
-            id="session-date"
             type="date"
+            id="session-date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             required
@@ -186,10 +187,10 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         </label>
 
         {/* Workout Plan Dropdown */}
-        <label htmlFor="workout-plan-select">
+        <label htmlFor="workout-plan">
           Workout Plan:
           <select
-            id="workout-plan-select"
+            id="workout-plan"
             value={workoutPlanId}
             onChange={(e) => setWorkoutPlanId(e.target.value)}
             required
@@ -205,13 +206,13 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         </label>
 
         {/* Session Dropdown */}
-        <label htmlFor="session-select">
+        <label htmlFor="session">
           Session:
           {loadingSessions ? (
             <p>Loading sessions...</p>
           ) : sessions.length > 0 ? (
             <select
-              id="session-select"
+              id="session"
               value={selectedSession}
               onChange={(e) => setSelectedSession(e.target.value)}
               required
@@ -228,23 +229,47 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         </label>
 
         {/* Emoji Feedback */}
-        <fieldset className="emoji-feedback">
-          <legend>How are you feeling?</legend>
-          <div className="emojis-container">
-            {feelings.map((feeling) => (
+        <div className="emoji-feedback-container">
+          <label className="emoji-feedback-label">How are you feeling?</label>
+          <div className="emoji-options">
+            {EMOJIS.map((item) => (
               <button
                 type="button"
-                key={feeling.id}
-                className={`emoji-button ${emojiFeedback === feeling.id ? 'selected' : ''}`}
-                onClick={() => handleEmojiSelect(feeling.id)}
-                aria-label={`${feeling.label} (${feeling.id})`}
-                title={`${feeling.label}`}
+                key={item.value}
+                className={`emoji-button ${emojiFeedback === item.value ? 'selected' : ''}`}
+                onClick={() => handleEmojiSelect(item.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleEmojiSelect(item.value);
+                  }
+                }}
+                aria-label={`${item.label} (${item.value})`}
+                title={`${item.label} (${item.value})`}
               >
-                <span role="img" aria-hidden="true">{feeling.emoji}</span>
+                <span role="img" aria-hidden="true" className="emoji">
+                  {item.emoji}
+                </span>
               </button>
             ))}
           </div>
-        </fieldset>
+        </div>
+
+        {/* Comments Section */}
+        <div className="comments-section">
+          <label htmlFor="comments">
+            Comments:
+          </label>
+          <textarea
+            id="comments"
+            value={comments}
+            onChange={(e) => setComments(e.target.value)}
+            placeholder="Add any additional comments about your training session..."
+            rows="5"
+            maxLength="500"
+            required
+          />
+        </div>
 
         {/* Submit Button */}
         <button type="submit" disabled={isSubmitting}>
