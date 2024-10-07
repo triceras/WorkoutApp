@@ -1,10 +1,13 @@
 // src/components/RegistrationSteps/Availability.jsx
 
 import React from 'react';
-import { Field, ErrorMessage } from 'formik';
-import { TextField, Slider, Typography, Button } from '@mui/material';
+import { Button, Box, Typography, TextField, Slider, FormHelperText } from '@mui/material';
+import { useFormikContext } from 'formik';
+import PropTypes from 'prop-types';
 
 function Availability({ nextStep, prevStep }) {
+  const { values, errors, touched, setFieldValue, handleBlur } = useFormikContext();
+
   const marks = [
     { value: 15, label: '15 mins' },
     { value: 30, label: '30 mins' },
@@ -15,39 +18,41 @@ function Availability({ nextStep, prevStep }) {
   ];
 
   return (
-    <div>
+    <Box width="100%" maxWidth="600px" margin="0 auto">
       <Typography id="workoutTime-slider" gutterBottom>
         Typical Workout Duration (minutes)
       </Typography>
-      <Field name="workoutTime">
-        {({ field, form }) => (
-          <Slider
-            {...field}
-            aria-labelledby="workoutTime-slider"
-            step={15}
-            marks={marks}
-            min={15}
-            max={120}
-            valueLabelDisplay="auto"
-            value={field.value || 30}
-            onChange={(_, value) => form.setFieldValue('workoutTime', value)}
-          />
-        )}
-      </Field>
-      <ErrorMessage name="workoutTime" component="div" style={{ color: 'red' }} />
+      <Slider
+        aria-labelledby="workoutTime-slider"
+        step={15}
+        marks={marks}
+        min={15}
+        max={120}
+        valueLabelDisplay="auto"
+        value={values.workoutTime || 30}
+        onChange={(_, value) => setFieldValue('workoutTime', value)}
+      />
+      {touched.workoutTime && errors.workoutTime && (
+        <FormHelperText error>{errors.workoutTime}</FormHelperText>
+      )}
 
-      <Field
-        name="workoutDays"
-        as={TextField}
+      <TextField
         label="Days Available per Week"
+        name="workoutDays"
         type="number"
-        inputProps={{ min: 1, max: 7 }}
+        value={values.workoutDays}
+        onChange={(e) => setFieldValue('workoutDays', e.target.value)}
+        onBlur={handleBlur}
+        error={touched.workoutDays && Boolean(errors.workoutDays)}
+        helperText={touched.workoutDays && errors.workoutDays}
         fullWidth
         margin="normal"
+        required
+        InputProps={{ inputProps: { min: 1, max: 7 } }}
       />
-      <ErrorMessage name="workoutDays" component="div" style={{ color: 'red' }} />
 
-      <div style={{ marginTop: '20px' }}>
+      {/* Navigation Buttons */}
+      <Box display="flex" justifyContent="space-between" marginTop="20px">
         <Button variant="contained" onClick={prevStep}>
           Back
         </Button>
@@ -56,12 +61,23 @@ function Availability({ nextStep, prevStep }) {
           color="primary"
           onClick={nextStep}
           style={{ marginLeft: '10px' }}
+          disabled={
+            !values.workoutTime ||
+            !values.workoutDays ||
+            Boolean(errors.workoutTime) ||
+            Boolean(errors.workoutDays)
+          }
         >
           Next
         </Button>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
+
+Availability.propTypes = {
+  nextStep: PropTypes.func.isRequired,
+  prevStep: PropTypes.func.isRequired,
+};
 
 export default Availability;

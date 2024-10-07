@@ -1,20 +1,13 @@
 // src/components/RegistrationSteps/PersonalInfo.jsx
 
 import React from 'react';
-import { TextField, Button, Box, Typography } from '@mui/material';
+import { Button, Box, Typography, TextField, FormControl, InputLabel, Select, MenuItem, FormHelperText } from '@mui/material';
+import { useFormikContext } from 'formik';
 import PropTypes from 'prop-types';
-import { FormControl, InputLabel, Select, MenuItem, FormHelperText } from '@mui/material';
 
+function PersonalInfo({ nextStep, prevStep }) {
+  const { values, errors, touched, handleChange, handleBlur } = useFormikContext();
 
-function PersonalInfo({
-  nextStep,
-  prevStep,
-  values,
-  errors,
-  touched,
-  handleChange,
-  handleBlur,
-}) {
   // Function to check if the current step's fields are valid
   const isStepValid = () => {
     const requiredFields = ['firstName', 'lastName', 'email', 'age', 'weight', 'height'];
@@ -84,8 +77,8 @@ function PersonalInfo({
         InputProps={{ inputProps: { min: 1 } }}
       />
 
-       {/* add sex Field */}
-       <Box mt={2}>
+      {/* Sex Field */}
+      <Box mt={2}>
         <FormControl
           fullWidth
           error={touched.sex && Boolean(errors.sex)}
@@ -144,6 +137,7 @@ function PersonalInfo({
         InputProps={{ inputProps: { min: 1 } }}
       />
 
+      {/* Navigation Buttons */}
       <Box display="flex" justifyContent="space-between" marginTop="20px">
         <Button variant="contained" color="secondary" onClick={prevStep}>
           Back
@@ -161,15 +155,9 @@ function PersonalInfo({
   );
 }
 
-
 PersonalInfo.propTypes = {
   nextStep: PropTypes.func.isRequired,
   prevStep: PropTypes.func.isRequired,
-  values: PropTypes.object.isRequired,
-  errors: PropTypes.object.isRequired,
-  touched: PropTypes.object.isRequired,
-  handleChange: PropTypes.func.isRequired,
-  handleBlur: PropTypes.func.isRequired,
 };
 
 export default PersonalInfo;

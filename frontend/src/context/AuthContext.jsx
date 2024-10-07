@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
       if (authToken) {
         try {
           axiosInstance.defaults.headers['Authorization'] = `Token ${authToken}`;
-          const response = await axiosInstance.get('user/me/');
+          const response = await axiosInstance.get('users/me/');
           setUser(response.data);
         } catch (error) {
           console.error('Error fetching user:', error);
@@ -27,6 +27,11 @@ export const AuthProvider = ({ children }) => {
     fetchUser();
   }, [authToken]);
 
+  const login = (token) => {
+    localStorage.setItem('authToken', token);
+    setAuthToken(token);
+  };
+
   const logout = () => {
     setAuthToken(null);
     setUser(null);
@@ -35,7 +40,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ authToken, setAuthToken, user, setUser, logout, loading }}>
+    <AuthContext.Provider value={{ authToken, setAuthToken, login, user, setUser, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

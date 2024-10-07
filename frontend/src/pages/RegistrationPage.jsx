@@ -1,18 +1,18 @@
 // src/pages/RegistrationPage.jsx
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import AccountDetailsForm from '../components/RegistrationSteps/AccountDetailsForm';
 import PersonalInfo from '../components/RegistrationSteps/PersonalInfo';
 import FitnessGoals from '../components/RegistrationSteps/FitnessGoals';
-import FitnessLevel from '../components/RegistrationSteps/FitnessLevel'; // Import FitnessLevel
+import FitnessLevel from '../components/RegistrationSteps/FitnessLevel';
 import Equipment from '../components/RegistrationSteps/Equipment';
 import Availability from '../components/RegistrationSteps/Availability';
 import ReviewSubmit from '../components/RegistrationSteps/ReviewSubmit';
-import axiosInstance from '../api/axiosInstance'; // Use axiosInstance for consistent baseURL and interceptors
+import axiosInstance from '../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
-import { Typography, Box } from '@mui/material';
+import { Typography, Box, CircularProgress, Button } from '@mui/material';
 import { AuthContext } from '../context/AuthContext';
 
 function RegistrationPage() {
@@ -20,6 +20,33 @@ function RegistrationPage() {
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
   const { setAuthToken, setUser } = useContext(AuthContext);
+  const [equipmentOptions, setEquipmentOptions] = useState([]);
+  const [strengthGoalsOptions, setStrengthGoalsOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        console.log('Fetching equipment and strength goals...');
+        const [equipmentRes, strengthGoalsRes] = await Promise.all([
+          axiosInstance.get('/equipment/'),
+          axiosInstance.get('/strength-goals/'),
+        ]);
+        console.log('Fetched Equipment:', equipmentRes.data);
+        console.log('Fetched Strength Goals:', strengthGoalsRes.data);
+        setEquipmentOptions(equipmentRes.data);
+        setStrengthGoalsOptions(strengthGoalsRes.data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching options:', error);
+        setFetchError('Failed to load registration options.');
+        setLoading(false);
+      }
+    };
+
+    fetchOptions();
+  }, []);
 
   const initialValues = {
     username: '',
@@ -33,9 +60,9 @@ function RegistrationPage() {
     weight: '',
     height: '',
     fitnessLevel: '',
-    strengthGoals: [], // Array
+    strengthGoals: [], // Array of IDs
     additionalGoals: '',
-    equipment: [],    // Array
+    equipment: [],    // Array of IDs
     workoutTime: 30,
     workoutDays: 4,
   };
@@ -50,20 +77,20 @@ function RegistrationPage() {
     lastName: Yup.string().required('Last Name is required'),
     email: Yup.string().email('Invalid email').required('Email is required'),
     age: Yup.number().required('Age is required').positive().integer(),
-    sex: Yup.string().required('Sex is required'),
+    sex: Yup.string().oneOf(['Male', 'Female', 'Other']).required('Sex is required'),
     weight: Yup.number().required('Weight is required').positive(),
     height: Yup.number().required('Height is required').positive(),
     fitnessLevel: Yup.string().required('Fitness Level is required'),
-    strengthGoals: Yup.array().min(1, 'Select at least one goal'),
-    equipment: Yup.array().min(1, 'Select at least one equipment'),
+    strengthGoals: Yup.array().min(1, 'Select at least one goal').required('Strength goals are required'),
+    equipment: Yup.array().min(1, 'Select at least one equipment').required('Equipment selection is required'),
     workoutTime: Yup.number()
       .required('Workout time is required')
-      .min(15)
-      .max(120),
+      .min(15, 'Minimum workout time is 15 minutes')
+      .max(120, 'Maximum workout time is 120 minutes'),
     workoutDays: Yup.number()
       .required('Workout days per week is required')
-      .min(1)
-      .max(7),
+      .min(1, 'At least 1 workout day per week')
+      .max(7, 'Maximum 7 workout days per week'),
     additionalGoals: Yup.string().notRequired(),
   });
 
@@ -81,9 +108,9 @@ function RegistrationPage() {
       weight: values.weight,
       height: values.height,
       fitness_level: values.fitnessLevel,
-      strength_goals: values.strengthGoals.join(', '), // Convert array to string
+      strength_goals: values.strengthGoals, // Send as array of IDs
       additional_goals: values.additionalGoals,
-      equipment: values.equipment.join(', '),           // Convert array to string
+      equipment: values.equipment,           // Send as array of IDs
       workout_time: values.workoutTime,
       workout_days: values.workoutDays,
     };
@@ -124,6 +151,26 @@ function RegistrationPage() {
 
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => setStep(prev => prev - 1);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+        <Typography variant="h6" style={{ marginLeft: '10px' }}>Loading registration form...</Typography>
+      </Box>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <Box textAlign="center" mt={5}>
+        <Typography variant="h6" color="error">{fetchError}</Typography>
+        <Button variant="contained" onClick={() => window.location.reload()} style={{ marginTop: '20px' }}>
+          Retry
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Formik
@@ -166,66 +213,38 @@ function RegistrationPage() {
             {step === 1 && (
               <AccountDetailsForm
                 nextStep={nextStep}
-                values={formikProps.values}
-                errors={formikProps.errors}
-                touched={formikProps.touched}
-                handleChange={formikProps.handleChange}
-                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 2 && (
               <PersonalInfo
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={formikProps.values}
-                errors={formikProps.errors}
-                touched={formikProps.touched}
-                handleChange={formikProps.handleChange}
-                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 3 && (
               <FitnessGoals
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={formikProps.values}
-                errors={formikProps.errors}
-                touched={formikProps.touched}
-                handleChange={formikProps.handleChange}
-                handleBlur={formikProps.handleBlur}
+                strengthGoalOptions={strengthGoalsOptions} // Pass strength goals
               />
             )}
             {step === 4 && (
               <FitnessLevel
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={formikProps.values}
-                errors={formikProps.errors}
-                touched={formikProps.touched}
-                handleChange={formikProps.handleChange}
-                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 5 && (
               <Equipment
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={formikProps.values}
-                errors={formikProps.errors}
-                touched={formikProps.touched}
-                handleChange={formikProps.handleChange}
-                handleBlur={formikProps.handleBlur}
+                equipmentOptions={equipmentOptions} // Pass equipment options
               />
             )}
             {step === 6 && (
               <Availability
                 nextStep={nextStep}
                 prevStep={prevStep}
-                values={formikProps.values}
-                errors={formikProps.errors}
-                touched={formikProps.touched}
-                handleChange={formikProps.handleChange}
-                handleBlur={formikProps.handleBlur}
               />
             )}
             {step === 7 && (
@@ -233,6 +252,8 @@ function RegistrationPage() {
                 prevStep={prevStep}
                 values={formikProps.values}
                 isSubmitting={formikProps.isSubmitting}
+                equipmentOptions={equipmentOptions}
+                strengthGoalsOptions={strengthGoalsOptions}
               />
             )}
           </Box>

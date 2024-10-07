@@ -17,7 +17,7 @@ function ProfilePage() {
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const userResponse = await axiosInstance.get('user/me/');
+        const userResponse = await axiosInstance.get('users/me/');
         setUserInfo(userResponse.data);
 
         // Fetch progression data

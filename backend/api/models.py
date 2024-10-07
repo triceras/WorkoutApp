@@ -24,10 +24,10 @@ class User(AbstractUser):
         null=True,
         blank=True
     )
-    strength_goals = models.TextField(null=True, blank=True)
-    equipment = models.TextField(null=True, blank=True)
-    workout_time = models.CharField(max_length=50, null=True, blank=True)
-    workout_days = models.CharField(max_length=50, null=True, blank=True)
+    strength_goals = models.ManyToManyField('StrengthGoal', blank=True)
+    equipment = models.ManyToManyField('Equipment', blank=True)
+    workout_time = models.PositiveIntegerField(null=True, blank=True)  # in minutes
+    workout_days = models.PositiveIntegerField(null=True, blank=True)  # days per week
     additional_goals = models.TextField(blank=True, null=True)
     profile_picture = models.ImageField(
         upload_to='profile_pictures/',
@@ -54,6 +54,18 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+class StrengthGoal(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+class Equipment(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.name
 
 class Exercise(models.Model):
     name = models.CharField(max_length=100)

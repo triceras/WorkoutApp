@@ -3,13 +3,13 @@
 from rest_framework import viewsets, permissions, status, generics
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes, action
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.db.models import Avg, Count
-from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, SessionFeedback, TrainingSession, SessionFeedback
+from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, SessionFeedback, TrainingSession, SessionFeedback, StrengthGoal, Equipment
 from .serializers import (
     ExerciseSerializer,
     WorkoutPlanSerializer,
@@ -20,7 +20,9 @@ from .serializers import (
     UserRegistrationSerializer,
     SessionFeedbackSerializer,
     TrainingSessionSerializer,
-    SessionFeedbackSerializer
+    SessionFeedbackSerializer,
+    StrengthGoalSerializer,
+    EquipmentSerializer
 )
 import logging
 from .tasks import generate_workout_plan_task 
@@ -274,12 +276,12 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         if request.method == 'GET':
             serializer = self.get_serializer(request.user)
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         elif request.method == 'PATCH':
             serializer = self.get_serializer(request.user, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
 class TrainingSessionViewSet(viewsets.ModelViewSet):
     queryset = TrainingSession.objects.all()
@@ -339,3 +341,13 @@ def user_progression(request):
     }
 
     return Response(progression_data)
+
+class StrengthGoalViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = StrengthGoal.objects.all()
+    serializer_class = StrengthGoalSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+class EquipmentViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Equipment.objects.all()
+    serializer_class = EquipmentSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]

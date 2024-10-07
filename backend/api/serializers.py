@@ -3,7 +3,8 @@
 from rest_framework import serializers
 from .models import (
     User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog,
-    WorkoutSession, SessionFeedback, TrainingSession
+    WorkoutSession, SessionFeedback, TrainingSession,
+    StrengthGoal, Equipment
 )
 from django.contrib.auth import get_user_model
 from rest_framework.validators import UniqueValidator
@@ -12,6 +13,16 @@ from django.db import IntegrityError
 
 UserModel = get_user_model()
 
+class StrengthGoalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StrengthGoal
+        fields = ['id', 'name']
+
+class EquipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Equipment
+        fields = ['id', 'name']
+        
 class UserSerializer(serializers.ModelSerializer):
     # Ensure 'username' is unique and read-only
     username = serializers.CharField(
@@ -32,8 +43,8 @@ class UserSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
     # Ensure 'strength_goals' and 'equipment' are treated as strings
-    strength_goals = serializers.CharField(required=True)
-    equipment = serializers.CharField(required=True)
+    strength_goals = StrengthGoalSerializer(many=True, read_only=True)
+    equipment = EquipmentSerializer(many=True, read_only=True)
     additional_goals = serializers.CharField(allow_blank=True, required=False)
     profile_picture = serializers.ImageField(required=False, allow_null=True)
     profile_picture_url = serializers.SerializerMethodField()
@@ -113,6 +124,7 @@ class UserSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.profile_picture.url)
         return None
 
+
 class ExerciseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exercise
@@ -145,6 +157,12 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
+    strength_goals = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=StrengthGoal.objects.all()
+    )
+    equipment = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Equipment.objects.all()
+    )
     confirm_password = serializers.CharField(write_only=True)
     sex = serializers.ChoiceField(choices=User.SEX_CHOICES, required=True)
 
@@ -166,16 +184,18 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        # Log the validated data
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Validated data in create method: {validated_data}")
-        
-        validated_data.pop('confirm_password')
+        strength_goals = validated_data.pop('strength_goals', [])
+        equipment = validated_data.pop('equipment', [])
         password = validated_data.pop('password')
+        validated_data.pop('confirm_password')
+
         user = User(**validated_data)
-        user.set_password(password)  # This hashes the password
+        user.set_password(password)
         user.save()
+
+        user.strength_goals.set(strength_goals)
+        user.equipment.set(equipment)
+
         return user
 
 class SessionFeedbackSerializer(serializers.ModelSerializer):
@@ -206,8 +226,8 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TrainingSession
-        fields = ['id', 'user', 'date', 'workout_plan', 'workout_plan_id', 'feedback']
-        read_only_fields = ['id', 'user', 'date', 'feedback']
+        fields = ['id', 'user', 'date', 'workout_plan', 'workout_plan_id', 'feedback', 'session_name', 'emoji_feedback']
+        read_only_fields = ['user', 'created_at']
 
     def create(self, validated_data):
         request = self.context.get('request')

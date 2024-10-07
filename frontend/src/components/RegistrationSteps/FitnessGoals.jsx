@@ -1,78 +1,79 @@
 // src/components/RegistrationSteps/FitnessGoals.jsx
 
 import React from 'react';
-import { FormControlLabel, Checkbox, FormGroup, FormControl, FormLabel, Button } from '@mui/material';
-import { Field, ErrorMessage } from 'formik';
+import { FormControlLabel, Checkbox, FormGroup, FormControl, FormLabel, Button, TextField, Box } from '@mui/material';
+import { Field, ErrorMessage, useFormikContext } from 'formik';
 import PropTypes from 'prop-types';
 
-function FitnessGoals({
-  nextStep,
-  prevStep,
-  values,
-  handleChange,
-  handleBlur,
-  errors,
-  touched,
-}) {
-  const strengthGoalOptions = [
-    'Build Muscle Mass',
-    'Increase Strength',
-    'Improve Endurance',
-    'Enhance Flexibility',
-    'Lose Weight',
-    'Tone Muscles',
-    'Improve Athletic Performance',
-    'Rehabilitation/Physical Therapy',
-  ];
+function FitnessGoals({ nextStep, prevStep, strengthGoalOptions }) {
+  const { values, errors, touched,  handleChange, handleBlur, setFieldValue } = useFormikContext();
+
+  const handleCheckboxChange = (event) => {
+    const { value, checked } = event.target;
+    const id = parseInt(value, 10);
+    if (checked) {
+      setFieldValue('strengthGoals', [...values.strengthGoals, id]);
+    } else {
+      setFieldValue('strengthGoals', values.strengthGoals.filter((item) => item !== id));
+    }
+  };
 
   return (
     <div>
-      <FormControl component="fieldset" margin="normal" error={touched.strengthGoals && Boolean(errors.strengthGoals)}>
+      <FormControl
+        component="fieldset"
+        margin="normal"
+        error={touched.strengthGoals && Boolean(errors.strengthGoals)}
+      >
         <FormLabel component="legend">Select Your Strength Goals</FormLabel>
         <FormGroup>
-          {strengthGoalOptions.map((goal) => (
-            <FormControlLabel
-              key={goal}
-              control={
-                <Checkbox
-                  name="strengthGoals"
-                  value={goal}
-                  checked={values.strengthGoals.includes(goal)}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                />
-              }
-              label={goal}
-            />
-          ))}
+          {strengthGoalOptions.length === 0 ? (
+            <p>No strength goals available.</p>
+          ) : (
+            strengthGoalOptions.map((goal) => (
+              <FormControlLabel
+                key={goal.id}
+                control={
+                  <Checkbox
+                    name="strengthGoals"
+                    value={goal.id}
+                    checked={values.strengthGoals.includes(goal.id)}
+                    onChange={handleCheckboxChange}
+                  />
+                }
+                label={goal.name}
+              />
+            ))
+          )}
         </FormGroup>
-        <ErrorMessage name="strengthGoals" component="div" style={{ color: 'red' }} />
+        {touched.strengthGoals && errors.strengthGoals && (
+          <div style={{ color: 'red', marginTop: '5px' }}>{errors.strengthGoals}</div>
+        )}
+        {/* Additional Goals TextField */}
+        {/* Additional Goals Section */}
+        <Box mt={3}>
+          <FormLabel component="legend" sx={{ fontSize: '1.25rem', marginBottom: '10px' }}>
+            Additional Goals (optional)
+          </FormLabel>
+
+          <Field
+            as={TextField}
+            name="additionalGoals"
+            multiline
+            rows={3}
+            placeholder="e.g., Incorporate Olympic lifts and kettlebell exercises."
+            value={values.additionalGoals}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            fullWidth
+          />
+          <ErrorMessage name="additionalGoals" component="div" style={{ color: 'red', marginTop: '4px' }} />
+        </Box>
       </FormControl>
 
-      <Field
-        name="additionalGoals"
-        as={FormControl}
-        fullWidth
-        margin="normal"
-      >
-        {({ field, meta }) => (
-          <>
-            <FormLabel>Additional Goals (optional)</FormLabel>
-            <textarea
-              {...field}
-              rows="4"
-              style={{ width: '100%', padding: '8px', marginTop: '8px' }}
-              placeholder="e.g., Incorporate Olympic lifts and kettlebell exercises."
-            />
-            {meta.touched && meta.error && (
-              <div style={{ color: 'red', marginTop: '4px' }}>{meta.error}</div>
-            )}
-          </>
-        )}
-      </Field>
-
-      <div style={{ marginTop: '20px' }}>
-        <Button variant="contained" onClick={prevStep} type="button">
+      {/* Navigation Buttons */}
+      <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}>
+        <Button variant="contained" onClick={prevStep}>
           Back
         </Button>
         <Button
@@ -80,7 +81,6 @@ function FitnessGoals({
           color="primary"
           onClick={nextStep}
           style={{ marginLeft: '10px' }}
-          type="button"
         >
           Next
         </Button>
@@ -92,11 +92,7 @@ function FitnessGoals({
 FitnessGoals.propTypes = {
   nextStep: PropTypes.func.isRequired,
   prevStep: PropTypes.func.isRequired,
-  values: PropTypes.object.isRequired,
-  handleChange: PropTypes.func.isRequired,
-  handleBlur: PropTypes.func.isRequired,
-  errors: PropTypes.object.isRequired,
-  touched: PropTypes.object.isRequired,
+  strengthGoalOptions: PropTypes.array.isRequired,
 };
 
 export default FitnessGoals;

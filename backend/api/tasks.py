@@ -1,6 +1,7 @@
 # backend/api/tasks.py
 
-from celery import shared_task
+from celery import shared_task, Celery
+from celery.schedules import crontab
 from celery.exceptions import MaxRetriesExceededError
 from django.contrib.auth import get_user_model
 from .models import WorkoutPlan, User
@@ -79,3 +80,20 @@ def generate_workout_plan_task(self, user_id):
         logger.error(f"User with ID {user_id} does not exist.")
     except Exception as e:
         logger.error(f"Error generating workout plan for user_id {user_id}: {str(e)}", exc_info=True)
+
+
+app = Celery('myfitnessapp')
+@shared_task
+def update_weekly_workout_plans():
+    users = User.objects.all()
+    for user in users:
+        # Trigger workout plan generation for each user
+        generate_workout_plan_task.delay(user.id)
+
+# In your Celery configuration, add the periodic task
+app.conf.beat_schedule = {
+    'update-weekly-workout-plans-every-monday': {
+        'task': 'api.tasks.update_weekly_workout_plans',
+        'schedule': crontab(day_of_week=1, hour=0, minute=0),  # Every Monday at midnight
+    },
+}

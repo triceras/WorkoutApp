@@ -1,10 +1,10 @@
 // src/components/RegistrationSteps/ReviewSubmit.jsx
 
 import React from 'react';
-import { Button } from '@mui/material';
+import { Button, Typography, List, ListItem, ListItemText, Divider } from '@mui/material';
 import PropTypes from 'prop-types';
 
-function ReviewSubmit({ prevStep, values, isSubmitting }) {
+function ReviewSubmit({ prevStep, values, isSubmitting, equipmentOptions, strengthGoalsOptions }) {
   const {
     username,
     firstName,
@@ -22,38 +22,98 @@ function ReviewSubmit({ prevStep, values, isSubmitting }) {
     workoutDays,
   } = values;
 
+  // Helper function to map IDs to names
+  const getNamesByIds = (ids, options) => {
+    return options
+      .filter(option => ids.includes(option.id))
+      .map(option => option.name)
+      .join(', ');
+  };
+
   return (
     <div>
-      <h2>Review Your Information</h2>
-      <ul>
-        <li><strong>Username:</strong> {username}</li>
-        <li><strong>First Name:</strong> {firstName}</li>
-        <li><strong>Last Name:</strong> {lastName}</li>
-        <li><strong>Email:</strong> {email}</li>
-        <li><strong>Age:</strong> {age}</li>
-        <li><strong>Sex:</strong> {sex}</li>
-        <li><strong>Weight:</strong> {weight} kg</li>
-        <li><strong>Height:</strong> {height} cm</li>
-        <li><strong>Fitness Level:</strong> {fitnessLevel}</li>
-        <li><strong>Strength Goals:</strong> {strengthGoals.join(', ')}</li>
-        <li><strong>Additional Goals:</strong> {additionalGoals}</li>
-        <li><strong>Equipment:</strong> {equipment.join(', ')}</li>
-        <li><strong>Workout Time:</strong> {workoutTime} minutes</li>
-        <li><strong>Workout Days per Week:</strong> {workoutDays}</li>
-      </ul>
+      <Typography variant="h5" gutterBottom>
+        Review Your Information
+      </Typography>
+      <List>
+        <ListItem>
+          <ListItemText primary="Username" secondary={username} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="First Name" secondary={firstName} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Last Name" secondary={lastName} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Email" secondary={email} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Age" secondary={age} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Sex" secondary={sex} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Weight (kg)" secondary={weight} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Height (cm)" secondary={height} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Fitness Level" secondary={fitnessLevel} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText
+            primary="Strength Goals"
+            secondary={strengthGoals.length > 0 ? getNamesByIds(strengthGoals, strengthGoalsOptions) : 'N/A'}
+          />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText
+            primary="Available Equipment"
+            secondary={equipment.length > 0 ? getNamesByIds(equipment, equipmentOptions) : 'N/A'}
+          />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Additional Goals" secondary={additionalGoals || 'N/A'} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Workout Time (minutes)" secondary={workoutTime} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Workout Days per Week" secondary={workoutDays} />
+        </ListItem>
+      </List>
 
-      {/* Optionally, remove the JSON.stringify if not needed */}
-      {/* <pre>{JSON.stringify(values, null, 2)}</pre> */}
-
-      <div style={{ marginTop: '20px' }}>
-        <Button variant="contained" onClick={prevStep}>
+      {/* Navigation Buttons */}
+      <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}>
+        <Button
+          variant="contained"
+          onClick={prevStep}
+          size="large"
+          style={{ width: '48%' }}
+        >
           Back
         </Button>
         <Button
           variant="contained"
           color="primary"
-          type="submit" // Changed from onClick to type="submit"
-          style={{ marginLeft: '10px' }}
+          type="submit" // Triggers Formik's handleSubmit
+          style={{ marginLeft: '10px', width: '48%' }}
           disabled={isSubmitting}
         >
           {isSubmitting ? 'Submitting...' : 'Submit'}
@@ -68,6 +128,8 @@ ReviewSubmit.propTypes = {
   prevStep: PropTypes.func.isRequired,
   values: PropTypes.object.isRequired,
   isSubmitting: PropTypes.bool.isRequired,
+  equipmentOptions: PropTypes.array.isRequired,
+  strengthGoalsOptions: PropTypes.array.isRequired,
 };
 
 export default ReviewSubmit;
