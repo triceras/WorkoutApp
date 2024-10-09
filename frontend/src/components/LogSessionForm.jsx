@@ -30,56 +30,6 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(false);
 
-  // Parsing function to extract sessions from plan string
-  const parseWorkoutPlan = (plan) => {
-    if (typeof plan !== 'string') {
-      console.error('Invalid plan data:', plan);
-      return { workoutDays: [] };
-    }
-
-    // Normalize line breaks to '\n'
-    const cleanPlan = plan.replace(/\r\n/g, '\n');
-
-    // Regex to match day headers like "**Day 1: Chest and Triceps (60 minutes)**"
-    const dayRegex = /\*\*Day\s+\d+:\s+[^*]+\*\*/g;
-
-    // Use matchAll to find all day headers with their indices
-    const matches = [...cleanPlan.matchAll(dayRegex)];
-    const workoutDays = [];
-
-    if (matches.length === 0) {
-      console.warn('No workout days matched in the plan.');
-    }
-
-    matches.forEach((match, index) => {
-      const title = match[0].replace(/\*\*/g, '').trim();
-      const startIndex = match.index + match[0].length;
-
-      // Determine the end index
-      const endIndex =
-        index < matches.length - 1
-          ? matches[index + 1].index
-          : cleanPlan.indexOf('**Additional Tips:**') !== -1
-          ? cleanPlan.indexOf('**Additional Tips:**')
-          : cleanPlan.length;
-
-      const content = cleanPlan.slice(startIndex, endIndex).trim();
-      workoutDays.push({ title, content });
-    });
-
-    // Extract Additional Tips if present
-    const tipsMatch = cleanPlan.match(/\*\*Additional Tips:\*\*(.*)/s);
-    let additionalTips = '';
-    if (tipsMatch) {
-      additionalTips = tipsMatch[1].trim();
-    }
-
-    console.log('Parsed Workout Days:', workoutDays);
-    console.log('Parsed Additional Tips:', additionalTips);
-
-    return { workoutDays, additionalTips };
-  };
-
   // Fetch sessions when workoutPlanId changes
   useEffect(() => {
     const fetchSessions = async () => {
@@ -98,17 +48,14 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         const planData = response.data.plan_data;
         console.log('Plan data:', planData);
 
-        if (planData && planData.plan) {
-          const plan = planData.plan;
-          console.log('Plan string:', plan);
-
-          // Parse the plan string to extract sessions
-          const { workoutDays } = parseWorkoutPlan(plan);
+        if (planData && planData.workoutDays) {
+          const { workoutDays, additionalTips } = planData;
           console.log('Parsed Workout Days:', workoutDays);
+          console.log('Parsed Additional Tips:', additionalTips);
 
           if (workoutDays.length > 0) {
             setSessions(workoutDays);
-            setSelectedSession(workoutDays[0].title);
+            setSelectedSession(workoutDays[0].day);
             setError(null); // Clear any previous errors
           } else {
             setSessions([]);
@@ -116,7 +63,7 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
             setError('No sessions found in the selected workout plan.');
           }
         } else {
-          console.error('Plan data does not contain a plan string.');
+          console.error('Plan data does not contain workoutDays.');
           setError('Failed to load sessions.');
           setSessions([]);
           setSelectedSession('');
@@ -171,8 +118,16 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
   return (
     <div className="log-session-form">
       <h3>Log Training Session</h3>
-      {error && <p className="error" role="alert">{error}</p>}
-      {successMessage && <p className="success" role="status">{successMessage}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {successMessage && (
+        <p className="success" role="status">
+          {successMessage}
+        </p>
+      )}
       <form onSubmit={handleSubmit}>
         {/* Date Input */}
         <label htmlFor="session-date">
@@ -218,8 +173,8 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
               required
             >
               {sessions.map((session, index) => (
-                <option key={`${session.title}-${index}`} value={session.title}>
-                  {session.title}
+                <option key={`${session.day}-${index}`} value={session.day}>
+                  {session.day}
                 </option>
               ))}
             </select>
@@ -236,7 +191,9 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
               <button
                 type="button"
                 key={item.value}
-                className={`emoji-button ${emojiFeedback === item.value ? 'selected' : ''}`}
+                className={`emoji-button ${
+                  emojiFeedback === item.value ? 'selected' : ''
+                }`}
                 onClick={() => handleEmojiSelect(item.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -257,9 +214,7 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
 
         {/* Comments Section */}
         <div className="comments-section">
-          <label htmlFor="comments">
-            Comments:
-          </label>
+          <label htmlFor="comments">Comments:</label>
           <textarea
             id="comments"
             value={comments}
@@ -286,11 +241,24 @@ LogSessionForm.propTypes = {
       id: PropTypes.number.isRequired,
       user: PropTypes.shape({
         username: PropTypes.string.isRequired,
-      }).isRequired,
+      }),
       plan_data: PropTypes.shape({
-        plan: PropTypes.string.isRequired,
+        workoutDays: PropTypes.arrayOf(
+          PropTypes.shape({
+            day: PropTypes.string.isRequired,
+            duration: PropTypes.string.isRequired,
+            exercises: PropTypes.arrayOf(
+              PropTypes.shape({
+                name: PropTypes.string.isRequired,
+                setsReps: PropTypes.string.isRequired,
+                equipment: PropTypes.string.isRequired,
+                instructions: PropTypes.string.isRequired,
+              })
+            ).isRequired,
+          })
+        ).isRequired,
+        additionalTips: PropTypes.arrayOf(PropTypes.string).isRequired,
       }).isRequired,
-      created_at: PropTypes.string.isRequired,
     })
   ).isRequired,
   onSessionLogged: PropTypes.func.isRequired,

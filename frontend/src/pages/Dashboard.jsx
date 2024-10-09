@@ -10,24 +10,23 @@ import './Dashboard.css';
 function Dashboard() {
   const [userData, setUserData] = useState(null);
   const [workoutPlans, setWorkoutPlans] = useState([]);
-  const [currentPlan, setCurrentPlan] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to handle when a session is logged
+  /**
+   * Function to handle when a session is logged.
+   * Receives session data from LogSessionForm and can be used to update state or provide feedback.
+   */
   const handleSessionLogged = (sessionData) => {
     console.log('Session logged:', sessionData);
-    // You can update state or provide feedback to the user here
+    // You can update state, show notifications, or perform other actions here.
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    console.log('Token in Dashboard:', token);
-
-    // Set timeout to 60 seconds
-    axiosInstance.defaults.timeout = 60000;
-  
-    // Fetch user data and workout plans
+    /**
+     * Fetches user data and workout plans from the backend API.
+     * Handles loading state and error messages appropriately.
+     */
     const fetchData = async () => {
       try {
         // Fetch user data
@@ -41,7 +40,6 @@ function Dashboard() {
 
         if (workoutPlansResponse.data && workoutPlansResponse.data.length > 0) {
           setWorkoutPlans(workoutPlansResponse.data);
-          setCurrentPlan(workoutPlansResponse.data[0]); // Set the first plan as the current plan
         } else {
           setError('No workout plans available.');
         }
@@ -52,7 +50,7 @@ function Dashboard() {
             setError('No workout plans found. Please create one.');
           } else if (error.response.status === 401) {
             setError('Unauthorized access. Please log in again.');
-            // Optionally, redirect to login page
+            // Optionally, redirect to login page here.
           } else {
             setError('An error occurred while fetching data.');
           }
@@ -67,30 +65,41 @@ function Dashboard() {
     fetchData();
   }, []);
 
+  /**
+   * Renders a loading state while data is being fetched.
+   */
   if (loading) {
-    return <div>Loading dashboard...</div>;
+    return <div className="dashboard-loading">Loading dashboard...</div>;
   }
 
+  /**
+   * Renders an error message if an error occurred during data fetching.
+   */
   if (error) {
     return <ErrorMessage message={error} />;
   }
 
   return (
-    <div>
+    <div className="dashboard-container">
       <div className="dashboard-content">
-        <h2>Welcome {userData?.first_name || userData?.username || 'Valued User'}</h2>
+        <h2 className="welcome-message">
+          Welcome {userData?.first_name || userData?.username || 'Valued User'}
+        </h2>
         {workoutPlans.length > 0 ? (
           <>
-            {currentPlan && <WorkoutPlan plan={currentPlan.plan_data.plan} />}
+            {/* WorkoutPlan component to display the first workout plan */}
+            <WorkoutPlan workoutData={workoutPlans[0].plan_data} />
+            
+            {/* LogSessionForm to handle logging sessions */}
             <LogSessionForm
               workoutPlans={workoutPlans}
               onSessionLogged={handleSessionLogged}
             />
           </>
         ) : (
-          <p>No workout plans available.</p>
+          <p className="no-workout-plans">No workout plans available.</p>
         )}
-        {/* Rest of your dashboard components */}
+        {/* You can include additional dashboard components here */}
       </div>
     </div>
   );

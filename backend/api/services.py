@@ -2,17 +2,67 @@
 
 import os
 import replicate
-import logging
 import json
+import logging
 import requests
+from jsonschema import validate, ValidationError
 from django.conf import settings
 from .models import TrainingSession, WorkoutPlan
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 logger = logging.getLogger(__name__)
+
+WORKOUT_PLAN_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "workoutDays": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "day": {"type": "string"},
+                    "duration": {"type": "string"},
+                    "exercises": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "setsReps": {"type": "string"},
+                                "equipment": {"type": "string"},
+                                "instructions": {"type": "string"},
+                            },
+                            "required": ["name", "setsReps", "equipment", "instructions"]
+                        }
+                    }
+                },
+                "required": ["day", "duration", "exercises"]
+            }
+        },
+        "additionalTips": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    },
+    "required": ["workoutDays", "additionalTips"]
+}
 
 class ReplicateServiceUnavailable(Exception):
     """Exception raised when the Replicate service is unavailable."""
     pass
+
+def validate_workout_plan(workout_plan):
+    try:
+        validate(instance=workout_plan, schema=WORKOUT_PLAN_SCHEMA)
+        logger.debug("Workout plan JSON is valid.")
+        return True
+    except ValidationError as ve:
+        logger.error(f"Workout plan JSON validation error: {ve.message}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error during JSON validation: {e}")
+        raise
 
 def generate_workout_plan(user):
     """
@@ -30,20 +80,20 @@ def generate_workout_plan(user):
     weight = user.weight
     height = user.height
     fitness_level = user.fitness_level
-    strength_goals = user.strength_goals.all().values_list('name', flat=True)
-    equipment = user.equipment.all().values_list('name', flat=True)
+    strength_goals = list(user.strength_goals.all().values_list('name', flat=True))
+    equipment = list(user.equipment.all().values_list('name', flat=True))
     workout_days = user.workout_days
     workout_time = user.workout_time
     additional_goals = user.additional_goals
 
     # Log user data for debugging
     logger.info(f"Generating workout plan for user: {user.username}")
-    logger.info(f"Age: {age}, Sex: {sex}, Weight: {weight} kg, Height: {height} cm")
-    logger.info(f"Fitness Level: {fitness_level}")
-    logger.info(f"Strength Goals: {', '.join(strength_goals)}")
-    logger.info(f"Equipment: {', '.join(equipment) if equipment else 'None'}")
-    logger.info(f"Workout Days: {workout_days} days/week, Workout Time: {workout_time} minutes/session")
-    logger.info(f"Additional Goals: {additional_goals}")
+    logger.debug(f"Age: {age}, Sex: {sex}, Weight: {weight} kg, Height: {height} cm")
+    logger.debug(f"Fitness Level: {fitness_level}")
+    logger.debug(f"Strength Goals: {', '.join(strength_goals)}")
+    logger.debug(f"Equipment: {', '.join(equipment) if equipment else 'None'}")
+    logger.debug(f"Workout Days: {workout_days} days/week, Workout Time: {workout_time} minutes/session")
+    logger.debug(f"Additional Goals: {additional_goals}")
 
     # Incorporate user feedback for dynamic adjustments
     feedback_note = get_latest_feedback(user)
@@ -62,7 +112,7 @@ def generate_workout_plan(user):
         additional_goals=additional_goals,
         feedback_note=feedback_note
     )
-    logger.info(f"AI Prompt: {prompt}")
+    logger.debug(f"AI Prompt: {prompt}")
 
     try:
         # Initialize Replicate client with your API token
@@ -79,7 +129,7 @@ def generate_workout_plan(user):
         # Set the input parameters for the model
         inputs = {
             'prompt': prompt,
-            'temperature': 0.7,
+            'temperature': 0.5,  # Lowered for more deterministic output
             'max_new_tokens': 2500,  # Adjust as needed based on response length requirements
         }
 
@@ -90,32 +140,54 @@ def generate_workout_plan(user):
         )
 
         # Log the AI response
-        logger.info(f"Replicate AI Output: {output}")
+        logger.debug(f"Replicate AI Output: {output}")
 
-        # Parse the AI response
-        workout_plan = parse_ai_response(output)
+        # Handle output being a list or a string
+        if isinstance(output, list):
+            logger.debug("AI output is a list. Joining into a single string.")
+            output_str = ''.join(output)
+        elif isinstance(output, str):
+            output_str = output
+        else:
+            logger.error(f"Unexpected output type from AI: {type(output)}")
+            raise ValueError(f"Unexpected output type: {type(output)}")
 
-        # Save the workout plan to the database
-        WorkoutPlan.objects.create(
-            user=user,
-            plan_data=workout_plan
-        )
-        logger.info(f"Workout plan successfully generated and saved for user: {user.username}")
+        # Log the joined output
+        logger.debug(f"Joined AI Output: {output_str}")
 
-        return workout_plan
+        # Parse the AI response as JSON
+        try:
+            workout_plan = json.loads(output_str)
+            logger.debug(f"Parsed Workout Plan JSON: {json.dumps(workout_plan, indent=2)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON Decode Error: {e}")
+            raise ValueError(f"Invalid JSON format: {e}")
 
-    except replicate.ClientError as e:
-        logger.error(f"Replicate API Client Error: {e}", exc_info=True)
-        raise ReplicateServiceUnavailable(f"Replicate API Client Error: {e}")
-    except replicate.APIError as e:
+        # Validate the JSON structure
+        if validate_workout_plan(workout_plan):
+            # Save the workout plan to the database
+            WorkoutPlan.objects.create(
+                user=user,
+                plan_data=workout_plan
+            )
+            logger.info(f"Workout plan successfully generated and saved for user: {user.username}")
+
+            # Send the workout plan to a group or perform other actions
+            send_workout_plan_to_group(user, workout_plan)
+
+            return workout_plan
+        else:
+            raise ValueError("Transformed workout plan JSON does not adhere to the required schema.")
+
+    except replicate.exceptions.ReplicateError as e:
         logger.error(f"Replicate API Error: {e}", exc_info=True)
         raise ReplicateServiceUnavailable(f"Replicate API Error: {e}")
     except requests.exceptions.RequestException as e:
         logger.error(f"Network error while calling Replicate API: {e}", exc_info=True)
         raise ReplicateServiceUnavailable(f"Network error: {e}")
-    except json.JSONDecodeError as e:
-        logger.error(f"Error decoding AI response: {e}", exc_info=True)
-        raise ReplicateServiceUnavailable(f"Invalid response format from AI: {e}")
+    except ValueError as ve:
+        logger.error(f"Data parsing error: {ve}", exc_info=True)
+        raise ReplicateServiceUnavailable(f"Data parsing error: {ve}")
     except Exception as e:
         logger.error(f"Unexpected error generating workout plan: {e}", exc_info=True)
         raise  # Re-raise the exception to be handled by the calling function
@@ -123,78 +195,85 @@ def generate_workout_plan(user):
 def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equipment, workout_days, workout_time, additional_goals, feedback_note):
     """
     Creates a detailed prompt based on user's profile to generate a personalized workout plan.
-    Incorporates user feedback to adjust the next week's plan.
-
-    Args:
-        age (int): User's age.
-        sex (str): User's sex.
-        weight (float): User's weight in kg.
-        height (float): User's height in cm.
-        fitness_level (str): User's fitness level (experience).
-        strength_goals (list): List of user's strength goals.
-        equipment (list): List of available equipment.
-        workout_days (int): Number of workout days per week.
-        workout_time (int): Available time per workout session in minutes.
-        additional_goals (str): Any additional goals specified by the user.
-        feedback_note (str): Note based on user's latest feedback.
-
-    Returns:
-        str: The formatted prompt for the AI model.
+    Instructs the AI to return the plan in a predefined JSON format.
     """
     equipment_list = ', '.join(equipment) if equipment else 'None'
     strength_goals_list = ', '.join(strength_goals) if strength_goals else 'None'
 
     prompt = (
-        f"Create a personalized weekly workout plan for the following user:\n"
-        f"- **Age:** {age}\n"
-        f"- **Sex:** {sex}\n"
-        f"- **Weight:** {weight} kg\n"
-        f"- **Height:** {height} cm\n"
-        f"- **Fitness Level:** {fitness_level}\n"
-        f"- **Strength Goals:** {strength_goals_list}\n"
-        f"- **Additional Goals:** {additional_goals}\n"
-        f"- **Available Equipment:** {equipment_list}\n"
-        f"- **Workout Availability:** {workout_time} minutes per session, {workout_days} days per week\n\n"
+        f"Create a personalized weekly workout plan for the following user in strict JSON format. "
+        f"Ensure the JSON adheres exactly to the provided schema without any additional text or explanations.\n\n"
+        f"**User Profile:**\n"
+        f"- Age: {age}\n"
+        f"- Sex: {sex}\n"
+        f"- Weight: {weight} kg\n"
+        f"- Height: {height} cm\n"
+        f"- Fitness Level: {fitness_level}\n"
+        f"- Strength Goals: {strength_goals_list}\n"
+        f"- Additional Goals: {additional_goals}\n"
+        f"- Available Equipment: {equipment_list}\n"
+        f"- Workout Availability: {workout_time} minutes per session, {workout_days} days per week\n\n"
         f"**Feedback:** {feedback_note}\n\n"
         f"**Requirements:**\n"
         f"1. Adjust the number of exercises, sets, and reps based on the user's available time.\n"
-        f"2. Incorporate cardio exercises using the available equipment (e.g., rowing machine, treadmill, ergo bike) or generic cardio equipment if specific ones are not available.\n"
+        f"2. Incorporate cardio exercises using the available equipment or generic cardio equipment if specific ones are not available.\n"
         f"3. Tailor the intensity and complexity of exercises based on the user's fitness level, age, and sex.\n"
         f"4. Vary the workout plan weekly based on user feedback and progression.\n\n"
+        f"5. Present at least 4 exercises for each day of the week.\n\n"
+        f"6. Users with more time availblkw will have more exercises or/and more sets/reps.\n\n"
         f"**Instructions for Each Exercise:**\n"
-        f"Ensure that each exercise includes a detailed, step-by-step explanation on how to perform it correctly and safely.\n\n"
-        f"**Format:** Provide the plan in Markdown with clear sections for each day, including:\n"
-        f"- **Exercise Name**\n"
-        f"- **Sets and Reps**\n"
-        f"- **Equipment Required**\n"
-        f"- **Instructions** (detailed execution steps)\n\n"
-        f"Ensure the plan is balanced, targeting different muscle groups, and includes rest days as necessary."
+        f"Provide detailed, step-by-step instructions on how to perform each exercise correctly and safely.\n\n"
+        f"**JSON Schema:**\n"
+        f"```json\n"
+        f"{{\n"
+        f"  \"workoutDays\": [\n"
+        f"    {{\n"
+        f"      \"day\": \"Day 1: Chest and Triceps\",\n"
+        f"      \"duration\": \"60 minutes\",\n"
+        f"      \"exercises\": [\n"
+        f"        {{\n"
+        f"          \"name\": \"Barbell Bench Press\",\n"
+        f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
+        f"          \"equipment\": \"Barbell, Bench\",\n"
+        f"          \"instructions\": \"Lie on the bench with your feet planted firmly on the ground. Grip the barbell slightly wider than shoulder-width apart. Lower the barbell to your chest while inhaling, then press it back up while exhaling. Maintain a steady pace and control throughout the movement.\"\n"
+        f"        }},\n"
+        f"        {{\n"
+        f"          \"name\": \"Tricep Pushdown\",\n"
+        f"          \"setsReps\": \"3 sets of 12-15 reps\",\n"
+        f"          \"equipment\": \"Cable Machine\",\n"
+        f"          \"instructions\": \"Attach a straight bar to the high pulley of the cable machine. Grasp the bar with an overhand grip, keeping your elbows close to your body. Push the bar down until your arms are fully extended, then slowly return to the starting position.\"\n"
+        f"        }}\n"
+        f"      ]\n"
+        f"    }},\n"
+        f"    {{\n"
+        f"      \"day\": \"Day 2: Back and Biceps\",\n"
+        f"      \"duration\": \"60 minutes\",\n"
+        f"      \"exercises\": [\n"
+        f"        {{\n"
+        f"          \"name\": \"Deadlifts\",\n"
+        f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
+        f"          \"equipment\": \"Barbell\",\n"
+        f"          \"instructions\": \"Stand with your feet shoulder-width apart, gripping the barbell with your hands shoulder-width apart. Keeping your back straight and your core engaged, lift the barbell off the ground. Stand up, squeezing your glutes and pushing your hips back. Lower the barbell to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
+        f"        }},\n"
+        f"        {{\n"
+        f"          \"name\": \"Bicep Curl\",\n"
+        f"          \"setsReps\": \"3 sets of 10-12 reps\",\n"
+        f"          \"equipment\": \"Dumbbells\",\n"
+        f"          \"instructions\": \"Stand with your feet shoulder-width apart, holding a dumbbell in each hand with your palms facing forward. Curl the dumbbells up towards your shoulders, keeping your upper arms still. Lower the dumbbells to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
+        f"        }}\n"
+        f"      ]\n"
+        f"    }}\n"
+        f"  ],\n"
+        f"  \"additionalTips\": [\n"
+        f"    \"Ensure proper form to prevent injuries.\",\n"
+        f"    \"Stay hydrated throughout your workouts.\"\n"
+        f"  ]\n"
+        f"}}\n"
+        f"```\n\n"
+        f"**Provide only the JSON response without any additional explanations or text.**"
     )
 
     return prompt
-
-def parse_ai_response(ai_response):
-    """
-    Parses the AI response to extract the workout plan.
-
-    Args:
-        ai_response (str or list): The raw output from the AI model.
-
-    Returns:
-        dict: A dictionary containing the parsed workout plan.
-    """
-    if isinstance(ai_response, list):
-        # Join the list of strings if the response is a list
-        workout_plan_text = ''.join(ai_response).strip()
-    elif isinstance(ai_response, str):
-        workout_plan_text = ai_response.strip()
-    else:
-        workout_plan_text = 'No workout plan generated.'
-
-    # Optionally, you can implement more sophisticated parsing here
-    # For now, we'll assume the AI returns a Markdown-formatted string
-
-    return {'plan': workout_plan_text}
 
 def get_latest_feedback(user):
     """
@@ -230,3 +309,31 @@ def get_latest_feedback(user):
         feedback_note = "No feedback available. Create a balanced workout plan."
 
     return feedback_note
+
+def send_workout_plan_to_group(user, workout_plan):
+    """
+    Sends the workout plan to the user's group via Channels.
+
+    Args:
+        user: A User object.
+        workout_plan (dict): The workout plan data.
+    """
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer is None:
+            logger.error("Channel layer is not configured.")
+            return
+
+        group_name = f'workout_plan_{user.id}'
+
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                'type': 'workout_plan_generated',
+                'plan_data': workout_plan, 
+            }
+        )
+        logger.info(f"Workout plan sent to group: {group_name}")
+    except Exception as e:
+        logger.error(f"Error sending workout plan to group: {e}", exc_info=True)
+        raise

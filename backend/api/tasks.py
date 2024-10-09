@@ -1,5 +1,6 @@
 # backend/api/tasks.py
 
+import json  # Ensure json is imported
 from celery import shared_task, Celery
 from celery.schedules import crontab
 from celery.exceptions import MaxRetriesExceededError
@@ -22,7 +23,7 @@ def generate_workout_plan_task(self, user_id):
         user = User.objects.get(id=user_id)
         
         # Log user instance
-        logger.info(f"User instance retrieved: {user}")
+        logger.info(f"User instance retrieved: {user.username}")
         logger.info(f"Sex: {user.sex}")
 
         # Load the Replicate API token from environment variables
@@ -39,8 +40,13 @@ def generate_workout_plan_task(self, user_id):
             logger.error(f"Failed to generate workout plan for user {user.username}.")
             return
 
+        # Verify that workout_plan_data adheres to the expected JSON structure
+        if not isinstance(workout_plan_data, dict):
+            logger.error(f"Workout plan data is not a dictionary: {workout_plan_data}")
+            raise ValueError("Invalid workout plan data format.")
+
         # Log the generated workout plan data
-        logger.info(f"Workout Plan Data: {workout_plan_data}")
+        logger.info(f"Workout Plan Data: {json.dumps(workout_plan_data, indent=2)}")
 
         # Create or update the WorkoutPlan instance
         workout_plan, created = WorkoutPlan.objects.update_or_create(
@@ -78,11 +84,13 @@ def generate_workout_plan_task(self, user_id):
             logger.error(f"Max retries exceeded for user_id {user_id}")
     except User.DoesNotExist:
         logger.error(f"User with ID {user_id} does not exist.")
+    except ValueError as ve:
+        logger.error(f"ValueError: {ve}", exc_info=True)
     except Exception as e:
         logger.error(f"Error generating workout plan for user_id {user_id}: {str(e)}", exc_info=True)
 
-
 app = Celery('myfitnessapp')
+
 @shared_task
 def update_weekly_workout_plans():
     users = User.objects.all()

@@ -1,172 +1,257 @@
 /* src/components/LogSessionForm.css */
 
 .log-session-form {
-    background-color: #f9f9f9;
-    padding: 20px;
-    border-radius: 5px;
-    max-width: 600px;
-    margin: 20px auto; /* Added top and bottom margin for spacing */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Optional: Adds a subtle shadow */
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 5px;
+  max-width: 600px; /* Increased max-width for better display of tables */
+  margin: 20px auto; /* Added top and bottom margin for spacing */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Optional: Adds a subtle shadow */
+}
+
+.log-session-form h3 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.error {
+  color: red;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.success {
+  color: green;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.log-session-form form {
+  display: flex;
+  flex-direction: column;
+}
+
+.log-session-form label {
+  margin-bottom: 15px;
+  font-weight: bold;
+  display: block;
+  color: #333;
+}
+
+.log-session-form input[type="date"],
+.log-session-form select,
+.log-session-form textarea {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.log-session-form textarea {
+  resize: vertical;
+  min-height: 100px; /* Increased height */
+}
+
+.emoji-feedback-container {
+  margin-bottom: 15px;
+}
+
+.emoji-feedback-label {
+  font-weight: bold;
+  margin-bottom: 10px;
+  display: block;
+  color: #333;
+}
+
+.emoji-options {
+  display: flex;
+  justify-content: space-between; /* Evenly space emojis */
+  align-items: center;
+  flex-wrap: wrap; /* Allows wrapping on smaller screens */
+}
+
+.emoji-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 3rem; /* Increased emoji size */
+  padding: 10px;
+  transition: transform 0.2s, background-color 0.2s;
+  position: relative; /* For tooltip positioning */
+}
+
+.emoji-button:hover,
+.emoji-button:focus {
+  transform: scale(1.2);
+  background-color: #e0e0e0;
+  border-radius: 50%;
+  outline: none;
+}
+
+.emoji-button.selected {
+  background-color: #4caf50;
+  border-radius: 50%;
+}
+
+.emoji {
+  display: inline-block;
+}
+
+.comments-section {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.comments-section label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #333;
+}
+
+.comments-section textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+  min-height: 100px; /* Increased size */
+  box-sizing: border-box;
+}
+
+button[type="submit"] {
+  padding: 10px 15px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+button[type="submit"]:hover {
+  background-color: #45a049;
+}
+
+button[type="submit"]:disabled {
+  background-color: #9e9e9e;
+  cursor: not-allowed;
+}
+
+.workout-plan-details {
+  margin-top: 30px;
+}
+
+.workout-plan-details h2 {
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.workout-day {
+  margin-bottom: 30px;
+}
+
+.workout-day-title {
+  color: black; /* Sets the title color to black */
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+}
+
+table th,
+table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+}
+
+table th {
+  text-align: right; /* Aligns header text to the right */
+  vertical-align: top; /* Aligns header text to the top */
+  background-color: #f2f2f2; /* Light gray background for headers */
+  color: #333;
+}
+
+table td {
+  text-align: left; /* Aligns cell text to the left */
+  vertical-align: top; /* Aligns cell content to the top */
+  color: #555;
+}
+
+.exercise-name {
+  color: black; /* Sets the exercise name color to black */
+  text-decoration: none; /* Removes any text decoration */
+}
+
+.additional-tips {
+  margin-top: 20px;
+}
+
+.additional-tips h3 {
+  color: black;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.additional-tips ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  color: #555;
+}
+
+@media (max-width: 800px) {
+  .log-session-form {
+    max-width: 100%;
+    margin: 10px;
   }
-  
-  .log-session-form h3 {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  
-  .log-session-form form {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .log-session-form label {
-    margin-bottom: 5px;
-    font-weight: bold;
-    display: block;
-  }
-  
-  .log-session-form input[type="date"],
-  .log-session-form select,
-  .log-session-form textarea {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-  }
-  
-  .log-session-form textarea {
-    resize: vertical;
-    min-height: 100px; /* Increased height */
-  }
-  
-  .emoji-feedback-container {
-    margin-bottom: 15px;
-  }
-  
-  .emoji-feedback-label {
-    font-weight: bold;
-    margin-bottom: 10px;
-    display: block;
-  }
-  
+
   .emoji-options {
-    display: flex;
-    justify-content: space-between; /* Evenly space emojis */
-    align-items: center;
+    justify-content: center; /* Center emojis on smaller screens */
   }
-  
+
   .emoji-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 3rem; /* Increased emoji size */
-    padding: 10px;
-    transition: transform 0.2s, background-color 0.2s;
-    position: relative; /* For tooltip positioning */
+    font-size: 2.5rem; /* Slightly reduced size for smaller screens */
+    margin: 5px;
   }
-  
-  .emoji-button:hover,
-  .emoji-button:focus {
-    transform: scale(1.2);
-    background-color: #e0e0e0;
-    border-radius: 50%;
-    outline: none;
+
+  table th,
+  table td {
+    padding: 8px;
   }
-  
-  .emoji-button.selected {
-    background-color: #4caf50;
-    border-radius: 50%;
-  }
-  
-  .emoji {
-    display: inline-block;
-  }
-  
-  .comments-section {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 15px;
-  }
-  
-  .comments-section label {
-    margin-bottom: 5px;
-  }
-  
-  .comments-section textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    resize: vertical;
-    min-height: 100px; /* Increased size */
-    box-sizing: border-box;
-  }
-  
-  .error {
-    color: red;
-    margin-bottom: 15px;
-    text-align: center;
-  }
-  
-  .success {
-    color: green;
-    margin-bottom: 15px;
-    text-align: center;
-  }
-  
-  button[type="submit"] {
-    padding: 10px 15px;
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-  }
-  
-  button[type="submit"]:disabled {
-    background-color: #9e9e9e;
-    cursor: not-allowed;
-  }
-  
-  @media (max-width: 600px) {
-    .emoji-options {
-      flex-wrap: wrap;
-      justify-content: center; /* Center emojis on small screens */
-    }
-  
-    .emoji-button {
-      font-size: 2.5rem; /* Slightly reduced size for smaller screens */
-      margin: 5px;
-    }
-  }
-  
-  /* Tooltip Styling */
-  .emoji-button::after {
-    content: attr(title);
-    visibility: hidden;
-    opacity: 0;
-    width: max-content;
-    background-color: #555;
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px 8px;
-    position: absolute;
-    z-index: 1;
-    bottom: 125%; /* Position above the emoji */
-    left: 50%;
-    transform: translateX(-50%);
-    transition: opacity 0.3s;
-    white-space: nowrap;
-    font-size: 0.8rem;
-  }
-  
-  .emoji-button:hover::after,
-  .emoji-button:focus::after {
-    visibility: visible;
-    opacity: 1;
-  }
-  
+}
+
+/* Tooltip Styling */
+.emoji-button::after {
+  content: attr(title);
+  visibility: hidden;
+  opacity: 0;
+  width: max-content;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 8px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%; /* Position above the emoji */
+  left: 50%;
+  transform: translateX(-50%);
+  transition: opacity 0.3s;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.emoji-button:hover::after,
+.emoji-button:focus::after {
+  visibility: visible;
+  opacity: 1;
+}

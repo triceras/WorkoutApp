@@ -84,10 +84,9 @@ class WorkoutPlan(models.Model):
     )
     plan_data = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
-    # Store plan details as JSON
 
     def __str__(self):
-        return f"Workout Plan {self.id} for {self.user.username}"
+        return f"Workout Plan for {self.user.username} on {self.created_at.strftime('%Y-%m-%d')}"
 
 class WorkoutLog(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

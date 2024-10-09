@@ -1,11 +1,268 @@
-/* src/pages/Dashboard.css */
+/* src/components/WorkoutPlan.css */
+
+/* Container for the entire workout plan */
+.workout-plan-container {
+  padding: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.workout-plan-container h3 {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #333; /* Changed from #007BFF to black */
+}
+
+.workout-plan-container p {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #555;
+}
+
+/* Workout Days Container */
+.workout-days {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Individual Workout Day */
+.workout-day {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #fff;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.workout-day:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Day Cell Styling */
+.day-cell {
+  background-color: #f0f8ff;
+  padding: 20px;
+  flex: 0 0 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid #ccc;
+  border-radius: 8px 0 0 8px;
+  transition: background-color 0.3s ease;
+}
+
+.workout-day:hover .day-cell {
+  background-color: #e6f2ff;
+}
+
+.day-cell h4 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #000; /* Changed from #007BFF to black */
+}
+
+.day-cell .duration {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+/* Workout Cell Styling */
+.workout-cell {
+  padding: 20px;
+  flex: 1;
+  background-color: #fff0f5;
+  transition: background-color 0.3s ease;
+}
+
+.workout-cell p {
+  display: flex; /* Enable Flexbox */
+  align-items: flex-start; /* Align items to the top */
+  margin: 10px 0;
+  color: #555;
+}
+
+.workout-cell p strong {
+  color: #333;
+  /* Align labels to the left with fixed width */
+  display: inline-block;
+  width: 150px; /* Adjust width as needed */
+  text-align: left; /* Ensure text is left-aligned */
+  margin-right: 10px; /* Space between label and text */
+}
+
+/* Exercises Container */
+.exercises-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Individual Exercise */
+.exercise-item {
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #fafafa;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.exercise-item:hover {
+  background-color: #f0f0f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer; /* Cursor changes to pointer on hover */
+}
+
+.exercise-item h5 {
+  margin: 0 0 10px 0;
+  /* Removed existing color and font-size to prevent conflicts */
+}
+
+/* New class for exercise names */
+.exercise-name {
+  color: #000; /* Black color */
+  font-size: 1.5rem; /* Increased font size */
+  margin-bottom: 10px;
+}
+
+/* Additional Tips Section */
+.additional-tips {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #e6ffe6;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.additional-tips:hover {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+}
+
+.additional-tips h4 {
+  margin-top: 0;
+  color: #28a745;
+}
+
+.additional-tips ul {
+  list-style-type: disc;
+  padding-left: 20px;
+}
+
+.additional-tips li {
+  margin-bottom: 10px;
+  color: #555;
+}
+
+/* Error Message Styling */
+.error-message {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #dc3545;
+  margin-top: 50px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .workout-day {
+    flex-direction: column;
+  }
+
+  .day-cell {
+    border-right: none;
+    border-bottom: 1px solid #ccc;
+    border-radius: 8px 8px 0 0;
+    width: 100%;
+  }
+
+  .workout-cell {
+    flex: 1 1 100%;
+    border-radius: 0 0 8px 8px;
+  }
+
+  .exercise-item {
+    padding: 10px;
+  }
+
+  .exercise-name {
+    font-size: 1.3rem; /* Slightly reduced size for smaller screens */
+  }
+
+  .workout-plan-container p {
+    font-size: 0.95rem;
+  }
+
+  .workout-plan-container h3 {
+    font-size: 1.8rem;
+  }
+
+  .day-cell h4 {
+    font-size: 1rem;
+  }
+
+  .additional-tips h4 {
+    font-size: 1.2rem;
+  }
+
+  /* Adjust label width for smaller screens */
+  .workout-cell p strong {
+    width: 100%; /* Stack labels above values */
+    margin-bottom: 5px;
+  }
+}
+
+/* Welcome Message Styling */
+.welcome-message {
+  font-size: 2rem; /* Adjust the font size as needed */
+  color: #333; /* Dark color for better readability */
+  text-align: center; /* Center the welcome message */
+  margin-bottom: 20px; /* Space below the welcome message */
+  font-weight: bold; /* Make the text bold */
+}
+
+/* Responsive Adjustment for Smaller Screens */
+@media (max-width: 768px) {
+  .welcome-message {
+    font-size: 1.5rem; /* Slightly smaller font size on smaller screens */
+    margin-bottom: 15px; /* Adjust margin as needed */
+  }
+}
+
+/* Dashboard Container Styling */
+.dashboard-container {
+  padding: 20px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  min-height: 100vh; /* Ensure the dashboard takes full viewport height */
+  box-sizing: border-box; /* Include padding in the element's total width and height */
+  margin-top: 60px; /* Add space at the top */
+}
 
 .dashboard-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-    padding-top: 80px; /* Adjust based on Navbar height (60px + extra spacing) */
-  }
-  
-  /* Optional: Additional styles for dashboard content */
-  
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.no-workout-plans {
+  text-align: center;
+  color: #555;
+  font-size: 1.1rem;
+  margin-top: 20px;
+}
+
+/* Additional Styling for Loading and Error States */
+.dashboard-loading {
+  text-align: center;
+  font-size: 1.5rem;
+  color: #555;
+  margin-top: 50px;
+}
