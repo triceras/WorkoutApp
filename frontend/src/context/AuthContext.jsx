@@ -20,6 +20,8 @@ export const AuthProvider = ({ children }) => {
           setAuthToken(null);
           localStorage.removeItem('authToken');
         }
+      } else {
+        setUser(null);
       }
       setLoading(false);
     };

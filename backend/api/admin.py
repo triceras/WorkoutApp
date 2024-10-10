@@ -1,8 +1,7 @@
 # api/admin.py
 
 from django.contrib import admin
-from .models import User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog
-
+from .models import User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, TrainingSession
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -29,4 +28,14 @@ class ExerciseLogAdmin(admin.ModelAdmin):
     list_display = ('workout_log', 'exercise', 'sets', 'reps', 'weight')
     search_fields = ('workout_log__user__username', 'exercise__name')
 
-# Remove or comment out UserProfileAdmin if it exists
+@admin.register(TrainingSession)
+class TrainingSessionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'workout_plan', 'date', 'comments')  # Changed 'notes' to 'comments'
+    list_filter = ('user', 'workout_plan', 'date')
+    search_fields = ('user__username', 'comments')  # Removed 'workout_plan__name'
+
+# @admin.register(SessionFeedback)
+# class SessionFeedbackAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'training_session', 'user', 'date', 'session_name', 'emoji_feedback') 
+#     list_filter = ('date', 'user')
+#     search_fields = ('training_session__user__username', 'session_name')

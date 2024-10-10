@@ -1,9 +1,11 @@
 // src/components/LogSessionForm.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import './LogSessionForm.css';
 import PropTypes from 'prop-types';
+import Notification from './Notification';
+import { AuthContext } from '../context/AuthContext'; // Import AuthContext
 
 // Define the fixed emojis with corresponding values and descriptions
 const EMOJIS = [
@@ -16,6 +18,10 @@ const EMOJIS = [
 ];
 
 const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
+  // Get the username from AuthContext
+  const { user } = useContext(AuthContext);
+  const username = user && user.username ? user.username : '';
+
   // State variables
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [workoutPlanId, setWorkoutPlanId] = useState(
@@ -29,6 +35,17 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(false);
+
+  // Effect to clear success message after a delay
+  useEffect(() => {
+    let timer;
+    if (successMessage) {
+      timer = setTimeout(() => {
+        setSuccessMessage('');
+      }, 5000); // Message disappears after 5 seconds
+    }
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   // Fetch sessions when workoutPlanId changes
   useEffect(() => {
@@ -97,8 +114,8 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         workout_plan_id: workoutPlanId,
         date,
         session_name: selectedSession,
-        emoji_feedback: emojiFeedback,
-        comments: comments, // Include comments
+        emoji_feedback: parseInt(emojiFeedback, 10),
+        comments: comments,
       });
       console.log('Session logged:', response.data);
       onSessionLogged(response.data);
@@ -150,11 +167,11 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
             onChange={(e) => setWorkoutPlanId(e.target.value)}
             required
           >
-            {workoutPlans.map((plan) => (
-              <option key={plan.id} value={plan.id}>
-                {plan.user
-                  ? `Workout Plan for ${plan.user.username}`
-                  : `Workout Plan ${plan.id}`}
+            {workoutPlans.map((plan, index) => (
+              <option key={`plan-${plan.id || index}`} value={plan.id}>
+                {username
+                  ? `Workout Plan for ${username}`
+                  : `Workout Plan ${plan.id || index}`}
               </option>
             ))}
           </select>
@@ -173,7 +190,7 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
               required
             >
               {sessions.map((session, index) => (
-                <option key={`${session.day}-${index}`} value={session.day}>
+                <option key={`session-${index}`} value={session.day}>
                   {session.day}
                 </option>
               ))}
@@ -239,26 +256,7 @@ LogSessionForm.propTypes = {
   workoutPlans: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.number.isRequired,
-      user: PropTypes.shape({
-        username: PropTypes.string.isRequired,
-      }),
-      plan_data: PropTypes.shape({
-        workoutDays: PropTypes.arrayOf(
-          PropTypes.shape({
-            day: PropTypes.string.isRequired,
-            duration: PropTypes.string.isRequired,
-            exercises: PropTypes.arrayOf(
-              PropTypes.shape({
-                name: PropTypes.string.isRequired,
-                setsReps: PropTypes.string.isRequired,
-                equipment: PropTypes.string.isRequired,
-                instructions: PropTypes.string.isRequired,
-              })
-            ).isRequired,
-          })
-        ).isRequired,
-        additionalTips: PropTypes.arrayOf(PropTypes.string).isRequired,
-      }).isRequired,
+      plan_data: PropTypes.object.isRequired,
     })
   ).isRequired,
   onSessionLogged: PropTypes.func.isRequired,

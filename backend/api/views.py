@@ -9,7 +9,10 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.db.models import Avg, Count
-from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, SessionFeedback, TrainingSession, SessionFeedback, StrengthGoal, Equipment
+from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, TrainingSession, StrengthGoal, Equipment
+from .tasks import process_feedback_submission_task
+
+
 from .serializers import (
     ExerciseSerializer,
     WorkoutPlanSerializer,
@@ -18,9 +21,7 @@ from .serializers import (
     WorkoutSessionSerializer,
     UserSerializer,
     UserRegistrationSerializer,
-    SessionFeedbackSerializer,
     TrainingSessionSerializer,
-    SessionFeedbackSerializer,
     StrengthGoalSerializer,
     EquipmentSerializer
 )
@@ -163,30 +164,9 @@ class CustomAuthToken(ObtainAuthToken):
 # @api_view(['POST'])
 # @permission_classes([AllowAny])
 # def register_user(request):
-#     serializer = UserSerializer(data=request.data)
-#     if serializer.is_valid():
-#         try:
-#             user = serializer.save()
-#             # Log user ID
-#             logger.info(f"Invoking generate_workout_plan_task for user ID: {user.id}")
-
-#             # Enqueue the workout plan generation task
-#             generate_workout_plan_task.delay(user.id)
-
-#             # Create token for the new user
-#             token, created = Token.objects.get_or_create(user=user)
-#             logger.info(f"Token created for user: {user.username}")
-
-#             return Response({
-#                 'token': token.key,
-#                 'user': UserSerializer(user).data,
-#                 'message': 'Registration successful. Your workout plan is being generated. Please wait.'
-#             }, status=status.HTTP_201_CREATED)
-#         except IntegrityError as e:
-#             logger.error(f"IntegrityError during registration: {str(e)}", exc_info=True)
-#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-#     logger.warning(f"Registration failed. Errors: {serializer.errors}")
-#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     # ... registration logic ...
+#     # Removed SessionFeedback related code
+#     pass
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -202,8 +182,6 @@ def check_workout_plan_status(request):
             'status': 'pending',
             'message': 'Your workout plan is being generated. Please wait.'
         }, status=status.HTTP_200_OK)
-
-
 
 @api_view(['GET'])  # Changed from 'POST' to 'GET'
 @permission_classes([IsAuthenticated])
@@ -221,6 +199,25 @@ def logout_user(request):
         logger.error(f"Error during logout for user {request.user.username}: {str(e)}", exc_info=True)
         return Response({'detail': 'Error during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response(status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def user_progression(request):
+    user = request.user
+    total_sessions = TrainingSession.objects.filter(user=user).count()
+    average_feedback = TrainingSession.objects.filter(user=user).aggregate(Avg('emoji_feedback'))['emoji_feedback__avg']
+    feedback_count = TrainingSession.objects.filter(user=user, emoji_feedback__isnull=False).count()
+
+    # Additional progression metrics can be calculated here
+
+    progression_data = {
+        'total_sessions': total_sessions,
+        'average_feedback': average_feedback,
+        'feedback_count': feedback_count,
+        # Include other metrics as needed
+    }
+
+    return Response(progression_data)
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
@@ -291,56 +288,19 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return TrainingSession.objects.filter(user=self.request.user)
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            training_session = serializer.save(user=self.request.user)
+            logger.info(f"Training session created for user {self.request.user.username}: Session ID {training_session.id}")
+            # Trigger the Celery task to process feedback
+            process_feedback_submission_task.delay(training_session.id)
 
-    @action(detail=True, methods=['post', 'get'])
-    def feedback(self, request, pk=None):
-        session = self.get_object()
-        if request.method == 'POST':
-            serializer = SessionFeedbackSerializer(
-                data=request.data,
-                context={'request': request, 'session': session}
-            )
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            logger.warning(f"Validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        elif request.method == 'GET':
-            try:
-                feedback = SessionFeedback.objects.get(session=session)
-                serializer = SessionFeedbackSerializer(feedback)
-                return Response(serializer.data)
-            except SessionFeedback.DoesNotExist:
-                return Response({'detail': 'No feedback found for this session.'}, status=status.HTTP_404_NOT_FOUND)
-
-class SessionFeedbackViewSet(viewsets.ModelViewSet):
-    queryset = SessionFeedback.objects.all()
-    serializer_class = SessionFeedbackSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-        
-
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def user_progression(request):
-    user = request.user
-    total_sessions = TrainingSession.objects.filter(user=user).count()
-    average_rating = SessionFeedback.objects.filter(session__user=user).aggregate(Avg('rating'))['rating__avg']
-    feedback_count = SessionFeedback.objects.filter(session__user=user).count()
-
-    # Additional progression metrics can be calculated here
-
-    progression_data = {
-        'total_sessions': total_sessions,
-        'average_rating': average_rating,
-        'feedback_count': feedback_count,
-        # Include other metrics as needed
-    }
-
-    return Response(progression_data)
 
 class StrengthGoalViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StrengthGoal.objects.all()

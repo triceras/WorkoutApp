@@ -3,7 +3,7 @@
 from rest_framework import serializers
 from .models import (
     User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog,
-    WorkoutSession, SessionFeedback, TrainingSession,
+    WorkoutSession, TrainingSession,
     StrengthGoal, Equipment
 )
 from django.contrib.auth import get_user_model
@@ -198,35 +198,32 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         return user
 
-class SessionFeedbackSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SessionFeedback
-        fields = ['id', 'user', 'training_session', 'session_name', 'emoji_feedback']
-        read_only_fields = ['id', 'user']
 
-    def create(self, validated_data):
-        request = self.context.get('request')
-        session_id = self.context.get('session_id')
-        session = TrainingSession.objects.get(id=session_id, user=request.user)
-        feedback, created = SessionFeedback.objects.update_or_create(
-            session=session,
-            defaults=validated_data
-        )
-        return feedback
-    
 class TrainingSessionSerializer(serializers.ModelSerializer):
     workout_plan = WorkoutPlanSerializer(read_only=True)
-    feedback = SessionFeedbackSerializer(read_only=True)
     workout_plan_id = serializers.PrimaryKeyRelatedField(
         queryset=WorkoutPlan.objects.all(),
         source='workout_plan',
         write_only=True,
         required=False
     )
-
+    emoji_feedback = serializers.ChoiceField(
+        choices=TrainingSession.EMOJI_FEEDBACK_CHOICES, 
+        required=False
+    )
     class Meta:
         model = TrainingSession
-        fields = ['id', 'user', 'date', 'workout_plan', 'workout_plan_id', 'feedback', 'session_name', 'emoji_feedback']
+        fields = [
+            'id',
+            'user',
+            'date',
+            'workout_plan',
+            'workout_plan_id',
+            'session_name',
+            'week_number',
+            'emoji_feedback',
+            'comments'
+        ]
         read_only_fields = ['user', 'created_at']
 
     def create(self, validated_data):
@@ -234,5 +231,4 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         user = request.user
         validated_data['user'] = user
         return super().create(validated_data)
-
 

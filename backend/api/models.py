@@ -1,5 +1,6 @@
 # backend/api/models.py
 
+from typing import Any
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
@@ -82,6 +83,7 @@ class WorkoutPlan(models.Model):
         on_delete=models.CASCADE,
         related_name='workout_plans'  # Allows reverse lookup
     )
+    week_number = models.PositiveIntegerField(default=1)
     plan_data = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -118,13 +120,19 @@ class TrainingSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateField(default=timezone.now)
     workout_plan = models.ForeignKey(WorkoutPlan, on_delete=models.CASCADE)
-
-class SessionFeedback(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
-    training_session = models.OneToOneField('TrainingSession', on_delete=models.CASCADE, null=True, blank=True)
-    date = models.DateField(default=timezone.now)
-    session_name = models.CharField(max_length=255, null=True, blank=True)
-    emoji_feedback = models.CharField(max_length=10, null=True, blank=True)  # Emojis are Unicode characters
-
+    comments = models.TextField(blank=True, null=True)
+    session_name = models.CharField(max_length=100, blank=True, null=True)
+    week_number = models.PositiveIntegerField(null=True, blank=True)
+    EMOJI_FEEDBACK_CHOICES = [
+        (0, '😞 Terrible'),
+        (1, '😟 Very Bad'),
+        (2, '😐 Bad'),
+        (3, '🙂 Okay'),
+        (4, '😃 Good'),
+        (5, '😄 Awesome'),
+    ]
+    emoji_feedback = models.IntegerField(choices=EMOJI_FEEDBACK_CHOICES, null=True, blank=True)
+    
     def __str__(self):
-        return f"{self.user.username} - {self.session_name or 'Session'} on {self.date}"
+        return f"{self.user.username} - {self.workout_plan} on {self.date}"
+

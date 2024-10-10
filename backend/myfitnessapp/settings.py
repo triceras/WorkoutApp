@@ -2,10 +2,12 @@
 
 from pathlib import Path
 import os
+import environ
 from dotenv import load_dotenv  # Ensure python-dotenv is installed
 from django.conf import settings
 from django.conf.urls.static import static
 import logging.config
+from celery.schedules import crontab
 
 # Load environment variables from .env
 load_dotenv()
@@ -47,6 +49,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'channels',
     'django_extensions',
+    'csp',
 ]
 
 MIDDLEWARE = [
@@ -88,11 +91,11 @@ ASGI_APPLICATION = "myfitnessapp.asgi.application"  # For Channels
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'fitnessdb',
-        'USER': 'rafael',
-        'PASSWORD': '1234',
-        'HOST': 'localhost',
-        'PORT': '5432',  # Default PostgreSQL port
+        'NAME': os.getenv('DATABASE_NAME', 'fitnessdb'),
+        'USER': os.getenv('DATABASE_USER', 'rafael'),
+        'PASSWORD': os.getenv('DATABASE_PASSWORD', '1234'),
+        'HOST': os.getenv('DATABASE_HOST', 'localhost'),
+        'PORT': os.getenv('DATABASE_PORT', '5432'),
     }
 }
 
@@ -123,7 +126,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# In development, you typically don't need to set STATIC_ROOT.
+# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Only for production
+
+DEBUG = True
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -206,6 +215,9 @@ LOGGING = {
     },
 }
 
+LOGGING['handlers']['file']['filename'] = os.path.join(BASE_DIR, 'logs', 'django.log')
+os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
+
 AUTH_USER_MODEL = 'api.User'
 
 # Celery Configuration Options
@@ -215,6 +227,14 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+# CELERY_BEAT_SCHEDULE = {
+#     'send-feedback-every-monday-morning': {
+#         'task': 'api.tasks.process_feedback_submission_task',
+#         'schedule': crontab(hour=0, minute=0, day_of_week=1),  # Every Monday at 00:00 UTC
+#     },
+# }
+
 
 CHANNEL_LAYERS = {
     "default": {
@@ -236,3 +256,16 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+
+env = environ.Env(
+    DEBUG=(bool, False)
+)
+
+# Read .env file
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+REPLICATE_API_TOKEN = env('REPLICATE_API_TOKEN')
+
+if DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

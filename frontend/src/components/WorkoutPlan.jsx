@@ -4,7 +4,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import './WorkoutPlan.css'; // Ensure this path is correct
 
-function WorkoutPlan({ workoutData }) {
+function WorkoutPlan({ workoutData, username }) {
   if (!workoutData || Object.keys(workoutData).length === 0) {
     console.error('Invalid plan data:', workoutData);
     return <div className="error-message">No workout days found in the plan.</div>;
@@ -29,14 +29,14 @@ function WorkoutPlan({ workoutData }) {
 
   return (
     <div className="workout-plan-container">
-      <h3>Your Personalized Weekly Workout Plan</h3>
+      <h3>Your Personalized Weekly Workout Plan{username ? ` for ${username}` : ''}</h3>
       <p>
         Based on your inputs, we've created a personalized weekly workout plan to help you build muscle. Please find the plan below:
       </p>
 
       {workoutDays && workoutDays.length > 0 ? (
-        workoutDays.map((day, index) => (
-          <div className="workout-day" key={index}>
+        workoutDays.map((day) => (
+          <div className="workout-day" key={day.day}>
             <div className="day-cell">
               <h4>{day.day}</h4>
               <span className="duration">{day.duration}</span>
@@ -44,8 +44,8 @@ function WorkoutPlan({ workoutData }) {
             <div className="workout-cell">
               {day.exercises && day.exercises.length > 0 ? (
                 <div className="exercises-container">
-                  {day.exercises.map((exercise, idx) => (
-                    <div className="exercise-item" key={idx}>
+                  {day.exercises.map((exercise) => (
+                    <div className="exercise-item" key={exercise.name}>
                       <h5 className="exercise-name">{exercise.name}</h5>
                       {exercise.setsReps && (
                         <div className="exercise-detail">
@@ -87,8 +87,8 @@ function WorkoutPlan({ workoutData }) {
         <div className="additional-tips">
           <h4>Additional Tips:</h4>
           <ul>
-            {additionalTips.map((tip, index) => (
-              <li key={index}>{tip}</li>
+            {additionalTips.map((tip) => (
+              <li key={tip}>{tip}</li>
             ))}
           </ul>
         </div>
@@ -115,6 +115,7 @@ WorkoutPlan.propTypes = {
     ),
     additionalTips: PropTypes.arrayOf(PropTypes.string),
   }).isRequired,
+  username: PropTypes.string,
 };
 
 export default WorkoutPlan;
