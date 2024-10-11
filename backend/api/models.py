@@ -135,4 +135,7 @@ class TrainingSession(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.workout_plan} on {self.date}"
+    
+    class Meta:
+        unique_together = ('user', 'date', 'session_name')
 

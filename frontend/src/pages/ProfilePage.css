@@ -3,146 +3,254 @@
 /* Existing styles */
 
 .profile-page {
-    padding: 80px 20px 20px; /* Adjusted padding to prevent Navbar overlap */
-    max-width: 1000px;
-    margin: 0 auto;
-  }
-  
-  .profile-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-  }
-  
+  padding: 80px 20px 20px; /* Adjusted padding to prevent Navbar overlap */
+  max-width: 1000px;
+  margin: 0 auto;
+  font-family: 'Montserrat', sans-serif;
+  background-color: #f0f4f8; /* Light background color */
+  min-height: 100vh;
+}
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  background-color: #e0e7ff; /* Light blue */
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 14px 20px;
+  transition: background-color 0.3s, color 0.3s;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  margin: 0 5px;
+  border-radius: 4px 4px 0 0;
+  color: #333333;
+}
+
+.tab-button:hover {
+  background-color: #c7d2fe; /* Darker blue on hover */
+}
+
+.tab-button.active {
+  background-color: #6366f1; /* Indigo */
+  color: #ffffff;
+}
+
+.tab-content {
+  border: 1px solid #dddddd;
+  border-top: none;
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 0 8px 8px 8px;
+}
+
+.profile-section h3 {
+  margin-bottom: 15px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* Semi-bold */
+  color: #333333;
+}
+
+/* Training Sessions Styles */
+.session-item {
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  background-color: #f9fafb; /* Very light gray */
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: #dbeafe; /* Light blue */
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.session-header:hover {
+  background-color: #bfdbfe; /* Slightly darker blue on hover */
+}
+
+.session-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1e3a8a; /* Dark blue */
+}
+
+.session-header span {
+  font-size: 1.5rem;
+  color: #1e3a8a; /* Dark blue */
+}
+
+.session-details {
+  padding: 15px 20px;
+  background-color: #ffffff;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.session-details p {
+  margin: 5px 0;
+  color: #555555;
+  font-size: 0.95rem;
+}
+
+/* Progression Metrics Styles */
+.progression-metrics {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.metric {
+  background-color: #e0e7ff; /* Light blue */
+  padding: 20px 25px;
+  border-radius: 8px;
+  text-align: center;
+  width: 200px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.metric:hover {
+  transform: translateY(-5px);
+}
+
+.metric h4 {
+  margin-bottom: 10px;
+  color: #4f46e5; /* Indigo */
+}
+
+.metric p {
+  font-size: 1.5em;
+  color: #1e40af; /* Dark blue */
+  margin: 0;
+}
+
+/* Buttons */
+.btn-edit, .btn-save, .btn-cancel {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  margin-top: 15px;
+  transition: background-color 0.3s;
+}
+
+.btn-edit {
+  background-color: #3b82f6; /* Blue */
+  color: #ffffff;
+}
+
+.btn-edit:hover {
+  background-color: #2563eb; /* Darker blue on hover */
+}
+
+.btn-save {
+  background-color: #10b981; /* Green */
+  color: #ffffff;
+  margin-right: 10px;
+}
+
+.btn-save:hover {
+  background-color: #059669; /* Darker green on hover */
+}
+
+.btn-cancel {
+  background-color: #ef4444; /* Red */
+  color: #ffffff;
+}
+
+.btn-cancel:hover {
+  background-color: #dc2626; /* Darker red on hover */
+}
+
+/* Form Styling */
+.profile-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #374151; /* Gray */
+}
+
+.form-group input[type="file"] {
+  padding: 5px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.preview {
+  margin-bottom: 15px;
+}
+
+.preview-image {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #10b981; /* Matching save button color */
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+}
+
+.profile-loading {
+  padding: 80px 20px 20px;
+  text-align: center;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.2rem;
+  color: #6b7280; /* Gray */
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
   .profile-section {
-    flex: 1 1 45%; /* Two sections side by side on larger screens */
-    background-color: #ffffff; /* White background */
-    border: 1px solid #dddddd; /* Light border */
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-  
-  .profile-picture {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-  
-  .profile-picture img {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #007BFF; /* Matching Navbar color */
-  }
-  
-  .profile-page h2 {
-    text-align: center;
-    margin-bottom: 30px;
-    font-family: 'Montserrat', sans-serif; /* Applying Montserrat font */
-    font-weight: 700; /* Bold */
-  }
-  
-  .profile-section h3 {
-    margin-bottom: 15px;
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 600; /* Semi-bold */
-  }
-  
-  .profile-section p {
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 500; /* Medium */
-    margin-bottom: 10px;
-  }
-  
-  /* Buttons */
-  .btn-edit, .btn-save, .btn-cancel {
-    padding: 10px 15px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 600;
-    margin-top: 15px;
-  }
-  
-  .btn-edit {
-    background-color: #007BFF; /* Blue */
-    color: #ffffff;
-  }
-  
-  .btn-save {
-    background-color: #28a745; /* Green */
-    color: #ffffff;
-    margin-right: 10px;
-  }
-  
-  .btn-cancel {
-    background-color: #dc3545; /* Red */
-    color: #ffffff;
-  }
-  
-  /* Form Styling */
-  .profile-form {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .form-group {
-    margin-bottom: 15px;
-  }
-  
-  .form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 600;
-  }
-  
-  .form-group input[type="file"] {
-    padding: 5px;
-    font-family: 'Montserrat', sans-serif;
-  }
-  
-  .preview {
-    margin-bottom: 15px;
-  }
-  
-  .preview-image {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #28a745; /* Matching save button color */
-  }
-  
-  .form-actions {
-    display: flex;
-    align-items: center;
-  }
-  
-  .profile-loading {
-    padding: 80px 20px 20px;
-    text-align: center;
-    font-family: 'Montserrat', sans-serif;
-    font-size: 1.2rem;
-  }
-  
-  /* Responsive Design */
-  @media (max-width: 768px) {
-    .profile-section {
       flex: 1 1 100%; /* Stack sections vertically on smaller screens */
-    }
-  
-    .form-actions {
-      flex-direction: column;
-    }
-  
-    .btn-save, .btn-cancel {
-      width: 100%;
-      margin-right: 0;
-      margin-bottom: 10px;
-    }
   }
-  
+
+  .tabs {
+      flex-direction: column;
+      align-items: center;
+  }
+
+  .tab-button {
+      width: 100%;
+      margin: 5px 0;
+  }
+
+  .progression-metrics {
+      flex-direction: column;
+      align-items: center;
+  }
+
+  .metric {
+      width: 100%;
+      max-width: 300px;
+  }
+}

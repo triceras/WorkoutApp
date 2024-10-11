@@ -2,6 +2,7 @@
 
 from rest_framework import viewsets, permissions, status, generics
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -293,14 +294,65 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             training_session = serializer.save(user=self.request.user)
             logger.info(f"Training session created for user {self.request.user.username}: Session ID {training_session.id}")
-            # Trigger the Celery task to process feedback
-            process_feedback_submission_task.delay(training_session.id)
+
+            # Implement the decision logic
+            emoji_feedback = training_session.emoji_feedback
+            comments = training_session.comments.strip() if training_session.comments else ''
+
+            # Map emoji feedback values to labels
+            EMOJI_LABELS = {
+                0: 'Terrible',
+                1: 'Very Bad',
+                2: 'Bad',
+                3: 'Okay',
+                4: 'Good',
+                5: 'Awesome',
+            }
+
+            emoji_label = EMOJI_LABELS.get(emoji_feedback)
+
+            # Determine whether to process feedback with AI
+            should_process_with_ai = False
+
+            if emoji_label in ['Okay', 'Good', 'Awesome']:
+                if comments and self._contains_modification_request(comments):
+                    # User wants modifications despite positive feedback
+                    should_process_with_ai = True
+            elif emoji_label in ['Terrible', 'Very Bad', 'Bad']:
+                if comments:
+                    # User provided negative feedback with comments
+                    should_process_with_ai = True
+
+            if should_process_with_ai:
+                # Trigger the Celery task to process feedback
+                process_feedback_submission_task.delay(training_session.id)
+                message = 'Feedback received. Your workout plan may be updated shortly.'
+                logger.info(f"Processing feedback with AI for training session {training_session.id}")
+            else:
+                # Just store the feedback without modifying the workout plan
+                message = 'Feedback received.'
+                logger.info(f"No AI processing needed for training session {training_session.id}")
+
+            # Prepare response data
+            response_data = {
+                'message': message,
+                'training_session': self.get_serializer(training_session).data
+            }
 
             headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
         else:
             logger.warning(f"Validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _contains_modification_request(self, comments):
+        # Simple keyword-based check to see if the comments contain modification requests
+        modification_keywords = [
+            'add', 'remove', 'change', 'modify', 'increase', 'decrease',
+            'swap', 'replace', 'adjust', 'intensity', 'difficulty', 'hard', 'easy'
+        ]
+        comments_lower = comments.lower()
+        return any(keyword in comments_lower for keyword in modification_keywords)
 
 class StrengthGoalViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StrengthGoal.objects.all()
@@ -311,3 +363,28 @@ class EquipmentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+class UserProgressionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]  # Ensure the user is authenticated
+
+    def get(self, request):
+        user = request.user
+
+        # Retrieve the user's workout plan
+        try:
+            workout_plan = WorkoutPlan.objects.get(user=user)
+            workout_plan_serializer = WorkoutPlanSerializer(workout_plan)
+        except WorkoutPlan.DoesNotExist:
+            return Response({"error": "Workout plan not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Retrieve the user's training sessions
+        training_sessions = TrainingSession.objects.filter(user=user).order_by('-date')
+        training_sessions_serializer = TrainingSessionSerializer(training_sessions, many=True)
+
+        # Compile the progression data
+        progression_data = {
+            "workout_plan": workout_plan_serializer.data,
+            "training_sessions": training_sessions_serializer.data,
+        }
+
+        return Response(progression_data, status=status.HTTP_200_OK)

@@ -6,6 +6,7 @@ import './LogSessionForm.css';
 import PropTypes from 'prop-types';
 import Notification from './Notification';
 import { AuthContext } from '../context/AuthContext'; // Import AuthContext
+import moment from 'moment'; // Import moment for date manipulation
 
 // Define the fixed emojis with corresponding values and descriptions
 const EMOJIS = [
@@ -36,6 +37,9 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(false);
 
+  // New state variable to store existing training sessions
+  const [existingSessions, setExistingSessions] = useState([]);
+
   // Effect to clear success message after a delay
   useEffect(() => {
     let timer;
@@ -47,7 +51,7 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
     return () => clearTimeout(timer);
   }, [successMessage]);
 
-  // Fetch sessions when workoutPlanId changes
+  // Fetch sessions and existing training sessions when workoutPlanId changes
   useEffect(() => {
     const fetchSessions = async () => {
       if (!workoutPlanId) {
@@ -95,7 +99,22 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
       }
     };
 
+    const fetchExistingSessions = async () => {
+      try {
+        const response = await axiosInstance.get('training_sessions/', {
+          params: {
+            workout_plan_id: workoutPlanId,
+          },
+        });
+        setExistingSessions(response.data);
+      } catch (error) {
+        console.error('Error fetching existing sessions:', error);
+        setError('Failed to fetch existing training sessions.');
+      }
+    };
+
     fetchSessions();
+    fetchExistingSessions();
   }, [workoutPlanId]);
 
   // Handle fixed emoji selection
@@ -103,12 +122,52 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
     setEmojiFeedback(value);
   };
 
-  // Handle form submission
+  // Handle form submission with validation
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
     setSuccessMessage('');
+
+    // Validate that an emoji has been selected
+    if (emojiFeedback === null || emojiFeedback === undefined) {
+      setError('Please select an emoji to provide your feedback.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Check for existing sessions on the same day
+    const isSameDay = existingSessions.some(
+      (session) =>
+        session.date === date &&
+        session.session_name === selectedSession
+    );
+
+    if (isSameDay) {
+      setError('You have already logged this session for today.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Check for existing sessions in the same week
+    const selectedDate = moment(date);
+    const weekStart = selectedDate.clone().startOf('isoWeek');
+    const weekEnd = selectedDate.clone().endOf('isoWeek');
+
+    const isSameWeek = existingSessions.some((session) => {
+      const sessionDate = moment(session.date);
+      return (
+        session.session_name === selectedSession &&
+        sessionDate.isBetween(weekStart, weekEnd, null, '[]')
+      );
+    });
+
+    if (isSameWeek) {
+      setError('You have already logged this session for this week.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const response = await axiosInstance.post('training_sessions/', {
         workout_plan_id: workoutPlanId,
@@ -119,14 +178,34 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
       });
       console.log('Session logged:', response.data);
       onSessionLogged(response.data);
+      
       // Reset form fields
       setDate(new Date().toISOString().split('T')[0]);
       setEmojiFeedback(null);
       setComments('');
       setSuccessMessage('Session logged successfully!');
+      // Update existing sessions state
+      setExistingSessions((prevSessions) => [...prevSessions, response.data]);
     } catch (error) {
-      console.error('Error logging session:', error);
-      setError('Failed to log session. Please try again.');
+        console.error('Error logging session:', error);
+        if (error.response && error.response.data) {
+          // Backend returned a validation error
+          const errorData = error.response.data;
+          // Handle different types of errors
+          if (typeof errorData === 'string') {
+            setError(errorData);
+          } else if (errorData.detail) {
+            setError(errorData.detail);
+          } else if (errorData.non_field_errors) {
+            setError(errorData.non_field_errors.join(' '));
+          } else {
+            // Collect all field errors
+            const fieldErrors = Object.values(errorData).flat();
+            setError(fieldErrors.join(' '));
+          }
+        } else {
+          setError('Failed to log session. Please try again.');
+        }
     } finally {
       setIsSubmitting(false);
     }

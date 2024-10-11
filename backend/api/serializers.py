@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError
+from datetime import timedelta
 
 UserModel = get_user_model()
 
@@ -226,9 +227,32 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['user', 'created_at']
 
+    def validate(self, data):
+        request = self.context.get('request')
+        user = request.user  # Get the user from the request context
+        session_name = data['session_name']
+        date = data['date']
+
+        # Check for existing session on the same day
+        if TrainingSession.objects.filter(user=user, session_name=session_name, date=date).exists():
+            raise serializers.ValidationError('You have already logged this session for today.')
+
+        # Check for existing session in the same week
+        start_of_week = date - timedelta(days=date.weekday())  # Monday
+        end_of_week = start_of_week + timedelta(days=6)  # Sunday
+
+        if TrainingSession.objects.filter(
+            user=user,
+            session_name=session_name,
+            date__range=(start_of_week, end_of_week)
+        ).exists():
+            raise serializers.ValidationError('You have already logged this session for this week.')
+
+        return data
+
     def create(self, validated_data):
         request = self.context.get('request')
         user = request.user
-        validated_data['user'] = user
+        validated_data['user'] = user  # Assign the user to validated_data
         return super().create(validated_data)
 

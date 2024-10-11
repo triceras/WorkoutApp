@@ -2,93 +2,126 @@
 
 import React, { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
-//import { AuthContext } from '../context/AuthContext';
-import ErrorMessage from '../components/ErrorMessage';
-import UploadProfilePicture from '../components/UploadProfilePicture';
+import ProgressionMetrics from '../components/ProgressionMetrics';
 import './ProfilePage.css';
 
-function ProfilePage() {
-  //const { authToken } = useContext(AuthContext);
-  const [userInfo, setUserInfo] = useState(null);
-  const [progressionData, setProgressionData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const ProfilePage = () => {
+    const [profileData, setProfileData] = useState(null);
+    const [error, setError] = useState(null);
+    const [activeTab, setActiveTab] = useState('trainingSessions'); // Default active tab
+    const [expandedSessions, setExpandedSessions] = useState({}); // Track expanded sessions
 
-  useEffect(() => {
     const fetchProfileData = async () => {
-      try {
-        const userResponse = await axiosInstance.get('users/me/');
-        setUserInfo(userResponse.data);
-
-        // Fetch progression data
-        const progressionResponse = await axiosInstance.get('user/progression/');
-        setProgressionData(progressionResponse.data);
-      } catch (err) {
-        console.error('Error fetching profile data:', err);
-        if (err.response && err.response.status === 401) {
-          setError('Session expired. Please log in again.');
-        } else {
-          setError('Failed to load profile information.');
+        try {
+            const token = localStorage.getItem('token');  // Ensure token is stored correctly
+            const response = await axiosInstance.get('user/progression/', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            setProfileData(response.data);
+        } catch (err) {
+            console.error('Error fetching profile data:', err);
+            setError(err);
         }
-      } finally {
-        setLoading(false);
-      }
     };
 
-    fetchProfileData();
-  }, []);
+    useEffect(() => {
+        fetchProfileData();
+    }, []);
 
-  // Callback to handle upload success
-  const handleUploadSuccess = (updatedUserData) => {
-    setUserInfo(updatedUserData);
-  };
+    const handleTabClick = (tabName) => {
+        setActiveTab(tabName);
+    };
 
-  if (loading) {
-    return <div className="profile-loading">Loading profile...</div>;
-  }
+    const toggleSession = (sessionId) => {
+        setExpandedSessions((prevState) => ({
+            ...prevState,
+            [sessionId]: !prevState[sessionId],
+        }));
+    };
 
-  if (error) {
-    return <ErrorMessage message={error} />;
-  }
+    if (error) {
+        return <div className="profile-loading">Error fetching profile data.</div>;
+    }
 
-  return (
-    <div className="profile-page">
-      <h2>Your Profile</h2>
-      <div className="profile-container">
-        <div className="profile-section">
-          <div className="profile-picture">
-            <img
-              src={
-                userInfo.profile_picture
-                  ? userInfo.profile_picture_url
-                  : '/default-profile.png'
-              }
-              alt={`${userInfo.username}'s profile`}
-            />
-          </div>
-          <h3>Personal Information</h3>
-          <p><strong>Username:</strong> {userInfo.username}</p>
-          <p><strong>First Name:</strong> {userInfo.first_name || 'N/A'}</p>
-          <p><strong>Last Name:</strong> {userInfo.last_name || 'N/A'}</p>
-          <p><strong>Email:</strong> {userInfo.email || 'N/A'}</p>
+    if (!profileData) {
+        return <div className="profile-loading">Loading...</div>;
+    }
+
+    return (
+        <div className="profile-page">
+            <h2>User Profile</h2>
+            <div className="tabs">
+                <button
+                    className={`tab-button ${activeTab === 'trainingSessions' ? 'active' : ''}`}
+                    onClick={() => handleTabClick('trainingSessions')}
+                >
+                    Training Sessions
+                </button>
+                <button
+                    className={`tab-button ${activeTab === 'progressionMetrics' ? 'active' : ''}`}
+                    onClick={() => handleTabClick('progressionMetrics')}
+                >
+                    Progression Metrics
+                </button>
+            </div>
+
+            <div className="tab-content">
+                {activeTab === 'trainingSessions' && (
+                    <div className="profile-section">
+                        <h3>Training Sessions</h3>
+                        {profileData.training_sessions.length === 0 ? (
+                            <p>No training sessions available.</p>
+                        ) : (
+                            profileData.training_sessions.map((session) => (
+                                <div key={session.id} className="session-item">
+                                    <div
+                                        className="session-header"
+                                        onClick={() => toggleSession(session.id)}
+                                    >
+                                        <h4>{session.session_name}</h4>
+                                        <span>
+                                            {expandedSessions[session.id] ? '-' : '+'}
+                                        </span>
+                                    </div>
+                                    {expandedSessions[session.id] && (
+                                        <div className="session-details">
+                                            <p><strong>Date:</strong> {new Date(session.date).toLocaleDateString()}</p>
+                                            <p><strong>Feedback:</strong> {getEmoji(session.emoji_feedback)}</p>
+                                            {session.comments && (
+                                                <p><strong>Comments:</strong> {session.comments}</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'progressionMetrics' && (
+                    <div className="profile-section">
+                        <h3>Progression Metrics</h3>
+                        <ProgressionMetrics />
+                    </div>
+                )}
+            </div>
         </div>
-        <div className="profile-section">
-          <h3>Your Progress</h3>
-          {progressionData ? (
-            <>
-              <p><strong>Workouts Completed:</strong> {progressionData.total_sessions}</p>
-              <p><strong>Feedback Given:</strong> {progressionData.feedback_count}</p>
-              <p><strong>Average Rating:</strong> {progressionData.average_rating ? progressionData.average_rating.toFixed(1) : 'N/A'}</p>
-              {/* Include other progression metrics here */}
-            </>
-          ) : (
-            <p>Loading progression data...</p>
-          )}
-        </div>
-      </div>
-      <UploadProfilePicture onUploadSuccess={handleUploadSuccess} />
-    </div>
-  );
-}
+    );
+};
+
+// Helper function to convert feedback score to emoji
+const getEmoji = (score) => {
+    const emojiMap = {
+        0: '😰 Terrible',
+        1: '😟 Very Bad',
+        2: '😕 Bad',
+        3: '😐 Neutral',
+        4: '😊 Good',
+        5: '😃 Excellent',
+    };
+    return emojiMap[score] || '🤔 Unknown';
+};
 
 export default ProfilePage;

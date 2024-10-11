@@ -11,11 +11,10 @@ from .models import TrainingSession, WorkoutPlan
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import re
-import time
-
 
 logger = logging.getLogger(__name__)
 
+# Define the JSON schema for the entire workout plan
 WORKOUT_PLAN_SCHEMA = {
     "type": "object",
     "properties": {
@@ -51,11 +50,39 @@ WORKOUT_PLAN_SCHEMA = {
     "required": ["workoutDays", "additionalTips"]
 }
 
+# Define the JSON schema for a single session
+SESSION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "day": {"type": "string"},
+        "duration": {"type": "string"},
+        "exercises": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "setsReps": {"type": "string"},
+                    "equipment": {"type": "string"},
+                    "instructions": {"type": "string"},
+                },
+                "required": ["name", "setsReps", "equipment", "instructions"]
+            }
+        },
+        "additionalTips": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    },
+    "required": ["day", "duration", "exercises"]
+}
+
 class ReplicateServiceUnavailable(Exception):
     """Exception raised when the Replicate service is unavailable."""
     pass
 
 def validate_workout_plan(workout_plan):
+    """Validates the entire workout plan against the JSON schema."""
     try:
         validate(instance=workout_plan, schema=WORKOUT_PLAN_SCHEMA)
         logger.debug("Workout plan JSON is valid.")
@@ -64,8 +91,174 @@ def validate_workout_plan(workout_plan):
         logger.error(f"Workout plan JSON validation error: {ve.message}")
         return False
     except Exception as e:
-        logger.error(f"Unexpected error during JSON validation: {e}")
+        logger.error(f"Unexpected error during workout plan JSON validation: {e}")
         raise
+
+def validate_session(session):
+    """Validates a single session against the JSON schema."""
+    try:
+        validate(instance=session, schema=SESSION_SCHEMA)
+        logger.debug("Session JSON is valid.")
+        return True
+    except ValidationError as ve:
+        logger.error(f"Session JSON validation error: {ve.message}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error during session JSON validation: {e}")
+        raise
+
+def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equipment, workout_days, workout_time, additional_goals, feedback_note=""):
+    """
+    Creates a detailed prompt based on user's profile to generate a personalized workout plan.
+    Instructs the AI to return the plan in a predefined JSON format.
+    
+    Args:
+        All user attributes as parameters.
+        feedback_note (str): Optional feedback to incorporate.
+    
+    Returns:
+        str: The formatted prompt.
+    """
+    equipment_list = ', '.join(equipment) if equipment else 'None'
+    strength_goals_list = ', '.join(strength_goals) if strength_goals else 'None'
+
+    prompt = (
+        f"Create a personalized weekly workout plan for the following user in strict JSON format. "
+        f"Ensure the JSON adheres exactly to the provided schema without any additional text or explanations.\n\n"
+        f"**User Profile:**\n"
+        f"- Age: {age}\n"
+        f"- Sex: {sex}\n"
+        f"- Weight: {weight} kg\n"
+        f"- Height: {height} cm\n"
+        f"- Fitness Level: {fitness_level}\n"
+        f"- Strength Goals: {strength_goals_list}\n"
+        f"- Additional Goals: {additional_goals}\n"
+        f"- Available Equipment: {equipment_list}\n"
+        f"- Workout Availability: {workout_time} minutes per session, {workout_days} days per week\n\n"
+    )
+
+    if feedback_note:
+        prompt += f"**Feedback:** {feedback_note}\n\n"
+
+    prompt += (
+        f"**Requirements:**\n"
+        f"1. Adjust the number of exercises, sets, and reps based on the user's available time.\n"
+        f"2. Incorporate cardio exercises using the available equipment or generic cardio equipment if specific ones are not available.\n"
+        f"3. Tailor the intensity and complexity of exercises based on the user's fitness level, age, and sex.\n"
+        f"4. Vary the workout plan weekly based on user feedback and progression.\n\n"
+        f"5. Present at least 4 exercises for each day of the week.\n\n"
+        f"6. Users with more time available will have more exercises or/and more sets/reps.\n\n"
+        f"7. If Feedback field is provided then change the workout plan accordingly.\n\n"
+        f"**Instructions for Each Exercise:**\n"
+        f"Provide detailed, step-by-step instructions on how to perform each exercise correctly and safely.\n\n"
+        f"**JSON Schema:**\n"
+        f"```json\n"
+        f"{{\n"
+        f"  \"workoutDays\": [\n"
+        f"    {{\n"
+        f"      \"day\": \"Day 1: Chest and Triceps\",\n"
+        f"      \"duration\": \"60 minutes\",\n"
+        f"      \"exercises\": [\n"
+        f"        {{\n"
+        f"          \"name\": \"Barbell Bench Press\",\n"
+        f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
+        f"          \"equipment\": \"Barbell, Bench\",\n"
+        f"          \"instructions\": \"Lie on the bench with your feet planted firmly on the ground. Grip the barbell slightly wider than shoulder-width apart. Lower the barbell to your chest while inhaling, then press it back up while exhaling. Maintain a steady pace and control throughout the movement.\"\n"
+        f"        }},\n"
+        f"        {{\n"
+        f"          \"name\": \"Tricep Pushdown\",\n"
+        f"          \"setsReps\": \"3 sets of 12-15 reps\",\n"
+        f"          \"equipment\": \"Cable Machine\",\n"
+        f"          \"instructions\": \"Attach a straight bar to the high pulley of the cable machine. Grasp the bar with an overhand grip, keeping your elbows close to your body. Push the bar down until your arms are fully extended, then slowly return to the starting position.\"\n"
+        f"        }}\n"
+        f"      ]\n"
+        f"    }},\n"
+        f"    {{\n"
+        f"      \"day\": \"Day 2: Back and Biceps\",\n"
+        f"      \"duration\": \"60 minutes\",\n"
+        f"      \"exercises\": [\n"
+        f"        {{\n"
+        f"          \"name\": \"Deadlifts\",\n"
+        f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
+        f"          \"equipment\": \"Barbell\",\n"
+        f"          \"instructions\": \"Stand with your feet shoulder-width apart, gripping the barbell with your hands shoulder-width apart. Keeping your back straight and your core engaged, lift the barbell off the ground. Stand up, squeezing your glutes and pushing your hips back. Lower the barbell to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
+        f"        }},\n"
+        f"        {{\n"
+        f"          \"name\": \"Bicep Curl\",\n"
+        f"          \"setsReps\": \"3 sets of 10-12 reps\",\n"
+        f"          \"equipment\": \"Dumbbells\",\n"
+        f"          \"instructions\": \"Stand with your feet shoulder-width apart, holding a dumbbell in each hand with your palms facing forward. Curl the dumbbells up towards your shoulders, keeping your upper arms still. Lower the dumbbells to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
+        f"        }}\n"
+        f"      ]\n"
+        f"    }}\n"
+        f"  ],\n"
+        f"  \"additionalTips\": [\n"
+        f"    \"Ensure proper form to prevent injuries.\",\n"
+        f"    \"Stay hydrated throughout your workouts.\"\n"
+        f"  ]\n"
+        f"}}\n"
+        f"```\n\n"
+        f"**Instructions:**\n"
+        f"1. **Provide only the JSON response without any additional explanations or text.**\n"
+        f"2. **Ensure the JSON is properly formatted and adheres strictly to the provided schema.**\n"
+        f"3. **Do not include any text before or after the JSON.**\n"
+        f"4. **If you need to mention anything, include it within the JSON as 'additionalTips'.**\n"
+    )
+
+    return prompt
+
+def get_latest_feedback(user):
+    """
+    Retrieves the latest feedback from the user's training sessions to adjust the workout plan.
+
+    Args:
+        user: A User object.
+
+    Returns:
+        str: A note based on the user's latest feedback.
+    """
+    latest_session = TrainingSession.objects.filter(user=user).order_by('-date').first()
+    if latest_session:
+        feedback = latest_session.emoji_feedback
+        comments = latest_session.comments.strip()
+        if feedback == '😊':
+            feedback_note = "The user rated their last session as 'Good'. Maintain or slightly increase the intensity."
+            if comments:
+                feedback_note += f" Additional comments: {comments}"
+        elif feedback == '😐':
+            feedback_note = "The user rated their last session as 'Average'. Maintain the current intensity."
+            if comments:
+                feedback_note += f" Additional comments: {comments}"
+        elif feedback == '😟':
+            feedback_note = "The user rated their last session as 'Poor'. Consider reducing the intensity or adjusting the exercises."
+            if comments:
+                feedback_note += f" Additional comments: {comments}"
+        else:
+            feedback_note = "No specific feedback available. Create a balanced workout plan."
+            if comments:
+                feedback_note += f" User comments: {comments}"
+    else:
+        feedback_note = "No feedback available. Create a balanced workout plan."
+
+    return feedback_note
+
+def extract_json_from_text(text):
+    """
+    Extracts the first JSON object found in the text.
+    """
+    try:
+        # Regular expression to find JSON object
+        json_pattern = r'\{.*?\}'
+        matches = re.findall(json_pattern, text, re.DOTALL)
+
+        if matches:
+            # Return the first JSON object found
+            return matches[0]
+        else:
+            return None
+    except Exception as e:
+        logger.error(f"Error extracting JSON: {e}")
+        return None
 
 def generate_workout_plan(user):
     """
@@ -98,8 +291,8 @@ def generate_workout_plan(user):
     logger.debug(f"Workout Days: {workout_days} days/week, Workout Time: {workout_time} minutes/session")
     logger.debug(f"Additional Goals: {additional_goals}")
 
-    # Incorporate user feedback for dynamic adjustments
-    feedback_note = get_latest_feedback(user)
+    # Do NOT incorporate feedback when generating a new workout plan
+    feedback_note = ""  # Empty since no feedback is involved
 
     # Create the prompt with all required criteria
     prompt = create_prompt(
@@ -195,226 +388,170 @@ def generate_workout_plan(user):
         logger.error(f"Unexpected error generating workout plan: {e}", exc_info=True)
         raise  # Re-raise the exception to be handled by the calling function
 
-def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equipment, workout_days, workout_time, additional_goals, feedback_note):
-    """
-    Creates a detailed prompt based on user's profile to generate a personalized workout plan.
-    Instructs the AI to return the plan in a predefined JSON format.
-    """
-    equipment_list = ', '.join(equipment) if equipment else 'None'
-    strength_goals_list = ', '.join(strength_goals) if strength_goals else 'None'
+# api/services.py
 
-    prompt = (
-        f"Create a personalized weekly workout plan for the following user in strict JSON format. "
-        f"Ensure the JSON adheres exactly to the provided schema without any additional text or explanations.\n\n"
-        f"**User Profile:**\n"
-        f"- Age: {age}\n"
-        f"- Sex: {sex}\n"
-        f"- Weight: {weight} kg\n"
-        f"- Height: {height} cm\n"
-        f"- Fitness Level: {fitness_level}\n"
-        f"- Strength Goals: {strength_goals_list}\n"
-        f"- Additional Goals: {additional_goals}\n"
-        f"- Available Equipment: {equipment_list}\n"
-        f"- Workout Availability: {workout_time} minutes per session, {workout_days} days per week\n\n"
-        f"**Feedback:** {feedback_note}\n\n"
-        f"**Requirements:**\n"
-        f"1. Adjust the number of exercises, sets, and reps based on the user's available time.\n"
-        f"2. Incorporate cardio exercises using the available equipment or generic cardio equipment if specific ones are not available.\n"
-        f"3. Tailor the intensity and complexity of exercises based on the user's fitness level, age, and sex.\n"
-        f"4. Vary the workout plan weekly based on user feedback and progression.\n\n"
-        f"5. Present at least 4 exercises for each day of the week.\n\n"
-        f"6. Users with more time availblke will have more exercises or/and more sets/reps.\n\n"
-        f"6. If Feedback field is provided then change the workout plan accordingly.\n\n"
-        f"**Instructions for Each Exercise:**\n"
-        f"Provide detailed, step-by-step instructions on how to perform each exercise correctly and safely.\n\n"
-        f"**JSON Schema:**\n"
-        f"```json\n"
-        f"{{\n"
-        f"  \"workoutDays\": [\n"
-        f"    {{\n"
-        f"      \"day\": \"Day 1: Chest and Triceps\",\n"
-        f"      \"duration\": \"60 minutes\",\n"
-        f"      \"exercises\": [\n"
-        f"        {{\n"
-        f"          \"name\": \"Barbell Bench Press\",\n"
-        f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
-        f"          \"equipment\": \"Barbell, Bench\",\n"
-        f"          \"instructions\": \"Lie on the bench with your feet planted firmly on the ground. Grip the barbell slightly wider than shoulder-width apart. Lower the barbell to your chest while inhaling, then press it back up while exhaling. Maintain a steady pace and control throughout the movement.\"\n"
-        f"        }},\n"
-        f"        {{\n"
-        f"          \"name\": \"Tricep Pushdown\",\n"
-        f"          \"setsReps\": \"3 sets of 12-15 reps\",\n"
-        f"          \"equipment\": \"Cable Machine\",\n"
-        f"          \"instructions\": \"Attach a straight bar to the high pulley of the cable machine. Grasp the bar with an overhand grip, keeping your elbows close to your body. Push the bar down until your arms are fully extended, then slowly return to the starting position.\"\n"
-        f"        }}\n"
-        f"      ]\n"
-        f"    }},\n"
-        f"    {{\n"
-        f"      \"day\": \"Day 2: Back and Biceps\",\n"
-        f"      \"duration\": \"60 minutes\",\n"
-        f"      \"exercises\": [\n"
-        f"        {{\n"
-        f"          \"name\": \"Deadlifts\",\n"
-        f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
-        f"          \"equipment\": \"Barbell\",\n"
-        f"          \"instructions\": \"Stand with your feet shoulder-width apart, gripping the barbell with your hands shoulder-width apart. Keeping your back straight and your core engaged, lift the barbell off the ground. Stand up, squeezing your glutes and pushing your hips back. Lower the barbell to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
-        f"        }},\n"
-        f"        {{\n"
-        f"          \"name\": \"Bicep Curl\",\n"
-        f"          \"setsReps\": \"3 sets of 10-12 reps\",\n"
-        f"          \"equipment\": \"Dumbbells\",\n"
-        f"          \"instructions\": \"Stand with your feet shoulder-width apart, holding a dumbbell in each hand with your palms facing forward. Curl the dumbbells up towards your shoulders, keeping your upper arms still. Lower the dumbbells to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
-        f"        }}\n"
-        f"      ]\n"
-        f"    }}\n"
-        f"  ],\n"
-        f"  \"additionalTips\": [\n"
-        f"    \"Ensure proper form to prevent injuries.\",\n"
-        f"    \"Stay hydrated throughout your workouts.\"\n"
-        f"  ]\n"
-        f"}}\n"
-        f"```\n\n"
-        f"**Instructions:**\n"
-        f"1. **Provide only the JSON response without any additional explanations or text.**"
-        f"2. **Ensure the JSON is properly formatted and adheres strictly to the provided schema.**\n"
-        f"4. **Do not include any text before or after the JSON.**\n"
-        f"5. **If you need to mention anything, include it within the JSON as 'additionalTips'.**\n"
-    )
+import os
+import replicate
+import json
+import logging
+import requests
+from jsonschema import validate, ValidationError
+from django.conf import settings
+from .models import TrainingSession, WorkoutPlan
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+import re
 
-    return prompt
+logger = logging.getLogger(__name__)
 
-def get_latest_feedback(user):
+# ... [Other parts of services.py] ...
+
+def process_feedback_with_ai(feedback_data, modify_specific_session=False):
     """
-    Retrieves the latest feedback from the user's training sessions to adjust the workout plan.
+    Processes user feedback using the AI model to modify the workout plan.
 
     Args:
-        user: A User object.
+        feedback_data (dict): Data containing user feedback and current workout plan.
+        modify_specific_session (bool): Whether to modify only a specific session.
 
     Returns:
-        str: A note based on the user's latest feedback.
-    """
-    latest_session = TrainingSession.objects.filter(user=user).order_by('-date').first()
-    if latest_session:
-        feedback = latest_session.emoji_feedback
-        comments = latest_session.comments.strip()
-        if feedback == '😊':
-            feedback_note = "The user rated their last session as 'Good'. Maintain or slightly increase the intensity."
-            if comments:
-                feedback_note += f" Additional comments: {comments}"
-        elif feedback == '😐':
-            feedback_note = "The user rated their last session as 'Average'. Maintain the current intensity."
-            if comments:
-                feedback_note += f" Additional comments: {comments}"
-        elif feedback == '😟':
-            feedback_note = "The user rated their last session as 'Poor'. Consider reducing the intensity or adjusting the exercises."
-            if comments:
-                feedback_note += f" Additional comments: {comments}"
-        else:
-            feedback_note = "No specific feedback available. Create a balanced workout plan."
-            if comments:
-                feedback_note += f" User comments: {comments}"
-    else:
-        feedback_note = "No feedback available. Create a balanced workout plan."
-
-    return feedback_note
-
-
-def extract_json_from_text(text):
-    """
-    Extracts the first JSON object found in the text.
+        dict: Modified workout plan or session.
     """
     try:
-        # Regular expression to find JSON object
-        json_pattern = r'\{.*?\}'
-        matches = re.findall(json_pattern, text, re.DOTALL)
+        # Fetch the current workout plan
+        current_plan = feedback_data['workout_plan']
 
-        if matches:
-            # Return the first JSON object found
-            return matches[0]
+        if modify_specific_session:
+            # Extract the specific session from the workout plan
+            session_name = feedback_data['session_name']
+            current_session = None
+            for day in current_plan.get('workoutDays', []):
+                if day['day'] == session_name:
+                    current_session = day
+                    break
+            if not current_session:
+                logger.error(f"Session '{session_name}' not found in the current workout plan.")
+                return None
+            current_session_json = json.dumps(current_session, indent=2)
+
+            # Build the prompt for modifying the specific session with proper escaping
+            prompt = f"""
+The user {feedback_data['user']['username']} has provided feedback for the session '{session_name}'.
+They rated it as '{feedback_data['emoji_feedback']}' and commented: '{feedback_data['comments']}'.
+
+Below is the current session:
+
+```json
+{current_session_json}
+```
+Please analyze the current session and make necessary adjustments based on the user's feedback.
+
+**Important Instructions:**
+    - Do not change the session day name.
+    - Only modify the exercises, sets, reps, or instructions for the specified session '{session_name}'.
+    - Do not include any other sessions in your response.
+    - Provide the modified session in JSON format as per the schema:
+
+```json
+{{
+    "day": "{session_name}",
+    "duration": "60 minutes",
+    "exercises": [
+        {{
+            "name": "Exercise Name",
+            "setsReps": "Sets and Reps",
+            "equipment": "Equipment",
+            "instructions": "Instructions"
+        }},
+        // ... more exercises ...
+    ],
+    "additionalTips": [
+        // Optional additional tips
+    ]
+}}
+```
+**Instructions:**
+
+    - Provide only the JSON response of the modified session without any additional explanations or text.
+    - Ensure the JSON is properly formatted and adheres strictly to the provided schema.
+    - Do not include any text before or after the JSON.
+    - If you need to mention anything, include it within the JSON as 'additionalTips'.
+"""
+            # Log the constructed prompt for debugging
+            logger.debug(f"Constructed AI Prompt:\n{prompt}")
+     
+            # Get the Replicate API token
+            replicate_api_token = os.environ.get('REPLICATE_API_TOKEN')
+            if not replicate_api_token:
+                logger.error("Replicate API token not found in environment variables.")
+                return None
+
+            # Initialize Replicate client
+            client = replicate.Client(api_token=replicate_api_token, timeout=300)
+
+            # Define the model name (Update with the correct model name)
+            model_name = "meta/meta-llama-3-70b-instruct"  # Replace with the actual model identifier
+
+            # Define the inputs
+            inputs = {
+                "prompt": prompt,
+                "temperature": 0.7,
+                "max_new_tokens": 3000,  # Adjust as needed
+                # Add other parameters if needed
+            }
+
+            # Run the model and collect the output
+            output = client.run(
+                model_name,
+                input=inputs,
+            )
+
+            # Log the AI output
+            logger.debug(f"AI Output String: {output}")
+
+            # Convert output to string if it's a list
+            if isinstance(output, list):
+                output_str = ''.join(output)
+            else:
+                output_str = str(output)
+
+            # Parse the JSON content
+            try:
+                modified_session = json.loads(output_str)
+            except json.JSONDecodeError:
+                # If that fails, try to extract the session object from within the output
+                json_match = re.search(r'\{.*\}', output_str, re.DOTALL)
+                if json_match:
+                    json_content = json_match.group(0)
+                    modified_session = json.loads(json_content)
+                else:
+                    logger.error("No JSON content found in AI output")
+                    raise ValueError("No JSON content found in AI output")
+
         else:
+            # When not modifying a specific session (e.g., generating a new workout plan)
+            logger.info("No modification needed based on the current feedback.")
             return None
-    except Exception as e:
-        logger.error(f"Error extracting JSON: {e}")
-        return None
 
-
-def process_feedback_with_ai(feedback_data):
-    try:
-        # Get the Replicate API token
-        replicate_api_token = os.environ.get('REPLICATE_API_TOKEN')
-        if not replicate_api_token:
-            logger.error("Replicate API token not found in environment variables.")
-            return None
-
-        os.environ["REPLICATE_API_TOKEN"] = replicate_api_token  # Set the environment variable
-        
-        client = replicate.Client(api_token=replicate_api_token, timeout=300)
-        
-        # Define the model name
-        model_name = "meta/meta-llama-3-70b-instruct"
-
-        # Define the inputs
-        inputs = {
-            "prompt": feedback_data['prompt'],
-            "temperature": 0.7,
-            "max_new_tokens": 3500,
-            # Add other parameters if needed
-        }
-
-        # Run the model and collect the output
-        output = client.run(
-            model_name,
-            input=inputs,
-        )
-
-        # Log the AI output
-        logger.debug(f"AI Output String: {output}")
-
-        # Convert output to string if it's a list
-        if isinstance(output, list):
-            output_str = ''.join(output)
+        # Validate the modified session
+        if validate_session(modified_session):
+            return modified_session
         else:
-            output_str = str(output)
-
-        # Extract JSON from the output
-        # extracted_json = extract_json_from_text(output_str)
-        json_match = re.search(r'\{.*\}', output_str, re.DOTALL)
-        if json_match:
-            json_content = json_match.group(0)
-        else:
-            logger.error("No JSON content found in AI output")
-            raise ValueError("No JSON content found in AI output")
-
-        # Parse the JSON content
-        try:
-            workout_plan = json.loads(json_content)
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON Decode Error: {e}")
-            logger.error(f"Problematic AI Output: {json_content}")
-            raise ValueError(f"Invalid JSON format after extraction: {e}")
-
-        # Validate the JSON structure
-        if validate_workout_plan(workout_plan):
-            return workout_plan
-        else:
-            raise ValueError("Transformed workout plan JSON does not adhere to the required schema.")
-
+            raise ValueError("Modified session JSON does not adhere to the required schema.")
+    
     except replicate.exceptions.ReplicateError as e:
-        logger.error(f"Replicate API Error: {e}", exc_info=True)
-        raise ReplicateServiceUnavailable(f"Replicate API Error: {e}")
+        logger.error(f"Error processing feedback with AI: {e}")
+        raise ReplicateServiceUnavailable("Replicate service is unavailable.")
     except Exception as e:
-        logger.error(f"Unexpected error generating workout plan: {e}", exc_info=True)
+        logger.error(f"Unexpected error processing feedback with AI: {e}")
         raise
-
-
-
+        
 def send_workout_plan_to_group(user, workout_plan):
-    """
-    Sends the workout plan to the user's group via Channels.
-
+    """ Sends the workout plan to the user via Channels group.
+    
     Args:
-        user: A User object.
-        workout_plan (dict): The workout plan data.
+    user: A User object.
+    workout_plan (dict): The workout plan data.
     """
     try:
         channel_layer = get_channel_layer()

@@ -17,7 +17,8 @@ from .views import (
     RegisterView,
     StrengthGoalViewSet,
     EquipmentViewSet,
-)
+    UserProgressionView
+,)
 
 router = routers.DefaultRouter()
 router.register(r'exercises', ExerciseViewSet, basename='exercise')
@@ -35,6 +36,7 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('logout/', logout_user, name='logout'),
     path('check-workout-plan/', check_workout_plan_status, name='check-workout-plan'),
+    path('user/progression/', UserProgressionView.as_view(), name='user-progression'),
     path('api-token-auth/', obtain_auth_token, name='api_token_auth'),  # Endpoint to obtain auth tokens
     path('', include(router.urls)),
 ]

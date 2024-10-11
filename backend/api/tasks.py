@@ -1,6 +1,4 @@
-# backend/api/tasks.py
-
-import json  # Ensure json is imported
+import json
 from celery import shared_task, Celery
 from celery.schedules import crontab
 from celery.exceptions import MaxRetriesExceededError
@@ -8,26 +6,28 @@ from django.contrib.auth import get_user_model
 from .models import WorkoutPlan, User, TrainingSession
 from .services import (
     generate_workout_plan,
-    create_prompt,
     process_feedback_with_ai,
     validate_workout_plan,
+    validate_session,
     send_workout_plan_to_group,
-    ReplicateServiceUnavailable
+    ReplicateServiceUnavailable,
+    get_latest_feedback
 )
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from jsonschema import validate, ValidationError
 import logging
-import os
-import requests
-import replicate
 
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+app = Celery('myfitnessapp')
+
 @shared_task(bind=True, max_retries=1)
 def generate_workout_plan_task(self, user_id):
+    """
+    Celery task to generate a new workout plan for a user.
+    """
     try:
         logger.info(f"generate_workout_plan_task received user ID: {user_id}")
         # Retrieve the user instance
@@ -36,14 +36,6 @@ def generate_workout_plan_task(self, user_id):
         # Log user instance
         logger.info(f"User instance retrieved: {user.username}")
         logger.info(f"Sex: {user.sex}")
-
-        # Load the Replicate API token from environment variables
-        replicate_token = os.getenv('REPLICATE_API_TOKEN')
-        if not replicate_token:
-            logger.error("Replicate API token not found.")
-            return None
-        else:
-            logger.info("Replicate API token successfully loaded.")
 
         # Generate the workout plan using the service function
         workout_plan_data = generate_workout_plan(user)
@@ -100,10 +92,11 @@ def generate_workout_plan_task(self, user_id):
     except Exception as e:
         logger.error(f"Error generating workout plan for user_id {user_id}: {str(e)}", exc_info=True)
 
-app = Celery('myfitnessapp')
-
-@shared_task
+@app.task
 def update_weekly_workout_plans():
+    """
+    Celery periodic task to update workout plans for all users weekly.
+    """
     users = User.objects.all()
     for user in users:
         # Trigger workout plan generation for each user
@@ -120,76 +113,88 @@ app.conf.beat_schedule = {
 # Process Feedback
 @shared_task(bind=True, max_retries=1, time_limit=600, soft_time_limit=550)
 def process_feedback_submission_task(self, training_session_id):
+    """
+    Celery task to process user feedback and update the workout plan accordingly.
+    """
     logger.info(f"Task {self.request.id} received for Training Session ID {training_session_id}")
     try:
         # Fetch the TrainingSession instance
         training_session = TrainingSession.objects.get(id=training_session_id)
-        user = training_session.workout_plan.user
-        week_number = training_session.workout_plan.week_number
-        emoji_reaction = training_session.emoji_feedback
-        comments = training_session.comments or ""
+        user = training_session.user
 
         logger.info(f"Processing feedback for user {user.username}, Session ID {training_session_id}")
 
-        # Extract user profile data
-        age = user.age
-        sex = user.sex
-        weight = user.weight
-        height = user.height
-        fitness_level = user.fitness_level
-        strength_goals = list(user.strength_goals.all().values_list('name', flat=True))
-        equipment = list(user.equipment.all().values_list('name', flat=True))
-        workout_days = user.workout_days
-        workout_time = user.workout_time
-        additional_goals = user.additional_goals
-
-        # Prepare feedback note
-        feedback_note = comments  # or use feedback_data.get("comments", "")
-
-        # Generate the prompt
-        prompt = create_prompt(
-            age=age,
-            sex=sex,
-            weight=weight,
-            height=height,
-            fitness_level=fitness_level,
-            strength_goals=strength_goals,
-            equipment=equipment,
-            workout_days=workout_days,
-            workout_time=workout_time,
-            additional_goals=additional_goals,
-            feedback_note=feedback_note
-        )
-
         # Prepare data for AI model
         feedback_data = {
-            "user_id": user.id,
-            "week_number": week_number,
-            "emoji_reaction": emoji_reaction,
-            "comments": comments,
-            "prompt": prompt
+            "user": {
+                "username": user.username,
+                "fitness_level": user.fitness_level,
+                "strength_goals": [goal.name for goal in user.strength_goals.all()],
+                "equipment": [eq.name for eq in user.equipment.all()],
+                "workout_days": user.workout_days,
+                "workout_time": user.workout_time,
+                "additional_goals": user.additional_goals,
+                "age": user.age,
+                "sex": user.sex,
+                "weight": user.weight,
+                "height": user.height,
+            },
+            "workout_plan": training_session.workout_plan.plan_data,  # Pass the current workout plan
+            "session_name": training_session.session_name,
+            "emoji_feedback": training_session.emoji_feedback,
+            "comments": training_session.comments.strip() if training_session.comments else '',
         }
 
-        # Process feedback with AI using services.py
-        modified_workout_plan = process_feedback_with_ai(feedback_data)
+        # Determine if only a specific session needs modification
+        modify_specific_session = training_session.emoji_feedback in [0, 1, 2]  # Terrible, Very Bad, Bad
 
-        if not modified_workout_plan:
-            logger.error(f"Failed to generate workout plan for user {user.username}")
+        if modify_specific_session:
+            # Get the latest feedback note
+            feedback_note = get_latest_feedback(user)
+            feedback_data['feedback_note'] = feedback_note
+
+            # Process feedback with AI to modify a specific session
+            modified_session = process_feedback_with_ai(feedback_data, modify_specific_session=True)
+            if not modified_session:
+                logger.error(f"Failed to generate modified session for user {user.username}")
+                return
+        else:
+            # For neutral or positive feedback, you might choose not to modify the plan
+            logger.info(f"No modification needed for user {user.username} based on feedback.")
             return
 
-        # Update or create the WorkoutPlan
-        workout_plan, created = WorkoutPlan.objects.update_or_create(
-            user=user,
-            week_number=week_number,
-            defaults={"plan_data": modified_workout_plan}
-        )
-        if created:
-            logger.info(f"Workout plan created for user {user.username}, Week {week_number}")
-        else:
-            logger.info(f"Workout plan updated for user {user.username}, Week {week_number}")
+        # Update the WorkoutPlan
+        workout_plan = training_session.workout_plan
 
-        # Send the workout plan to the user via Channels
-        send_workout_plan_to_group(user, modified_workout_plan)
+        if modify_specific_session:
+            # Update only the specified session in the workout plan
+            workout_days = workout_plan.plan_data.get('workoutDays', [])
+
+            session_found = False
+            for idx, day in enumerate(workout_days):
+                if day['day'] == training_session.session_name:
+                    # Replace the session with the modified session
+                    workout_days[idx] = modified_session
+                    session_found = True
+                    break
+
+            if not session_found:
+                logger.error(f"Session '{training_session.session_name}' not found in workout plan.")
+                return
+
+            # Save the updated plan data
+            workout_plan.plan_data['workoutDays'] = workout_days
+
+        # For future enhancements: handle full plan modifications if needed
+        # else:
+        #     # Handle entire plan modifications
+        #     ...
+
+        workout_plan.save()
+        logger.info(f"Workout plan updated for user {user.username}")
+
+        # Send the updated workout plan to the user via Channels
+        send_workout_plan_to_group(user, workout_plan.plan_data)
 
     except TrainingSession.DoesNotExist:
         logger.error(f"TrainingSession with ID {training_session_id} does not exist.")
