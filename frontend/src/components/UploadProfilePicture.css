@@ -1,49 +1,95 @@
 /* src/components/UploadProfilePicture.css */
 
 .upload-profile-picture {
-  width: 200px; /* Fixed width to align with the header */
+  width: 300px;
   max-width: 100%;
-  text-align: center;
 }
 
 .upload-title {
   margin-bottom: 15px;
   color: #333;
-  text-align: center;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
+  text-align: left;
+  font-family: 'Arial', sans-serif;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.upload-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.file-input-wrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.file-input-label {
+  background-color: #f0f0f0;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  border-right: 1px solid #ccc;
 }
 
 .upload-input {
+  display: none;
+}
+
+.file-name {
+  padding: 8px 12px;
+  flex-grow: 1;
+  font-size: 14px;
+  color: #666;
+}
+
+.btn-upload, .btn-cancel {
   width: 100%;
-  padding: 8px;
-  margin-bottom: 15px;
-  border: 1px solid #cccccc;
+  padding: 10px;
+  border: none;
   border-radius: 4px;
-  font-family: 'Montserrat', sans-serif;
+  cursor: pointer;
+  font-family: 'Arial', sans-serif;
+  font-weight: bold;
+  font-size: 14px;
+  transition: background-color 0.3s;
 }
 
-.preview {
-  margin-bottom: 15px;
-  text-align: center;
+.btn-upload {
+  background-color: #e0e0e0;
+  color: #333;
 }
 
-.preview-image {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #10b981;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.btn-upload:hover:not(:disabled) {
+  background-color: #d0d0d0;
+}
+
+.btn-cancel {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background-color: #d32f2f;
+}
+
+.btn-upload:disabled, .btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .error-message,
 .success-message {
-  margin-bottom: 15px;
+  margin-top: 10px;
   padding: 10px;
   border-radius: 4px;
   text-align: center;
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Arial', sans-serif;
+  font-size: 14px;
 }
 
 .error-message {
@@ -56,55 +102,8 @@
   color: #2e7d32;
 }
 
-.upload-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* Space between buttons */
-  width: 100%;
-}
-
-.btn-upload, .btn-cancel {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
-  transition: background-color 0.3s;
-}
-
-.btn-upload {
-  background-color: #4caf50; /* Green */
-  color: white;
-}
-
-.btn-upload:hover:not(:disabled) {
-  background-color: #388e3c; /* Darker green on hover */
-}
-
-.btn-cancel {
-  background-color: #f44336; /* Red */
-  color: white;
-}
-
-.btn-cancel:hover:not(:disabled) {
-  background-color: #d32f2f; /* Darker red on hover */
-}
-
-.btn-upload:disabled, .btn-cancel:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
 @media (max-width: 768px) {
   .upload-profile-picture {
     width: 100%;
-    max-width: 300px; /* Adjusted for smaller screens */
-    margin-top: 10px;
-  }
-
-  .upload-title {
-    text-align: center;
   }
 }

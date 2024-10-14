@@ -1,35 +1,38 @@
 // src/components/UploadProfilePicture.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import './UploadProfilePicture.css';
 
 function UploadProfilePicture({ onUploadSuccess }) {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [previewURL, setPreviewURL] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // Handle file selection
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type (optional)
       if (!file.type.startsWith('image/')) {
         setError('Please select a valid image file.');
         setSelectedFile(null);
-        setPreviewURL(null);
         return;
       }
       setSelectedFile(file);
-      setPreviewURL(URL.createObjectURL(file));
       setError(null);
       setSuccessMessage(null);
     }
   };
 
-  // Handle form submission
   const handleUpload = async () => {
     if (!selectedFile) {
       setError('No file selected.');
@@ -41,15 +44,14 @@ function UploadProfilePicture({ onUploadSuccess }) {
 
     try {
       setUploading(true);
-      const response = await axiosInstance.patch('/api/users/me/', formData, {  // Ensure correct endpoint
+      await axiosInstance.patch('users/me/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
       setSuccessMessage('Profile picture uploaded successfully.');
       setSelectedFile(null);
-      setPreviewURL(null);
-      onUploadSuccess(); // Notify parent component to refresh data
+      onUploadSuccess();
     } catch (err) {
       console.error('Error uploading profile picture:', err);
       setError('Failed to upload profile picture.');
@@ -58,10 +60,8 @@ function UploadProfilePicture({ onUploadSuccess }) {
     }
   };
 
-  // Handle cancel action
   const handleCancel = () => {
     setSelectedFile(null);
-    setPreviewURL(null);
     setError(null);
     setSuccessMessage(null);
   };
@@ -70,28 +70,31 @@ function UploadProfilePicture({ onUploadSuccess }) {
     <div className="upload-profile-picture">
       <h3 className="upload-title">Upload Profile Picture</h3>
       <div className="upload-content">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="upload-input"
-        />
-        {previewURL && (
-          <div className="preview">
-            <p>Preview:</p>
-            <img src={previewURL} alt="Preview" className="preview-image" />
-          </div>
-        )}
+        <div className="file-input-wrapper">
+          <label htmlFor="file-upload" className="file-input-label">
+            Choose file
+          </label>
+          <input
+            id="file-upload"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="upload-input"
+          />
+          <span className="file-name">
+            {selectedFile ? selectedFile.name : 'No file chosen'}
+          </span>
+        </div>
         {error && <div className="error-message">{error}</div>}
         {successMessage && <div className="success-message">{successMessage}</div>}
-        <div className="upload-actions">
-          <button
-            onClick={handleUpload}
-            disabled={uploading || !selectedFile}
-            className="btn-upload"
-          >
-            {uploading ? 'Uploading...' : 'Upload'}
-          </button>
+        <button
+          onClick={handleUpload}
+          disabled={uploading || !selectedFile}
+          className="btn-upload"
+        >
+          {uploading ? 'Uploading...' : 'Upload'}
+        </button>
+        {selectedFile && (
           <button
             onClick={handleCancel}
             disabled={uploading}
@@ -99,7 +102,7 @@ function UploadProfilePicture({ onUploadSuccess }) {
           >
             Cancel
           </button>
-        </div>
+        )}
       </div>
     </div>
   );

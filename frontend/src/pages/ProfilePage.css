@@ -27,7 +27,9 @@
 }
 
 .user-info-section {
-  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
 }
 
 .user-info-content {
@@ -61,10 +63,9 @@
 
 /* User Details */
 .user-details {
-  flex: 1; /* Takes up available space */
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  justify-content: center;
 }
 
 .user-details p {
@@ -348,7 +349,9 @@
   }
 
   .user-info-and-upload {
-      flex-direction: column;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
   }
 
   .user-info-content {
