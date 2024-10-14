@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import ProgressionMetrics from '../components/ProgressionMetrics';
 import UploadProfilePicture from '../components/UploadProfilePicture';
+import VideoModal from '../components/VideoModal';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
@@ -11,6 +12,8 @@ const ProfilePage = () => {
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('trainingSessions'); // Default active tab
     const [expandedSessions, setExpandedSessions] = useState({}); // Track expanded sessions
+    const [modalIsOpen, setModalIsOpen] = useState(false);
+    const [currentVideoId, setCurrentVideoId] = useState(null);
 
     // Function to fetch profile data from the backend
     const fetchProfileData = async () => {
@@ -45,6 +48,18 @@ const ProfilePage = () => {
         }));
     };
 
+    // Open video modal
+    const openModal = (videoId) => {
+        setCurrentVideoId(videoId);
+        setModalIsOpen(true);
+    };
+
+    // Close video modal
+    const closeModal = () => {
+        setModalIsOpen(false);
+        setCurrentVideoId(null);
+    };
+
     // Refresh profile data after successful profile picture upload
     const handleUploadSuccess = () => {
         fetchProfileData();
@@ -68,34 +83,37 @@ const ProfilePage = () => {
 
             {/* User Information Box */}
             <div className="user-info-box">
-                {/* User Info and Picture */}
-                <div className="user-info-and-picture">
-                    {/* Profile Picture */}
-                    {user.profile_picture ? (
-                        <img
-                            src={user.profile_picture}
-                            alt="Profile"
-                            className="profile-picture"
-                        />
-                    ) : (
-                        <img
-                            src="/default-profile.png"
-                            alt="Default Profile"
-                            className="profile-picture"
-                        />
-                    )}
-
-                    {/* User Details */}
-                    <div className="user-details">
-                        <p><strong>Full Name:</strong> {user.first_name} {user.last_name}</p>
-                        <p><strong>Age:</strong> {user.age || 'N/A'}</p>
-                        <p><strong>Member Since:</strong> {user.member_since}</p>
-                        <p><strong>Membership Number:</strong> {user.id}</p>
+                <div className="user-info-and-upload">
+                    {/* User Info and Picture */}
+                    <div className="user-info-section">
+                        <div className="user-info-content">
+                            <div className="profile-picture-container">
+                                {user.profile_picture ? (
+                                    <img
+                                        src={user.profile_picture}
+                                        alt="Profile"
+                                        className="profile-picture"
+                                    />
+                                ) : (
+                                    <img
+                                        src="/default-profile.png"
+                                        alt="Default Profile"
+                                        className="profile-picture"
+                                    />
+                                )}
+                            </div>
+                            <div className="user-details">
+                                <p><strong>Full Name:</strong> {user.first_name} {user.last_name}</p>
+                                <p><strong>Age:</strong> {user.age || 'N/A'}</p>
+                                <p><strong>Member Since:</strong> {user.member_since}</p>
+                                <p><strong>Membership Number:</strong> {user.id}</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                {/* Upload Profile Picture Component */}
-                <UploadProfilePicture onUploadSuccess={handleUploadSuccess} />
+                    {/* Upload Profile Picture Component */}
+                    <UploadProfilePicture onUploadSuccess={handleUploadSuccess} />
+                </div>
             </div>
 
             {/* Tabs for Training Sessions and Progression Metrics */}
@@ -157,6 +175,13 @@ const ProfilePage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Video Modal */}
+            <VideoModal
+                isOpen={modalIsOpen}
+                onRequestClose={closeModal}
+                videoId={currentVideoId}
+            />
         </div>
     );
 };

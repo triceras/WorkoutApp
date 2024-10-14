@@ -81,7 +81,7 @@ class Exercise(models.Model):
     name = models.CharField(max_length=100)
     description = models.JSONField()
     video_url = models.URLField(null=True, blank=True)
-    # Additional fields
+    youtube_video_id = models.CharField(max_length=50, null=True, blank=True) 
 
     def __str__(self):
         return self.name

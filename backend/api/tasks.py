@@ -1,3 +1,5 @@
+# api/tasks.py
+
 import json
 from celery import shared_task, Celery
 from celery.schedules import crontab
@@ -16,7 +18,6 @@ from .services import (
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
-
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -146,7 +147,7 @@ def process_feedback_submission_task(self, training_session_id):
         }
 
         # Determine if only a specific session needs modification
-        modify_specific_session = training_session.emoji_feedback in [0, 1, 2]  # Terrible, Very Bad, Bad
+        modify_specific_session = training_session.emoji_feedback in ['😰', '😟', '😕']  # Adjusted for emoji representation
 
         if modify_specific_session:
             # Get the latest feedback note

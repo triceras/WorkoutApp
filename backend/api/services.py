@@ -7,7 +7,7 @@ import logging
 import requests
 from jsonschema import validate, ValidationError
 from django.conf import settings
-from .models import TrainingSession, WorkoutPlan
+from .models import TrainingSession, WorkoutPlan, Exercise
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import re
@@ -34,6 +34,7 @@ WORKOUT_PLAN_SCHEMA = {
                                 "setsReps": {"type": "string"},
                                 "equipment": {"type": "string"},
                                 "instructions": {"type": "string"},
+                                "youtube_video_id": {"type": ["string", "null"]},  # Updated to include video ID
                             },
                             "required": ["name", "setsReps", "equipment", "instructions"]
                         }
@@ -65,6 +66,7 @@ SESSION_SCHEMA = {
                     "setsReps": {"type": "string"},
                     "equipment": {"type": "string"},
                     "instructions": {"type": "string"},
+                    "youtube_video_id": {"type": ["string", "null"]},  # Updated to include video ID
                 },
                 "required": ["name", "setsReps", "equipment", "instructions"]
             }
@@ -111,11 +113,11 @@ def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equip
     """
     Creates a detailed prompt based on user's profile to generate a personalized workout plan.
     Instructs the AI to return the plan in a predefined JSON format.
-    
+
     Args:
         All user attributes as parameters.
         feedback_note (str): Optional feedback to incorporate.
-    
+
     Returns:
         str: The formatted prompt.
     """
@@ -163,13 +165,15 @@ def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equip
         f"          \"name\": \"Barbell Bench Press\",\n"
         f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
         f"          \"equipment\": \"Barbell, Bench\",\n"
-        f"          \"instructions\": \"Lie on the bench with your feet planted firmly on the ground. Grip the barbell slightly wider than shoulder-width apart. Lower the barbell to your chest while inhaling, then press it back up while exhaling. Maintain a steady pace and control throughout the movement.\"\n"
+        f"          \"instructions\": \"Lie on the bench with your feet planted firmly on the ground. Grip the barbell slightly wider than shoulder-width apart. Lower the barbell to your chest while inhaling, then press it back up while exhaling. Maintain a steady pace and control throughout the movement.\",\n"
+        f"          \"youtube_video_id\": \"IODxDxX7oi4\"\n"
         f"        }},\n"
         f"        {{\n"
         f"          \"name\": \"Tricep Pushdown\",\n"
         f"          \"setsReps\": \"3 sets of 12-15 reps\",\n"
         f"          \"equipment\": \"Cable Machine\",\n"
-        f"          \"instructions\": \"Attach a straight bar to the high pulley of the cable machine. Grasp the bar with an overhand grip, keeping your elbows close to your body. Push the bar down until your arms are fully extended, then slowly return to the starting position.\"\n"
+        f"          \"instructions\": \"Attach a straight bar to the high pulley of the cable machine. Grasp the bar with an overhand grip, keeping your elbows close to your body. Push the bar down until your arms are fully extended, then slowly return to the starting position.\",\n"
+        f"          \"youtube_video_id\": \"0bv57hyZ1kI\"\n"
         f"        }}\n"
         f"      ]\n"
         f"    }},\n"
@@ -181,13 +185,15 @@ def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equip
         f"          \"name\": \"Deadlifts\",\n"
         f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
         f"          \"equipment\": \"Barbell\",\n"
-        f"          \"instructions\": \"Stand with your feet shoulder-width apart, gripping the barbell with your hands shoulder-width apart. Keeping your back straight and your core engaged, lift the barbell off the ground. Stand up, squeezing your glutes and pushing your hips back. Lower the barbell to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
+        f"          \"instructions\": \"Stand with your feet shoulder-width apart, gripping the barbell with your hands shoulder-width apart. Keeping your back straight and your core engaged, lift the barbell off the ground. Stand up, squeezing your glutes and pushing your hips back. Lower the barbell to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\",\n"
+        f"          \"youtube_video_id\": \"ytGaGIn3SjE\"\n"
         f"        }},\n"
         f"        {{\n"
         f"          \"name\": \"Bicep Curl\",\n"
         f"          \"setsReps\": \"3 sets of 10-12 reps\",\n"
         f"          \"equipment\": \"Dumbbells\",\n"
-        f"          \"instructions\": \"Stand with your feet shoulder-width apart, holding a dumbbell in each hand with your palms facing forward. Curl the dumbbells up towards your shoulders, keeping your upper arms still. Lower the dumbbells to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
+        f"          \"instructions\": \"Stand with your feet shoulder-width apart, holding a dumbbell in each hand with your palms facing forward. Curl the dumbbells up towards your shoulders, keeping your upper arms still. Lower the dumbbells to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\",\n"
+        f"          \"youtube_video_id\": \"ykJmrZ5v0Oo\"\n"
         f"        }}\n"
         f"      ]\n"
         f"    }}\n"
@@ -206,6 +212,24 @@ def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equip
     )
 
     return prompt
+
+def extract_json_from_text(text):
+    """
+    Extracts the first JSON object found in the text.
+    """
+    try:
+        # Regular expression to find JSON object
+        json_pattern = r'\{.*?\}'
+        matches = re.findall(json_pattern, text, re.DOTALL)
+
+        if matches:
+            # Return the first JSON object found
+            return matches[0]
+        else:
+            return None
+    except Exception as e:
+        logger.error(f"Error extracting JSON: {e}")
+        return None
 
 def get_latest_feedback(user):
     """
@@ -242,23 +266,85 @@ def get_latest_feedback(user):
 
     return feedback_note
 
-def extract_json_from_text(text):
+def get_youtube_video_id(exercise_name):
     """
-    Extracts the first JSON object found in the text.
+    Uses Replicate's LLaMA model to generate a YouTube search query based on the exercise name,
+    then fetches the top YouTube video ID using the YouTube Data API.
+
+    Args:
+        exercise_name (str): The name of the exercise.
+
+    Returns:
+        str or None: The YouTube video ID if found, else None.
     """
     try:
-        # Regular expression to find JSON object
-        json_pattern = r'\{.*?\}'
-        matches = re.findall(json_pattern, text, re.DOTALL)
+        # Step 1: Generate a YouTube search query using Replicate's LLaMA model
+        prompt = f"Generate a concise YouTube search query to find instructional videos for the exercise: {exercise_name}."
 
-        if matches:
-            # Return the first JSON object found
-            return matches[0]
-        else:
+        logger.debug(f"Generating YouTube search query for exercise: {exercise_name}")
+
+        # Initialize Replicate client with your API token
+        replicate_api_token = os.environ.get('REPLICATE_API_TOKEN')
+        if not replicate_api_token:
+            logger.error("Replicate API token not found in environment variables.")
             return None
+
+        client = replicate.Client(api_token=replicate_api_token)
+
+        # Specify the model version
+        model_version = "meta/meta-llama-3-70b-instruct"  # Ensure this is the correct model identifier on Replicate
+
+        # Set the input parameters for the model
+        inputs = {
+            'prompt': prompt,
+            'temperature': 0.5,  # Lowered for more deterministic output
+            'max_new_tokens': 50,  # Adjust as needed
+        }
+
+        # Run the model prediction
+        output = client.run(
+            model_version,
+            input=inputs,
+        )
+
+        logger.debug(f"Replicate AI Output for search query: {output}")
+
+        # Extract search query from output
+        search_query = output.strip()
+
+        logger.debug(f"Generated YouTube search query: {search_query}")
+
+        # Step 2: Use YouTube Data API to search for videos
+        youtube_search_url = "https://www.googleapis.com/youtube/v3/search"
+        params = {
+            'part': 'snippet',
+            'q': search_query,
+            'key': settings.YOUTUBE_API_KEY,  # Ensure YOUTUBE_API_KEY is set in Django settings
+            'maxResults': 1,
+            'type': 'video',
+            'videoEmbeddable': 'true',
+        }
+
+        youtube_response = requests.get(youtube_search_url, params=params)
+        youtube_data = youtube_response.json()
+
+        if 'items' in youtube_data and len(youtube_data['items']) > 0:
+            video_id = youtube_data['items'][0]['id']['videoId']
+            logger.debug(f"Fetched YouTube video ID: {video_id} for exercise: {exercise_name}")
+            return video_id
+        else:
+            logger.warning(f"No YouTube videos found for exercise: {exercise_name} with search query: {search_query}")
+            return None
+
+    except replicate.exceptions.ReplicateError as e:
+        logger.error(f"Replicate API Error: {e}", exc_info=True)
+        raise ReplicateServiceUnavailable(f"Replicate API Error: {e}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error while calling YouTube API: {e}", exc_info=True)
+        raise ReplicateServiceUnavailable(f"Network error: {e}")
     except Exception as e:
-        logger.error(f"Error extracting JSON: {e}")
-        return None
+        logger.error(f"Unexpected error in get_youtube_video_id: {e}", exc_info=True)
+        raise ReplicateServiceUnavailable(f"Unexpected error: {e}")
 
 def generate_workout_plan(user):
     """
@@ -361,6 +447,17 @@ def generate_workout_plan(user):
 
         # Validate the JSON structure
         if validate_workout_plan(workout_plan):
+            # Assign YouTube video IDs to each exercise
+            for day in workout_plan.get('workoutDays', []):
+                for exercise in day.get('exercises', []):
+                    exercise_name = exercise.get('name')
+                    if exercise_name and not exercise.get('youtube_video_id'):
+                        video_id = get_youtube_video_id(exercise_name)
+                        if video_id:
+                            exercise['youtube_video_id'] = video_id
+                        else:
+                            exercise['youtube_video_id'] = None  # Explicitly set to None if not found
+
             # Save the workout plan to the database
             WorkoutPlan.objects.create(
                 user=user,
@@ -387,24 +484,6 @@ def generate_workout_plan(user):
     except Exception as e:
         logger.error(f"Unexpected error generating workout plan: {e}", exc_info=True)
         raise  # Re-raise the exception to be handled by the calling function
-
-# api/services.py
-
-import os
-import replicate
-import json
-import logging
-import requests
-from jsonschema import validate, ValidationError
-from django.conf import settings
-from .models import TrainingSession, WorkoutPlan
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
-import re
-
-logger = logging.getLogger(__name__)
-
-# ... [Other parts of services.py] ...
 
 def process_feedback_with_ai(feedback_data, modify_specific_session=False):
     """
@@ -462,6 +541,7 @@ Please analyze the current session and make necessary adjustments based on the u
             "setsReps": "Sets and Reps",
             "equipment": "Equipment",
             "instructions": "Instructions"
+            "youtube_video_id": "VideoID"
         }},
         // ... more exercises ...
     ],
@@ -540,12 +620,19 @@ Please analyze the current session and make necessary adjustments based on the u
             raise ValueError("Modified session JSON does not adhere to the required schema.")
     
     except replicate.exceptions.ReplicateError as e:
-        logger.error(f"Error processing feedback with AI: {e}")
+        logger.error(f"Replicate API Error while processing feedback: {e}", exc_info=True)
         raise ReplicateServiceUnavailable("Replicate service is unavailable.")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error while processing feedback with AI: {e}", exc_info=True)
+        raise ReplicateServiceUnavailable(f"Network error: {e}")
+    except ValueError as ve:
+        logger.error(f"Data parsing error while processing feedback: {ve}", exc_info=True)
+        raise ReplicateServiceUnavailable(f"Data parsing error: {ve}")
     except Exception as e:
-        logger.error(f"Unexpected error processing feedback with AI: {e}")
+        logger.error(f"Unexpected error processing feedback with AI: {e}", exc_info=True)
         raise
-        
+
+
 def send_workout_plan_to_group(user, workout_plan):
     """ Sends the workout plan to the user via Channels group.
     

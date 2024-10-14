@@ -134,6 +134,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ExerciseSerializer(serializers.ModelSerializer):
+    youtube_video_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     class Meta:
         model = Exercise
         fields = '__all__'

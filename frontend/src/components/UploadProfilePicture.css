@@ -1,8 +1,9 @@
 /* src/components/UploadProfilePicture.css */
 
 .upload-profile-picture {
-  width: 300px; /* Fixed width to fit beside user details */
+  width: 200px; /* Fixed width to align with the header */
   max-width: 100%;
+  text-align: center;
 }
 
 .upload-title {
@@ -99,7 +100,11 @@
 @media (max-width: 768px) {
   .upload-profile-picture {
     width: 100%;
-    max-width: 400px;
-    margin-top: 20px;
+    max-width: 300px; /* Adjusted for smaller screens */
+    margin-top: 10px;
+  }
+
+  .upload-title {
+    text-align: center;
   }
 }

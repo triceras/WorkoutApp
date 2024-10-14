@@ -9,73 +9,90 @@
   font-family: 'Montserrat', sans-serif;
   background-color: #f0f4f8; /* Light background color */
   min-height: 100vh;
-  box-sizing: border-box;
 }
 
-/* User Information Box */
 .user-info-box {
   background-color: #ffffff;
-  border: 1px solid #dddddd;
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+}
+
+.user-info-and-upload {
   display: flex;
-  justify-content: space-between; /* Space between user info and upload component */
+  justify-content: space-between;
   align-items: flex-start;
-  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  gap: 20px;
 }
 
-/* User Info and Picture Container */
-.user-info-and-picture {
+.user-info-section {
+  flex: 1;
+}
+
+.user-info-content {
   display: flex;
-  flex-direction: row; /* Arrange profile picture and details horizontally */
-  align-items: center;
-  gap: 20px; /* Space between profile picture and details */
-  flex: 1; /* Allow this section to grow */
+  align-items: flex-start;
+  gap: 20px;
 }
 
-/* Profile Picture Styles */
-.profile-picture {
-  width: 150px; /* Desired width */
-  height: 150px; /* Desired height */
-  border-radius: 50%; /* Circular image */
-  object-fit: cover; /* Cover the container without distortion */
-  border: 2px solid #10b981; /* Optional: Add a border */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Optional: Add a subtle shadow */
-  /* Removed margin-right as gap is handled by flex container */
-  flex-shrink: 0; /* Prevent image from shrinking */
-}
-
-/* User Details Styles */
-.user-details {
-  flex: 1; /* Take up remaining space */
-  min-width: 200px; /* Prevent from becoming too narrow */
-}
-
-.user-details p {
-  margin: 5px 0;
-  color: #333333;
-  font-size: 1rem;
-}
-
-.user-details p strong {
-  color: #1e3a8a; /* Dark blue for labels */
-}
-
-/* Upload Profile Picture Component Styles */
-.upload-profile-picture {
-  width: 300px; /* Fixed width for upload component */
-  max-width: 100%;
-  margin-left: 20px; /* Space between user info and upload component */
-}
-
-/* Tabs */
 .tabs {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
   flex-wrap: wrap;
+}
+
+/* User Info and Picture Container */
+.user-info-and-picture {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+/* Wrapper for User Details and Upload Component */
+.user-details-and-upload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1; /* Allows this container to take up remaining space */
+}
+
+
+/* User Details */
+.user-details {
+  flex: 1; /* Takes up available space */
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.user-details p {
+  margin: 2px 0;
+  color: #333333;
+  font-size: 1rem;
+}
+
+/* Profile Picture Styles */
+.profile-picture {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid #10b981;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.profile-picture-container {
+  flex-shrink: 0;
+}
+
+/* Upload Profile Picture Component */
+.upload-profile-picture {
+  /* Set a fixed width to prevent it from stretching */
+  width: 300px; /* Adjust as needed */
+  /* Optional: Align to the right */
+  text-align: center;
 }
 
 .tab-button {
@@ -269,8 +286,17 @@
   border: 2px solid #10b981; /* Matching save button color */
 }
 
-.upload-profile-picture {
-  /* Removed existing styles to allow flex container to control */
+.form-actions {
+  display: flex;
+  align-items: center;
+}
+
+.profile-loading {
+  padding: 80px 20px 20px;
+  text-align: center;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.2rem;
+  color: #6b7280; /* Gray */
 }
 
 /* Animations */
@@ -281,34 +307,63 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .user-info-box {
-      flex-direction: column; /* Stack vertically on smaller screens */
+  .profile-section {
+      flex: 1 1 100%; /* Stack sections vertically on smaller screens */
+  }
+
+  .tabs {
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
+  }
+
+  .tab-button {
+      width: 100%;
+      margin: 5px 0;
+  }
+
+  .progression-metrics {
+      flex-direction: column;
+      align-items: center;
+  }
+
+  .metric {
+      width: 100%;
+      max-width: 300px;
   }
 
   .user-info-and-picture {
-      flex-direction: column; /* Stack profile picture and details vertically */
-      align-items: center;
-      text-align: center;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
+
+  .user-details-and-upload {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .user-details-and-upload {
+      width: 100%;
+  }
+
+  .user-info-and-upload {
+      flex-direction: column;
+  }
+
+  .user-info-content {
+    flex-direction: column;
+    align-items: center;
+  }
+
 
   .upload-profile-picture {
       width: 100%;
-      max-width: 400px; /* Adjust as needed */
-      margin-left: 0;
-      margin-top: 20px;
-  }
-
-  .profile-picture {
-      width: 100px;
-      height: 100px;
-      margin-right: 0;
-      margin-bottom: 15px;
+      max-width: 300px; /* Prevent it from becoming too wide on larger mobile screens */
+      margin-top: 15px; /* Space above the upload component */
   }
 
   .user-details {
-      flex: 1;
-      width: 100%;
+    flex: 1;
   }
 }
