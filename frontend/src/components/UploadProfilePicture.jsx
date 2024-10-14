@@ -41,7 +41,7 @@ function UploadProfilePicture({ onUploadSuccess }) {
 
     try {
       setUploading(true);
-      const response = await axiosInstance.patch('user/me/', formData, {  // Updated endpoint
+      const response = await axiosInstance.patch('/api/users/me/', formData, {  // Ensure correct endpoint
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -49,7 +49,7 @@ function UploadProfilePicture({ onUploadSuccess }) {
       setSuccessMessage('Profile picture uploaded successfully.');
       setSelectedFile(null);
       setPreviewURL(null);
-      onUploadSuccess(response.data); // Notify parent component
+      onUploadSuccess(); // Notify parent component to refresh data
     } catch (err) {
       console.error('Error uploading profile picture:', err);
       setError('Failed to upload profile picture.');
@@ -68,23 +68,38 @@ function UploadProfilePicture({ onUploadSuccess }) {
 
   return (
     <div className="upload-profile-picture">
-      <h3>Upload Profile Picture</h3>
-      <input type="file" accept="image/*" onChange={handleFileChange} />
-      {previewURL && (
-        <div className="preview">
-          <p>Preview:</p>
-          <img src={previewURL} alt="Preview" className="preview-image" />
+      <h3 className="upload-title">Upload Profile Picture</h3>
+      <div className="upload-content">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="upload-input"
+        />
+        {previewURL && (
+          <div className="preview">
+            <p>Preview:</p>
+            <img src={previewURL} alt="Preview" className="preview-image" />
+          </div>
+        )}
+        {error && <div className="error-message">{error}</div>}
+        {successMessage && <div className="success-message">{successMessage}</div>}
+        <div className="upload-actions">
+          <button
+            onClick={handleUpload}
+            disabled={uploading || !selectedFile}
+            className="btn-upload"
+          >
+            {uploading ? 'Uploading...' : 'Upload'}
+          </button>
+          <button
+            onClick={handleCancel}
+            disabled={uploading}
+            className="btn-cancel"
+          >
+            Cancel
+          </button>
         </div>
-      )}
-      {error && <div className="error-message">{error}</div>}
-      {successMessage && <div className="success-message">{successMessage}</div>}
-      <div className="upload-actions">
-        <button onClick={handleUpload} disabled={uploading || !selectedFile}>
-          {uploading ? 'Uploading...' : 'Upload'}
-        </button>
-        <button onClick={handleCancel} disabled={uploading}>
-          Cancel
-        </button>
       </div>
     </div>
   );

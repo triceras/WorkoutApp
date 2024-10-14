@@ -1,10 +1,11 @@
 # backend/api/models.py
 
-from typing import Any
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class User(AbstractUser):
     username = models.CharField(max_length=150, unique=True)
@@ -42,7 +43,8 @@ class User(AbstractUser):
         ('Prefer not to say', 'Prefer not to say'),
     ]
     sex = models.CharField(max_length=20, choices=SEX_CHOICES, default='Prefer not to say')
-    # Add additional fields as needed
+    # Added membership_number field
+    membership_number = models.CharField(max_length=20, unique=True, blank=True, null=True)
 
     class Meta:
         constraints = [
@@ -55,6 +57,13 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+# Ensure that a membership_number is generated upon user creation
+@receiver(post_save, sender=User)
+def create_membership_number(sender, instance, created, **kwargs):
+    if created and not instance.membership_number:
+        instance.membership_number = f"MEM-{instance.id:05d}"
+        instance.save()
 
 class StrengthGoal(models.Model):
     name = models.CharField(max_length=100)
@@ -138,4 +147,3 @@ class TrainingSession(models.Model):
     
     class Meta:
         unique_together = ('user', 'date', 'session_name')
-

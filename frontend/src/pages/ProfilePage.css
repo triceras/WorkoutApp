@@ -9,8 +9,68 @@
   font-family: 'Montserrat', sans-serif;
   background-color: #f0f4f8; /* Light background color */
   min-height: 100vh;
+  box-sizing: border-box;
 }
 
+/* User Information Box */
+.user-info-box {
+  background-color: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between; /* Space between user info and upload component */
+  align-items: flex-start;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+}
+
+/* User Info and Picture Container */
+.user-info-and-picture {
+  display: flex;
+  flex-direction: row; /* Arrange profile picture and details horizontally */
+  align-items: center;
+  gap: 20px; /* Space between profile picture and details */
+  flex: 1; /* Allow this section to grow */
+}
+
+/* Profile Picture Styles */
+.profile-picture {
+  width: 150px; /* Desired width */
+  height: 150px; /* Desired height */
+  border-radius: 50%; /* Circular image */
+  object-fit: cover; /* Cover the container without distortion */
+  border: 2px solid #10b981; /* Optional: Add a border */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Optional: Add a subtle shadow */
+  /* Removed margin-right as gap is handled by flex container */
+  flex-shrink: 0; /* Prevent image from shrinking */
+}
+
+/* User Details Styles */
+.user-details {
+  flex: 1; /* Take up remaining space */
+  min-width: 200px; /* Prevent from becoming too narrow */
+}
+
+.user-details p {
+  margin: 5px 0;
+  color: #333333;
+  font-size: 1rem;
+}
+
+.user-details p strong {
+  color: #1e3a8a; /* Dark blue for labels */
+}
+
+/* Upload Profile Picture Component Styles */
+.upload-profile-picture {
+  width: 300px; /* Fixed width for upload component */
+  max-width: 100%;
+  margin-left: 20px; /* Space between user info and upload component */
+}
+
+/* Tabs */
 .tabs {
   display: flex;
   justify-content: center;
@@ -209,17 +269,8 @@
   border: 2px solid #10b981; /* Matching save button color */
 }
 
-.form-actions {
-  display: flex;
-  align-items: center;
-}
-
-.profile-loading {
-  padding: 80px 20px 20px;
-  text-align: center;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1.2rem;
-  color: #6b7280; /* Gray */
+.upload-profile-picture {
+  /* Removed existing styles to allow flex container to control */
 }
 
 /* Animations */
@@ -230,27 +281,34 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .profile-section {
-      flex: 1 1 100%; /* Stack sections vertically on smaller screens */
-  }
-
-  .tabs {
-      flex-direction: column;
+  .user-info-box {
+      flex-direction: column; /* Stack vertically on smaller screens */
       align-items: center;
+      justify-content: center;
   }
 
-  .tab-button {
-      width: 100%;
-      margin: 5px 0;
-  }
-
-  .progression-metrics {
-      flex-direction: column;
+  .user-info-and-picture {
+      flex-direction: column; /* Stack profile picture and details vertically */
       align-items: center;
+      text-align: center;
   }
 
-  .metric {
+  .upload-profile-picture {
       width: 100%;
-      max-width: 300px;
+      max-width: 400px; /* Adjust as needed */
+      margin-left: 0;
+      margin-top: 20px;
+  }
+
+  .profile-picture {
+      width: 100px;
+      height: 100px;
+      margin-right: 0;
+      margin-bottom: 15px;
+  }
+
+  .user-details {
+      flex: 1;
+      width: 100%;
   }
 }

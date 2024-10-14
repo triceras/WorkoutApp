@@ -1,4 +1,4 @@
-# api/views.py
+# backend/api/views.py
 
 from rest_framework import viewsets, permissions, status, generics
 from rest_framework.response import Response
@@ -11,9 +11,7 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.db.models import Avg, Count
 from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, TrainingSession, StrengthGoal, Equipment
-from .tasks import process_feedback_submission_task
-
-
+from .tasks import process_feedback_submission_task, generate_workout_plan_task
 from .serializers import (
     ExerciseSerializer,
     WorkoutPlanSerializer,
@@ -27,15 +25,16 @@ from .serializers import (
     EquipmentSerializer
 )
 import logging
-from .tasks import generate_workout_plan_task 
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
 
 class ExerciseViewSet(viewsets.ModelViewSet):
     queryset = Exercise.objects.all()
     serializer_class = ExerciseSerializer
     permission_classes = [permissions.IsAuthenticated]
+
 
 class WorkoutPlanViewSet(viewsets.ModelViewSet):
     queryset = WorkoutPlan.objects.all()
@@ -52,10 +51,10 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
     def current(self, request):
         try:
             workout_plan = WorkoutPlan.objects.get(user=request.user)
-            serializer = WorkoutPlanSerializer(workout_plan)
+            serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         except WorkoutPlan.DoesNotExist:
-            print(f"No workout plan found for user: {request.user.username}. Initiating generation.")
+            logger.info(f"No workout plan found for user: {request.user.username}. Initiating generation.")
             # Trigger the Celery task to generate the workout plan
             generate_workout_plan_task.delay(request.user.id)
             return Response(
@@ -78,7 +77,7 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
                 user=user,
                 defaults={'plan_data': plan_data}
             )
-            serializer = WorkoutPlanSerializer(workout_plan)
+            serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
             status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
             return Response(serializer.data, status=status_code)
         except Exception as e:
@@ -103,7 +102,7 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
                 user=user,
                 defaults={'plan_data': plan_data}
             )
-            serializer = WorkoutPlanSerializer(workout_plan)
+            serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
             status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
             return Response(serializer.data, status=status_code)
         except Exception as e:
@@ -113,6 +112,7 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+
 class WorkoutLogViewSet(viewsets.ModelViewSet):
     queryset = WorkoutLog.objects.all()
     serializer_class = WorkoutLogSerializer
@@ -120,7 +120,8 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return WorkoutLog.objects.filter(user=self.request.user)
-    
+
+
 class WorkoutSessionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     A simple ViewSet for viewing workout sessions.
@@ -132,6 +133,7 @@ class WorkoutSessionViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return WorkoutSession.objects.filter(user=self.request.user)
 
+
 class ExerciseLogViewSet(viewsets.ModelViewSet):
     queryset = ExerciseLog.objects.all()
     serializer_class = ExerciseLogSerializer
@@ -140,13 +142,14 @@ class ExerciseLogViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return ExerciseLog.objects.filter(workout_log__user=self.request.user)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_user(request):
-    # serializer = UserSerializer(request.user)
     serializer = UserSerializer(request.user, context={'request': request})  # Updated line
     logger.info(f"Retrieved user data for {request.user.username}: {serializer.data}")
     return Response(serializer.data)
+
 
 class CustomAuthToken(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
@@ -162,12 +165,6 @@ class CustomAuthToken(ObtainAuthToken):
             logger.warning(f"Login failed. Errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# @api_view(['POST'])
-# @permission_classes([AllowAny])
-# def register_user(request):
-#     # ... registration logic ...
-#     # Removed SessionFeedback related code
-#     pass
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -184,11 +181,14 @@ def check_workout_plan_status(request):
             'message': 'Your workout plan is being generated. Please wait.'
         }, status=status.HTTP_200_OK)
 
+
 @api_view(['GET'])  # Changed from 'POST' to 'GET'
 @permission_classes([IsAuthenticated])
 def verify_token(request):
     user = request.user
-    return Response({'token_valid': True, 'user': UserSerializer(user).data}, status=status.HTTP_200_OK)
+    serializer = UserSerializer(user, context={'request': request})
+    return Response({'token_valid': True, 'user': serializer.data}, status=status.HTTP_200_OK)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -201,24 +201,6 @@ def logout_user(request):
         return Response({'detail': 'Error during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response(status=status.HTTP_200_OK)
 
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def user_progression(request):
-    user = request.user
-    total_sessions = TrainingSession.objects.filter(user=user).count()
-    average_feedback = TrainingSession.objects.filter(user=user).aggregate(Avg('emoji_feedback'))['emoji_feedback__avg']
-    feedback_count = TrainingSession.objects.filter(user=user, emoji_feedback__isnull=False).count()
-
-    # Additional progression metrics can be calculated here
-
-    progression_data = {
-        'total_sessions': total_sessions,
-        'average_feedback': average_feedback,
-        'feedback_count': feedback_count,
-        # Include other metrics as needed
-    }
-
-    return Response(progression_data)
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
@@ -239,7 +221,7 @@ class RegisterView(generics.CreateAPIView):
 
                 return Response({
                     "token": token.key,
-                    "user": UserSerializer(user).data,
+                    "user": UserSerializer(user, context={'request': request}).data,
                     "message": "Registration successful. Your workout plan is being generated. Please wait."
                 }, status=status.HTTP_201_CREATED)
             except IntegrityError as e:
@@ -248,6 +230,7 @@ class RegisterView(generics.CreateAPIView):
         logger.warning(f"Registration failed. Errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class UserDetailView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -255,6 +238,7 @@ class UserDetailView(generics.RetrieveAPIView):
 
     def get_object(self):
         return self.request.user
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -273,13 +257,14 @@ class UserViewSet(viewsets.ModelViewSet):
         PATCH: Update user data.
         """
         if request.method == 'GET':
-            serializer = self.get_serializer(request.user)
+            serializer = self.get_serializer(request.user, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         elif request.method == 'PATCH':
-            serializer = self.get_serializer(request.user, data=request.data, partial=True)
+            serializer = self.get_serializer(request.user, data=request.data, partial=True, context={'request': request})
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class TrainingSessionViewSet(viewsets.ModelViewSet):
     queryset = TrainingSession.objects.all()
@@ -290,10 +275,10 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         return TrainingSession.objects.filter(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            training_session = serializer.save(user=self.request.user)
-            logger.info(f"Training session created for user {self.request.user.username}: Session ID {training_session.id}")
+            training_session = serializer.save(user=request.user)
+            logger.info(f"Training session created for user {request.user.username}: Session ID {training_session.id}")
 
             # Implement the decision logic
             emoji_feedback = training_session.emoji_feedback
@@ -336,7 +321,7 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
             # Prepare response data
             response_data = {
                 'message': message,
-                'training_session': self.get_serializer(training_session).data
+                'training_session': self.get_serializer(training_session, context={'request': request}).data
             }
 
             headers = self.get_success_headers(serializer.data)
@@ -354,15 +339,18 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         comments_lower = comments.lower()
         return any(keyword in comments_lower for keyword in modification_keywords)
 
+
 class StrengthGoalViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StrengthGoal.objects.all()
     serializer_class = StrengthGoalSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+
 class EquipmentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
 
 class UserProgressionView(APIView):
     permission_classes = [permissions.IsAuthenticated]  # Ensure the user is authenticated
@@ -370,20 +358,24 @@ class UserProgressionView(APIView):
     def get(self, request):
         user = request.user
 
+        # Serialize user data
+        user_serializer = UserSerializer(user, context={'request': request})
+
         # Retrieve the user's workout plan
         try:
             workout_plan = WorkoutPlan.objects.get(user=user)
-            workout_plan_serializer = WorkoutPlanSerializer(workout_plan)
+            workout_plan_serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
         except WorkoutPlan.DoesNotExist:
-            return Response({"error": "Workout plan not found."}, status=status.HTTP_404_NOT_FOUND)
+            workout_plan_serializer = None
 
         # Retrieve the user's training sessions
         training_sessions = TrainingSession.objects.filter(user=user).order_by('-date')
-        training_sessions_serializer = TrainingSessionSerializer(training_sessions, many=True)
+        training_sessions_serializer = TrainingSessionSerializer(training_sessions, many=True, context={'request': request})
 
         # Compile the progression data
         progression_data = {
-            "workout_plan": workout_plan_serializer.data,
+            "user": user_serializer.data,
+            "workout_plan": workout_plan_serializer.data if workout_plan_serializer else {},
             "training_sessions": training_sessions_serializer.data,
         }
 

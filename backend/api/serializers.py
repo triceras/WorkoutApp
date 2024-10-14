@@ -43,12 +43,13 @@ class UserSerializer(serializers.ModelSerializer):
     # Explicitly define first and last name
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
-    # Ensure 'strength_goals' and 'equipment' are treated as strings
+    # Ensure 'strength_goals' and 'equipment' are treated as nested serializers
     strength_goals = StrengthGoalSerializer(many=True, read_only=True)
     equipment = EquipmentSerializer(many=True, read_only=True)
     additional_goals = serializers.CharField(allow_blank=True, required=False)
     profile_picture = serializers.ImageField(required=False, allow_null=True)
     profile_picture_url = serializers.SerializerMethodField()
+    member_since = serializers.SerializerMethodField()  # Updated field
 
     class Meta:
         model = UserModel
@@ -57,9 +58,15 @@ class UserSerializer(serializers.ModelSerializer):
             'password', 'confirm_password', 'age', 'weight', 'height',
             'fitness_level', 'strength_goals', 'additional_goals',
             'equipment', 'workout_time', 'workout_days', 'profile_picture',
-            'profile_picture_url',
+            'profile_picture_url', 'member_since',  # Included 'member_since'
         ]
         read_only_fields = ['id']
+
+    def get_member_since(self, obj):
+        """
+        Returns the date the user joined in a formatted string.
+        """
+        return obj.date_joined.strftime("%B %d, %Y") if obj.date_joined else None
 
     def validate(self, data):
         """
@@ -230,8 +237,13 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
     def validate(self, data):
         request = self.context.get('request')
         user = request.user  # Get the user from the request context
-        session_name = data['session_name']
-        date = data['date']
+        session_name = data.get('session_name')
+        date = data.get('date')
+
+        if not session_name:
+            raise serializers.ValidationError({'session_name': 'This field is required.'})
+        if not date:
+            raise serializers.ValidationError({'date': 'This field is required.'})
 
         # Check for existing session on the same day
         if TrainingSession.objects.filter(user=user, session_name=session_name, date=date).exists():
@@ -255,4 +267,3 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         user = request.user
         validated_data['user'] = user  # Assign the user to validated_data
         return super().create(validated_data)
-
