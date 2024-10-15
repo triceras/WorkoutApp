@@ -1,25 +1,39 @@
 // src/components/WorkoutPlan.jsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
+import VideoModal from './VideoModal'; // Ensure the path is correct
 import './WorkoutPlan.css'; // Ensure this path is correct
 
+// Utility function to get the YouTube thumbnail URL from videoId
+const getYoutubeThumbnailUrl = (videoId) => {
+  return `https://img.youtube.com/vi/${videoId}/0.jpg`; // Default to the first thumbnail (hqdefault.jpg)
+};
+
 function WorkoutPlan({ workoutData, username }) {
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [currentVideoId, setCurrentVideoId] = useState(null);
+
+  // Function to open video modal
+  const openVideoModal = (videoId) => {
+    setCurrentVideoId(videoId);
+    setModalIsOpen(true);
+  };
+
+  // Function to close video modal
+  const closeVideoModal = () => {
+    setModalIsOpen(false);
+    setCurrentVideoId(null);
+  };
+
   if (!workoutData || Object.keys(workoutData).length === 0) {
     console.error('Invalid plan data:', workoutData);
     return <div className="error-message">No workout days found in the plan.</div>;
   }
 
-  console.log('Received Workout Data:', workoutData); // For debugging
-
   const { workoutDays, additionalTips } = workoutData;
 
-  /**
-   * Utility function to split text into sentences.
-   * This simple splitter assumes that sentences end with a period.
-   * It trims whitespace and filters out any empty strings.
-   * You can enhance this function to handle abbreviations and other edge cases if needed.
-   */
+  // Utility function to split instructions into sentences
   const splitIntoSentences = (text) => {
     return text
       .split('.')
@@ -46,28 +60,42 @@ function WorkoutPlan({ workoutData, username }) {
                 <div className="exercises-container">
                   {day.exercises.map((exercise) => (
                     <div className="exercise-item" key={exercise.name}>
-                      <h5 className="exercise-name">{exercise.name}</h5>
-                      {exercise.setsReps && (
-                        <div className="exercise-detail">
-                          <strong className="label-sets-reps">Sets and Reps:</strong>
-                          <span className="detail-text">{exercise.setsReps}</span>
-                        </div>
-                      )}
-                      {exercise.equipment && (
-                        <div className="exercise-detail">
-                          <strong className="label-equipment">Equipment Required:</strong>
-                          <span className="detail-text">{exercise.equipment}</span>
-                        </div>
-                      )}
-                      {exercise.instructions && (
-                        <div className="exercise-detail">
-                          <strong className="label-instructions">Instructions:</strong>
-                          {/* Split instructions into sentences and render each on a new line */}
-                          {splitIntoSentences(exercise.instructions).map((sentence, sentenceIdx) => (
-                            <p className="instruction-sentence" key={sentenceIdx}>
-                              {sentence}.
-                            </p>
-                          ))}
+                      <div className="exercise-details">
+                        <h5 className="exercise-name">{exercise.name}</h5>
+                        {exercise.setsReps && (
+                          <div className="exercise-detail">
+                            <strong className="label-sets-reps">Sets and Reps:</strong>
+                            <span className="detail-text">{exercise.setsReps}</span>
+                          </div>
+                        )}
+                        {exercise.equipment && (
+                          <div className="exercise-detail">
+                            <strong className="label-equipment">Equipment Required:</strong>
+                            <span className="detail-text">{exercise.equipment}</span>
+                          </div>
+                        )}
+                        {exercise.instructions && (
+                          <div className="exercise-detail">
+                            <strong className="label-instructions">Instructions:</strong>
+                            {splitIntoSentences(exercise.instructions).map((sentence, sentenceIdx) => (
+                              <p className="instruction-sentence" key={sentenceIdx}>
+                                {sentence}.
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* YouTube Thumbnail */}
+                      {exercise.youtube_video_id && (
+                        <div className="video-thumbnail">
+                          <img
+                            src={getYoutubeThumbnailUrl(exercise.youtube_video_id)}
+                            alt={`${exercise.name} video`}
+                            className="youtube-thumbnail"
+                            onClick={() => openVideoModal(exercise.youtube_video_id)} // Open modal on click
+                            style={{ cursor: 'pointer' }} // Make it look clickable
+                          />
                         </div>
                       )}
                     </div>
@@ -93,6 +121,13 @@ function WorkoutPlan({ workoutData, username }) {
           </ul>
         </div>
       )}
+
+      {/* Video Modal Component */}
+      <VideoModal
+        isOpen={modalIsOpen}
+        onRequestClose={closeVideoModal}
+        videoId={currentVideoId}
+      />
     </div>
   );
 }
@@ -109,6 +144,7 @@ WorkoutPlan.propTypes = {
             setsReps: PropTypes.string,
             equipment: PropTypes.string,
             instructions: PropTypes.string,
+            youtube_video_id: PropTypes.string, // Updated field name
           })
         ),
       })

@@ -10,6 +10,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.db.models import Avg, Count
+from django.utils import timezone
 from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, TrainingSession, StrengthGoal, Equipment
 from .tasks import process_feedback_submission_task, generate_workout_plan_task
 from .serializers import (
@@ -170,7 +171,7 @@ class CustomAuthToken(ObtainAuthToken):
 @permission_classes([IsAuthenticated])
 def check_workout_plan_status(request):
     try:
-        workout_plan = WorkoutPlan.objects.get(user=request.user)
+        workout_plan = WorkoutPlan.objects.filter(user=request.user).latest('created_at')
         return Response({
             'status': 'completed',
             'plan_data': workout_plan.plan_data
@@ -180,6 +181,12 @@ def check_workout_plan_status(request):
             'status': 'pending',
             'message': 'Your workout plan is being generated. Please wait.'
         }, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Error fetching workout plan for user {request.user.username}: {e}", exc_info=True)
+        return Response({
+            'status': 'error',
+            'message': 'An error occurred while fetching your workout plan.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])  # Changed from 'POST' to 'GET'

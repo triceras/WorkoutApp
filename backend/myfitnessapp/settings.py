@@ -269,3 +269,12 @@ REPLICATE_API_TOKEN = env('REPLICATE_API_TOKEN')
 
 if DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}

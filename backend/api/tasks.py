@@ -1,117 +1,64 @@
 # api/tasks.py
 
 import json
-from celery import shared_task, Celery
-from celery.schedules import crontab
-from celery.exceptions import MaxRetriesExceededError
+from celery import shared_task
 from django.contrib.auth import get_user_model
-from .models import WorkoutPlan, User, TrainingSession
+from .models import WorkoutPlan, TrainingSession
 from .services import (
     generate_workout_plan,
     process_feedback_with_ai,
-    validate_workout_plan,
-    validate_session,
-    send_workout_plan_to_group,
     ReplicateServiceUnavailable,
-    get_latest_feedback
+    # Add other service functions as needed
+)
+from .helpers import (
+    send_workout_plan_to_group
 )
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
-app = Celery('myfitnessapp')
-
-@shared_task(bind=True, max_retries=1)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)  # Configure retries
 def generate_workout_plan_task(self, user_id):
     """
-    Celery task to generate a new workout plan for a user.
+    Celery task to generate a workout plan for a user.
     """
     try:
-        logger.info(f"generate_workout_plan_task received user ID: {user_id}")
-        # Retrieve the user instance
         user = User.objects.get(id=user_id)
-        
-        # Log user instance
-        logger.info(f"User instance retrieved: {user.username}")
-        logger.info(f"Sex: {user.sex}")
+        logger.info(f"Generating workout plan for user ID: {user.id}, username: {user.username}")
 
         # Generate the workout plan using the service function
         workout_plan_data = generate_workout_plan(user)
-        if workout_plan_data is None:
-            logger.error(f"Failed to generate workout plan for user {user.username}.")
-            return
 
-        # Verify that workout_plan_data adheres to the expected JSON structure
-        if not isinstance(workout_plan_data, dict):
-            logger.error(f"Workout plan data is not a dictionary: {workout_plan_data}")
-            raise ValueError("Invalid workout plan data format.")
+        if not workout_plan_data:
+            logger.error(f"No workout plan data returned for user {user.username}")
+            raise self.retry(exc=ValueError("No workout plan data returned"), countdown=60)
 
-        # Log the generated workout plan data
-        logger.info(f"Workout Plan Data: {json.dumps(workout_plan_data, indent=2)}")
-
-        # Create or update the WorkoutPlan instance
-        workout_plan, created = WorkoutPlan.objects.update_or_create(
-            user=user,
-            defaults={'plan_data': workout_plan_data},
-        )
-
-        logger.info(f"Workout plan {'created' if created else 'updated'} for user {user.username}.")
-
-        # Retrieve the channel layer
-        channel_layer = get_channel_layer()
-        if channel_layer is None:
-            logger.error("Channel layer is not configured.")
-            return
-
-        # Define the group name based on the user's ID
-        group_name = f'workout_plan_{user.id}'
-
-        # Send the workout plan data to the specified group via Channels
-        async_to_sync(channel_layer.group_send)(
-            group_name,
-            {
-                'type': 'workout_plan_generated',
-                'plan_data': workout_plan.plan_data, 
-            }
-        )
-        logger.info(f"Workout plan sent to group: {group_name}")
+        logger.info(f"Workout plan generated for user {user.username}: {workout_plan_data}")
+        return workout_plan_data  # Return the workout plan data
 
     except ReplicateServiceUnavailable as e:
         logger.error(f"Replicate service unavailable for user_id {user_id}: {e}")
         try:
-            # Retry the task after a delay (e.g., 60 seconds)
             self.retry(exc=e, countdown=60)
-        except MaxRetriesExceededError:
+        except self.MaxRetriesExceededError:
             logger.error(f"Max retries exceeded for user_id {user_id}")
+
     except User.DoesNotExist:
         logger.error(f"User with ID {user_id} does not exist.")
-    except ValueError as ve:
-        logger.error(f"ValueError: {ve}", exc_info=True)
+
     except Exception as e:
-        logger.error(f"Error generating workout plan for user_id {user_id}: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error in generate_workout_plan_task: {e}", exc_info=True)
+        try:
+            self.retry(exc=e, countdown=60)
+        except self.MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for user_id {user_id}")
 
-@app.task
-def update_weekly_workout_plans():
-    """
-    Celery periodic task to update workout plans for all users weekly.
-    """
-    users = User.objects.all()
-    for user in users:
-        # Trigger workout plan generation for each user
-        generate_workout_plan_task.delay(user.id)
+    return None 
 
-# In your Celery configuration, add the periodic task
-app.conf.beat_schedule = {
-    'update-weekly-workout-plans-every-monday': {
-        'task': 'api.tasks.update_weekly_workout_plans',
-        'schedule': crontab(day_of_week=1, hour=0, minute=0),  # Every Monday at midnight
-    },
-}
-
-# Process Feedback
 @shared_task(bind=True, max_retries=1, time_limit=600, soft_time_limit=550)
 def process_feedback_submission_task(self, training_session_id):
     """
@@ -186,11 +133,7 @@ def process_feedback_submission_task(self, training_session_id):
             # Save the updated plan data
             workout_plan.plan_data['workoutDays'] = workout_days
 
-        # For future enhancements: handle full plan modifications if needed
-        # else:
-        #     # Handle entire plan modifications
-        #     ...
-
+        # Save the updated workout plan
         workout_plan.save()
         logger.info(f"Workout plan updated for user {user.username}")
 
@@ -203,3 +146,17 @@ def process_feedback_submission_task(self, training_session_id):
         logger.error(f"Replicate service unavailable: {e}")
     except Exception as e:
         logger.error(f"Unexpected error in processing feedback: {e}", exc_info=True)
+
+
+@shared_task
+def sanitize_and_cache_youtube_video_id(exercise_name, video_id):
+    """
+    Helper Celery task to sanitize cache key and store the YouTube video ID.
+    """
+    sanitized_name = sanitize_cache_key(exercise_name.lower())
+    cache_key = f"youtube_video_id_{sanitized_name}"
+    try:
+        cache.set(cache_key, video_id, timeout=60*60*24*7)  # Cache for 7 days
+        logger.debug(f"Cached YouTube video ID for exercise '{exercise_name}': {video_id}")
+    except Exception as e:
+        logger.error(f"Failed to cache YouTube video ID for '{exercise_name}': {e}")

@@ -8,13 +8,13 @@ import { CircularProgress, Typography, Box, Button } from '@mui/material';
 function GeneratingWorkout() {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
-  const [attempts, setAttempts] = useState(0); // Still needed for logic
-  const maxAttempts = 30; // e.g., 20 attempts * 3 seconds = 60 seconds
+  const [attempts, setAttempts] = useState(0);
+  const maxAttempts = 45; // 45 attempts * 3 seconds = 135 seconds
 
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const response = await axiosInstance.get('check-workout-plan/');
+        const response = await axiosInstance.get('/check-workout-plan/');
         if (response.data.status === 'completed') {
           clearInterval(interval);
           navigate('/dashboard'); // Redirect to dashboard once the plan is ready
@@ -65,7 +65,7 @@ function GeneratingWorkout() {
           </Typography>
           <Typography variant="body2" style={{ marginTop: '10px' }}>
             Attempt {attempts + 1} of {maxAttempts}
-          </Typography> {/* Utilizes 'attempts' */}
+          </Typography>
         </>
       )}
     </Box>

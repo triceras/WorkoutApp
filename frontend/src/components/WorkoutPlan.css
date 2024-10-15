@@ -45,7 +45,6 @@
 .workout-day:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  cursor: pointer; /* Cursor changes to pointer on hover */
 }
 
 /* Day Cell Styling */
@@ -85,29 +84,6 @@
   transition: background-color 0.3s ease;
 }
 
-/* Exercise Detail Styling */
-.exercise-detail {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 15px; /* Space between each exercise detail */
-}
-
-.exercise-detail strong {
-  color: #333;
-  margin-bottom: 5px; /* Space between label and data */
-}
-
-.detail-text {
-  color: #555;
-}
-
-/* New Styling for Instruction Sentences */
-.instruction-sentence {
-  margin: 0; /* Remove default margin */
-  padding: 0;
-  color: #555;
-}
-
 /* Exercises Container */
 .exercises-container {
   display: flex;
@@ -117,6 +93,8 @@
 
 /* Individual Exercise */
 .exercise-item {
+  display: flex;
+  justify-content: space-between;
   padding: 15px;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -127,19 +105,57 @@
 .exercise-item:hover {
   background-color: #f0f0f0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  cursor: pointer; /* Cursor changes to pointer on hover */
+  cursor: pointer;
 }
 
-.exercise-item h5 {
-  margin: 0 0 10px 0;
-  /* Removed existing color and font-size to prevent conflicts */
+/* Exercise Details */
+.exercise-details {
+  flex: 1;
 }
 
-/* New class for exercise names */
+/* Exercise Name */
 .exercise-name {
   color: #000; /* Black color */
   font-size: 1.3rem; /* Slightly reduced font size */
   margin-bottom: 10px;
+}
+
+/* Exercise Detail Labels */
+.exercise-detail strong {
+  color: #333;
+  margin-bottom: 5px;
+  display: block;
+}
+
+/* Detail Text */
+.detail-text {
+  color: #555;
+  margin-bottom: 10px;
+}
+
+/* Instruction Sentences */
+.instruction-sentence {
+  margin: 0;
+  padding: 0;
+  color: #555;
+}
+
+/* YouTube Thumbnail */
+.video-thumbnail {
+  margin-left: 20px;
+  flex-shrink: 0;
+}
+
+.youtube-thumbnail {
+  width: 140px;
+  height: 105px;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.youtube-thumbnail:hover {
+  transform: scale(1.05);
 }
 
 /* Additional Tips Section */
@@ -198,7 +214,19 @@
   }
 
   .exercise-item {
-    padding: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .video-thumbnail {
+    margin-left: 0;
+    margin-top: 10px;
+  }
+
+  .youtube-thumbnail {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
   }
 
   .exercise-name {
@@ -227,7 +255,7 @@
   }
 
   /* Adjust label widths for smaller screens */
-  .workout-cell p strong {
+  .exercise-detail strong {
     width: 100%; /* Stack labels above values */
     margin-bottom: 5px;
   }
