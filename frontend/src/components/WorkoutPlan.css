@@ -16,12 +16,15 @@
   text-align: center;
   margin-bottom: 10px;
   color: #333; /* Black color */
+  font-size: 2rem; /* Increased font size for prominence */
 }
 
 .workout-plan-container p {
   text-align: center;
   margin-bottom: 30px;
   color: #555;
+  font-size: 1.1rem; /* Slightly increased font size */
+  line-height: 1.6; /* Improved line height for readability */
 }
 
 /* Workout Days Container */
@@ -68,11 +71,12 @@
   margin: 0;
   font-size: 1.2rem;
   color: #000; /* Black color */
+  margin-bottom: 10px; /* Space below the day title */
 }
 
 .day-cell .duration {
   margin-top: 10px;
-  font-size: 0.9rem;
+  font-size: 1rem; /* Increased font size */
   color: #555;
 }
 
@@ -82,6 +86,23 @@
   flex: 1;
   background-color: #fff0f5;
   transition: background-color 0.3s ease;
+}
+
+.workout-cell p {
+  display: flex; /* Enable Flexbox */
+  align-items: flex-start; /* Align items to the top */
+  margin: 10px 0;
+  color: #555;
+}
+
+.workout-cell p strong {
+  color: #333;
+  /* Align labels to the left with fixed width */
+  display: inline-block;
+  width: 150px; /* Adjust width as needed */
+  text-align: left; /* Ensure text is left-aligned */
+  margin-right: 10px; /* Space between label and text */
+  font-weight: 600; /* Semi-bold for emphasis */
 }
 
 /* Exercises Container */
@@ -95,7 +116,8 @@
 .exercise-item {
   display: flex;
   justify-content: space-between;
-  padding: 15px;
+  align-items: flex-start; /* Align items to the top */
+  padding: 20px;
   border: 1px solid #ddd;
   border-radius: 8px;
   background-color: #fafafa;
@@ -111,44 +133,88 @@
 /* Exercise Details */
 .exercise-details {
   flex: 1;
+  margin-right: 20px; /* Space between details and thumbnail */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Exercise Name */
 .exercise-name {
   color: #000; /* Black color */
-  font-size: 1.3rem; /* Slightly reduced font size */
+  font-size: 1.5rem; /* Increased font size */
   margin-bottom: 10px;
+  font-weight: 600; /* Semi-bold for better visibility */
 }
 
 /* Exercise Detail Labels */
-.exercise-detail strong {
-  color: #333;
-  margin-bottom: 5px;
-  display: block;
+.label-sets-reps,
+.label-equipment,
+.label-instructions {
+  display: flex;
+  align-items: center; /* Vertically center the icon and text */
+  margin-bottom: 5px; /* Space below the label */
+}
+
+.label-sets-reps svg,
+.label-equipment svg,
+.label-instructions svg {
+  margin-right: 8px; /* Space between icon and label text */
+  color: #28a745; /* Green color for icons */
+  min-width: 20px; /* Ensure consistent icon size */
+}
+
+/* Specific Spacing Between Sections */
+.sets-reps-detail {
+  margin-bottom: 20px; /* Adds space after Sets and Reps */
+}
+
+.equipment-detail {
+  margin-bottom: 20px; /* Adds space after Equipment Required */
+}
+
+.instructions-detail {
+  margin-bottom: 0; /* No extra space after Instructions */
 }
 
 /* Detail Text */
 .detail-text {
   color: #555;
   margin-bottom: 10px;
+  font-size: 1rem; /* Consistent font size */
 }
 
-/* Instruction Sentences */
-.instruction-sentence {
-  margin: 0;
-  padding: 0;
+/* Instruction List */
+.instruction-list {
+  list-style-type: none; /* Remove default bullets */
+  padding-left: 0; /* Remove default padding */
+  margin: 5px 0; /* Spacing around the list */
   color: #555;
+  font-size: 1rem; /* Consistent font size */
+  line-height: 1.6; /* Improved line height */
+}
+
+.instruction-item {
+  position: relative;
+  padding-left: 25px; /* Space for the custom icon */
+  margin-bottom: 8px; /* Space between list items */
+}
+
+.instruction-item::before {
+  content: "📌"; /* Pin emoji as an icon */
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #28a745; /* Green color for icons */
 }
 
 /* YouTube Thumbnail */
 .video-thumbnail {
-  margin-left: 20px;
   flex-shrink: 0;
 }
 
 .youtube-thumbnail {
-  width: 140px;
-  height: 105px;
+  width: 140px; /* Increased from 120px */
+  height: 105px; /* Increased from 90px */
   border-radius: 4px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease;
@@ -175,6 +241,7 @@
 .additional-tips h4 {
   margin-top: 0;
   color: #28a745;
+  font-size: 1.5rem; /* Increased font size for prominence */
 }
 
 .additional-tips ul {
@@ -185,6 +252,7 @@
 .additional-tips li {
   margin-bottom: 10px;
   color: #555;
+  font-size: 1rem; /* Consistent font size */
 }
 
 /* Error Message Styling */
@@ -197,22 +265,6 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .workout-day {
-    flex-direction: column;
-  }
-
-  .day-cell {
-    border-right: none;
-    border-bottom: 1px solid #ccc;
-    border-radius: 8px 8px 0 0;
-    width: 100%;
-  }
-
-  .workout-cell {
-    flex: 1 1 100%;
-    border-radius: 0 0 8px 8px;
-  }
-
   .exercise-item {
     flex-direction: column;
     align-items: flex-start;
@@ -224,17 +276,17 @@
   }
 
   .youtube-thumbnail {
-    width: 100%;
-    max-width: 300px;
-    height: auto;
+    width: 100%; /* Allow the thumbnail to take full width */
+    max-width: 300px; /* Limit the maximum width */
+    height: auto; /* Maintain aspect ratio */
   }
 
   .exercise-name {
-    font-size: 1.1rem; /* Further reduced size for smaller screens */
+    font-size: 1.3rem; /* Slightly reduced size for smaller screens */
   }
 
   .workout-plan-container p {
-    font-size: 0.95rem;
+    font-size: 1rem;
   }
 
   .workout-plan-container h3 {
@@ -255,8 +307,13 @@
   }
 
   /* Adjust label widths for smaller screens */
-  .exercise-detail strong {
+  .workout-cell p strong {
     width: 100%; /* Stack labels above values */
     margin-bottom: 5px;
+  }
+
+  /* Adjust instruction-item padding for smaller screens */
+  .instruction-item {
+    padding-left: 20px; /* Reduce padding to fit smaller screens */
   }
 }

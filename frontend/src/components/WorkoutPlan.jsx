@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import VideoModal from './VideoModal'; // Ensure the path is correct
 import './WorkoutPlan.css'; // Ensure this path is correct
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 // Utility function to get the YouTube thumbnail URL from videoId
 const getYoutubeThumbnailUrl = (videoId) => {
@@ -50,7 +51,7 @@ function WorkoutPlan({ workoutData, username }) {
 
       {workoutDays && workoutDays.length > 0 ? (
         workoutDays.map((day) => (
-          <div className="workout-day" key={day.day}>
+          <section className="workout-day" key={day.day}>
             <div className="day-cell">
               <h4>{day.day}</h4>
               <span className="duration">{day.duration}</span>
@@ -59,29 +60,43 @@ function WorkoutPlan({ workoutData, username }) {
               {day.exercises && day.exercises.length > 0 ? (
                 <div className="exercises-container">
                   {day.exercises.map((exercise) => (
-                    <div className="exercise-item" key={exercise.name}>
+                    <article className="exercise-item" key={exercise.name}>
                       <div className="exercise-details">
                         <h5 className="exercise-name">{exercise.name}</h5>
+                        
+                        {/* Sets and Reps */}
                         {exercise.setsReps && (
-                          <div className="exercise-detail">
-                            <strong className="label-sets-reps">Sets and Reps:</strong>
+                          <div className="exercise-detail sets-reps-detail">
+                            <strong className="label-sets-reps">
+                              <FontAwesomeIcon icon="dumbbell" /> Sets and Reps:
+                            </strong>
                             <span className="detail-text">{exercise.setsReps}</span>
                           </div>
                         )}
+
+                        {/* Equipment Required */}
                         {exercise.equipment && (
-                          <div className="exercise-detail">
-                            <strong className="label-equipment">Equipment Required:</strong>
+                          <div className="exercise-detail equipment-detail">
+                            <strong className="label-equipment">
+                              <FontAwesomeIcon icon="tools" /> Equipment Required:
+                            </strong>
                             <span className="detail-text">{exercise.equipment}</span>
                           </div>
                         )}
+
+                        {/* Instructions */}
                         {exercise.instructions && (
-                          <div className="exercise-detail">
-                            <strong className="label-instructions">Instructions:</strong>
-                            {splitIntoSentences(exercise.instructions).map((sentence, sentenceIdx) => (
-                              <p className="instruction-sentence" key={sentenceIdx}>
-                                {sentence}.
-                              </p>
-                            ))}
+                          <div className="exercise-detail instructions-detail">
+                            <strong className="label-instructions">
+                              <FontAwesomeIcon icon="list-alt" /> Instructions:
+                            </strong>
+                            <ul className="instruction-list">
+                              {splitIntoSentences(exercise.instructions).map((sentence, sentenceIdx) => (
+                                <li className="instruction-item" key={sentenceIdx}>
+                                  {sentence}.
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         )}
                       </div>
@@ -94,18 +109,24 @@ function WorkoutPlan({ workoutData, username }) {
                             alt={`${exercise.name} video`}
                             className="youtube-thumbnail"
                             onClick={() => openVideoModal(exercise.youtube_video_id)} // Open modal on click
-                            style={{ cursor: 'pointer' }} // Make it look clickable
+                            tabIndex="0" // Make the image focusable
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                openVideoModal(exercise.youtube_video_id);
+                              }
+                            }}
+                            loading="lazy" // Enables lazy loading
                           />
                         </div>
                       )}
-                    </div>
+                    </article>
                   ))}
                 </div>
               ) : (
                 <p>No exercises listed for this day.</p>
               )}
             </div>
-          </div>
+          </section>
         ))
       ) : (
         <div className="error-message">No workout days found in the plan.</div>
