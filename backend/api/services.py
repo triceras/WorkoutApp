@@ -24,29 +24,20 @@ class ReplicateServiceUnavailable(Exception):
 WORKOUT_PLAN_SCHEMA = {
     "type": "object",
     "properties": {
-        "workoutDays": {
+        "day": {"type": "string"},
+        "duration": {"type": "string"},
+        "exercises": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
-                    "day": {"type": "string"},
-                    "duration": {"type": "string"},
-                    "exercises": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "name": {"type": "string"},
-                                "setsReps": {"type": "string"},
-                                "equipment": {"type": "string"},
-                                "instructions": {"type": "string"},
-                                "youtube_video_id": {"type": ["string", "null"]},
-                            },
-                            "required": ["name", "setsReps", "equipment", "instructions"]
-                        }
-                    }
+                    "name": {"type": "string"},
+                    "setsReps": {"type": "string"},
+                    "equipment": {"type": "string"},
+                    "instructions": {"type": "string"},
+                    "youtube_video_id": {"type": ["string", "null"]}
                 },
-                "required": ["day", "duration", "exercises"]
+                "required": ["name", "setsReps", "equipment", "instructions"]
             }
         },
         "additionalTips": {
@@ -54,7 +45,7 @@ WORKOUT_PLAN_SCHEMA = {
             "items": {"type": "string"}
         }
     },
-    "required": ["workoutDays", "additionalTips"]
+    "required": ["day", "duration", "exercises"]
 }
 
 def validate_workout_plan(workout_plan):
@@ -102,7 +93,7 @@ def validate_session(session):
                         "setsReps": {"type": "string"},
                         "equipment": {"type": "string"},
                         "instructions": {"type": "string"},
-                        "youtube_video_id": {"type": ["string", "null"]},
+                        "youtube_video_id": {"type": ["string", "null"]}
                     },
                     "required": ["name", "setsReps", "equipment", "instructions"]
                 }
@@ -338,7 +329,8 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
                                 "name": "Exercise Name",
                                 "setsReps": "Sets and Reps",
                                 "equipment": "Equipment",
-                                "instructions": "Instructions"
+                                "instructions": "Instructions",
+                                "youtube_video_id": "VideoID"
                             }},
                             // ... more exercises ...
                         ]
@@ -458,6 +450,18 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
                 logger.error("No JSON content found in AI output")
                 raise ValueError("No JSON content found in AI output")
 
+        # Check if 'workoutDays' exists and has at least one item
+        if 'workoutDays' in modified_session and modified_session['workoutDays']:
+            # Extract the first (and only) workout day
+            workout_day = modified_session['workoutDays'][0]
+            
+            # If 'day' is missing, add it using the session_name
+            if 'day' not in workout_day:
+                workout_day['day'] = feedback_data['session_name']
+            
+            # Replace the entire modified_session with just the workout day
+            modified_session = workout_day
+        
         # Validate the modified session
         if validate_session(modified_session):
             return modified_session

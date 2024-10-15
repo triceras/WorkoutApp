@@ -8,6 +8,7 @@ from .services import (
     generate_workout_plan,
     process_feedback_with_ai,
     ReplicateServiceUnavailable,
+    get_latest_feedback
     # Add other service functions as needed
 )
 from .helpers import (
@@ -71,6 +72,8 @@ def process_feedback_submission_task(self, training_session_id):
         user = training_session.user
 
         logger.info(f"Processing feedback for user {user.username}, Session ID {training_session_id}")
+        logger.debug(f"Emoji Feedback: {training_session.emoji_feedback}")
+        logger.debug(f"Comments: {training_session.comments}")
 
         # Prepare data for AI model
         feedback_data = {
@@ -93,57 +96,52 @@ def process_feedback_submission_task(self, training_session_id):
             "comments": training_session.comments.strip() if training_session.comments else '',
         }
 
-        # Determine if only a specific session needs modification
-        modify_specific_session = training_session.emoji_feedback in ['😰', '😟', '😕']  # Adjusted for emoji representation
+        # Determine if the session needs modification
+        modify_specific_session = training_session.emoji_feedback in [0, 1, 2]  # Terrible, Very Bad, Bad
 
-        if modify_specific_session:
-            # Get the latest feedback note
-            feedback_note = get_latest_feedback(user)
-            feedback_data['feedback_note'] = feedback_note
-
-            # Process feedback with AI to modify a specific session
-            modified_session = process_feedback_with_ai(feedback_data, modify_specific_session=True)
-            if not modified_session:
-                logger.error(f"Failed to generate modified session for user {user.username}")
-                return
-        else:
-            # For neutral or positive feedback, you might choose not to modify the plan
+        logger.debug(f"Modify Specific Session: {modify_specific_session}")
+        if not modify_specific_session:
             logger.info(f"No modification needed for user {user.username} based on feedback.")
             return
 
+        # Get the latest feedback note
+        feedback_note = get_latest_feedback(user)
+        feedback_data['feedback_note'] = feedback_note
+
+        logger.debug(f"Feedback Note: {feedback_note}")
+
+        # Process feedback with AI to modify the session
+        modified_session = process_feedback_with_ai(feedback_data, modify_specific_session=True)
+        if not modified_session:
+            logger.error(f"Failed to generate modified session for user {user.username}")
+            return
+        else:
+            logger.debug(f"Modified session: {modified_session}")
+
         # Update the WorkoutPlan
         workout_plan = training_session.workout_plan
+        workout_days = workout_plan.plan_data.get('workoutDays', [])
 
-        if modify_specific_session:
-            # Update only the specified session in the workout plan
-            workout_days = workout_plan.plan_data.get('workoutDays', [])
+        # Find the session to modify
+        session_found = False
+        for idx, day in enumerate(workout_days):
+            if day['day'] == training_session.session_name:
+                workout_days[idx] = modified_session
+                session_found = True
+                break
 
-            session_found = False
-            for idx, day in enumerate(workout_days):
-                if day['day'] == training_session.session_name:
-                    # Replace the session with the modified session
-                    workout_days[idx] = modified_session
-                    session_found = True
-                    break
-
-            if not session_found:
-                logger.error(f"Session '{training_session.session_name}' not found in workout plan.")
-                return
-
-            # Save the updated plan data
-            workout_plan.plan_data['workoutDays'] = workout_days
+        if not session_found:
+            logger.error(f"Session '{training_session.session_name}' not found in workout plan.")
+            return
 
         # Save the updated workout plan
+        workout_plan.plan_data['workoutDays'] = workout_days
         workout_plan.save()
-        logger.info(f"Workout plan updated for user {user.username}")
 
-        # Send the updated workout plan to the user via Channels
-        send_workout_plan_to_group(user, workout_plan.plan_data)
+        logger.info(f"Workout plan updated for user {user.username}")
 
     except TrainingSession.DoesNotExist:
         logger.error(f"TrainingSession with ID {training_session_id} does not exist.")
-    except ReplicateServiceUnavailable as e:
-        logger.error(f"Replicate service unavailable: {e}")
     except Exception as e:
         logger.error(f"Unexpected error in processing feedback: {e}", exc_info=True)
 
