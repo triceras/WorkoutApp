@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import VideoModal from './VideoModal'; // Ensure the path is correct
 import './WorkoutPlan.css'; // Ensure this path is correct
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 // Utility function to get the YouTube thumbnail URL from videoId
 const getYoutubeThumbnailUrl = (videoId) => {
@@ -68,7 +67,7 @@ function WorkoutPlan({ workoutData, username }) {
                         {exercise.setsReps && (
                           <div className="exercise-detail sets-reps-detail">
                             <strong className="label-sets-reps">
-                              <FontAwesomeIcon icon="dumbbell" /> Sets and Reps:
+                              💪 Sets and Reps:
                             </strong>
                             <span className="detail-text">{exercise.setsReps}</span>
                           </div>
@@ -78,7 +77,7 @@ function WorkoutPlan({ workoutData, username }) {
                         {exercise.equipment && (
                           <div className="exercise-detail equipment-detail">
                             <strong className="label-equipment">
-                              <FontAwesomeIcon icon="tools" /> Equipment Required:
+                              🏋️ Equipment Required:
                             </strong>
                             <span className="detail-text">{exercise.equipment}</span>
                           </div>
@@ -88,7 +87,7 @@ function WorkoutPlan({ workoutData, username }) {
                         {exercise.instructions && (
                           <div className="exercise-detail instructions-detail">
                             <strong className="label-instructions">
-                              <FontAwesomeIcon icon="list-alt" /> Instructions:
+                              📋 Instructions:
                             </strong>
                             <ul className="instruction-list">
                               {splitIntoSentences(exercise.instructions).map((sentence, sentenceIdx) => (
