@@ -4,7 +4,6 @@ import React, { useState, useEffect, useContext } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import './LogSessionForm.css';
 import PropTypes from 'prop-types';
-import Notification from './Notification';
 import { AuthContext } from '../context/AuthContext'; // Import AuthContext
 import moment from 'moment'; // Import moment for date manipulation
 
@@ -187,25 +186,25 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
       // Update existing sessions state
       setExistingSessions((prevSessions) => [...prevSessions, response.data]);
     } catch (error) {
-        console.error('Error logging session:', error);
-        if (error.response && error.response.data) {
-          // Backend returned a validation error
-          const errorData = error.response.data;
-          // Handle different types of errors
-          if (typeof errorData === 'string') {
-            setError(errorData);
-          } else if (errorData.detail) {
-            setError(errorData.detail);
-          } else if (errorData.non_field_errors) {
-            setError(errorData.non_field_errors.join(' '));
-          } else {
-            // Collect all field errors
-            const fieldErrors = Object.values(errorData).flat();
-            setError(fieldErrors.join(' '));
-          }
+      console.error('Error logging session:', error);
+      if (error.response && error.response.data) {
+        // Backend returned a validation error
+        const errorData = error.response.data;
+        // Handle different types of errors
+        if (typeof errorData === 'string') {
+          setError(errorData);
+        } else if (errorData.detail) {
+          setError(errorData.detail);
+        } else if (errorData.non_field_errors) {
+          setError(errorData.non_field_errors.join(' '));
         } else {
-          setError('Failed to log session. Please try again.');
+          // Collect all field errors
+          const fieldErrors = Object.values(errorData).flat();
+          setError(fieldErrors.join(' '));
         }
+      } else {
+        setError('Failed to log session. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

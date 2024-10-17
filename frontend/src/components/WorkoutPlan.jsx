@@ -1,6 +1,6 @@
 // src/components/WorkoutPlan.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import VideoModal from './VideoModal'; // Ensure the path is correct
 import './WorkoutPlan.css'; // Ensure this path is correct
@@ -10,9 +10,41 @@ const getYoutubeThumbnailUrl = (videoId) => {
   return `https://img.youtube.com/vi/${videoId}/0.jpg`; // Default to the first thumbnail (hqdefault.jpg)
 };
 
-function WorkoutPlan({ workoutData, username }) {
+function WorkoutPlan({ initialWorkoutData, username }) {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState(null);
+  const [workoutData, setWorkoutData] = useState(initialWorkoutData);
+  
+  useEffect(() => {
+    // Establish WebSocket connection
+    const token = localStorage.getItem('authToken'); // Adjust based on how you store the token
+    const socket = new WebSocket(`ws://localhost:8001/ws/workout-plan/?token=${token}`);
+
+    socket.onopen = () => {
+      console.log('WebSocket connection established.');
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'workout_plan_generated') {
+        console.log('Received updated workout plan:', data.plan_data);
+        setWorkoutData(data.plan_data); // Update the state with the new plan data
+      }
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket connection closed.');
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    // Clean up the WebSocket connection when the component unmounts
+    return () => {
+      socket.close();
+    };
+  }, []);
 
   // Function to open video modal
   const openVideoModal = (videoId) => {
@@ -153,7 +185,7 @@ function WorkoutPlan({ workoutData, username }) {
 }
 
 WorkoutPlan.propTypes = {
-  workoutData: PropTypes.shape({
+  initialWorkoutData: PropTypes.shape({
     workoutDays: PropTypes.arrayOf(
       PropTypes.shape({
         day: PropTypes.string.isRequired,

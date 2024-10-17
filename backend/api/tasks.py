@@ -141,6 +141,13 @@ def process_feedback_submission_task(self, training_session_id):
         workout_plan.save()
 
         logger.info(f"Workout plan updated for user {user.username}")
+        
+        # **Send the updated workout plan to the user's group via WebSocket**
+        try:
+            send_workout_plan_to_group(user, workout_plan.plan_data)
+            logger.info(f"Sent updated workout plan to user {user.username} via WebSocket.")
+        except Exception as e:
+            logger.error(f"Error sending updated workout plan to user {user.username}: {e}", exc_info=True)
 
     except TrainingSession.DoesNotExist:
         logger.error(f"TrainingSession with ID {training_session_id} does not exist.")

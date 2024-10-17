@@ -95,36 +95,23 @@ def validate_session(session):
     SESSION_SCHEMA = {
         "type": "object",
         "properties": {
-            "workoutDays": {
+            "day": {"type": "string"},
+            "duration": {"type": "string"},
+            "exercises": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "day": {"type": "string"},
-                        "duration": {"type": "string"},
-                        "exercises": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "name": {"type": "string"},
-                                    "setsReps": {"type": "string"},
-                                    "equipment": {"type": "string"},
-                                    "instructions": {"type": "string"}
-                                },
-                                "required": ["name", "setsReps", "equipment", "instructions", "videoId"],
-                            },
-                        },
+                        "name": {"type": "string"},
+                        "setsReps": {"type": "string"},
+                        "equipment": {"type": "string"},
+                        "instructions": {"type": "string"}
                     },
-                    "required": ["day", "duration", "exercises"],
+                    "required": ["name", "setsReps", "equipment", "instructions"],
                 },
             },
-            "additionalTips": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
         },
-        "required": ["workoutDays"],
+        "required": ["day", "duration", "exercises"],
     }
     try:
         validate(instance=session, schema=SESSION_SCHEMA)
@@ -136,6 +123,16 @@ def validate_session(session):
     except Exception as e:
         logger.error(f"Unexpected error during session JSON validation: {e}")
         raise
+
+def assign_video_ids_to_session(session_data):
+    for exercise in session_data.get('exercises', []):
+        exercise_name = exercise.get('name')
+        if exercise_name:
+            video_id = get_youtube_video_id(exercise_name)
+            exercise['videoId'] = video_id if video_id else None
+        else:
+            exercise['videoId'] = None
+
 
 # def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equipment, workout_days, workout_time, additional_goals, feedback_note):
 #     """
@@ -318,49 +315,33 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
             They rated it as '{feedback_data['emoji_feedback']}' and commented: '{feedback_data['comments']}'.
 
             Below is the current workout plan for '{feedback_data['session_name']}':
-    
-            ```json
-            {current_session_json}
-            ```
-            
-            
+
+            {json.dumps(current_session, indent=2)}
+
             Please analyze the current session and make necessary adjustments based on the user's feedback.
 
             Important Instructions:
 
-            Do not change the session day name.
-            Only modify the exercises, sets, reps, or instructions for the specified session '{session_name}'.
-            Do not include any other sessions in your response.
-            Provide the modified session in JSON format as per the schema:
-
-            Please analyze the current workout plan and make necessary adjustments to the session '{feedback_data['session_name']}' based on the user's feedback.
-            Do not change or shuffle the session days.
-            Only modify the exercises, sets, reps, or instructions for the specified session '{feedback_data['session_name']}'.
-            Keep the rest of the workout plan unchanged.
-
-            Provide the modified session in JSON format as per the schema:
+            - Do not change the session day name.
+            - Only modify the exercises, sets, reps, or instructions for the specified session '{session_name}'.
+            - Do not include any other sessions in your response.
+            - Provide the modified session in JSON format as per the schema:
 
             ```json
             {{
-                "workoutDays": [
+                "day": "{feedback_data['session_name']}",
+                "duration": "Duration",
+                "exercises": [
                     {{
-                        "day": "{feedback_data['session_name']}",
-                        "duration": "60 minutes",
-                        "exercises": [
-                            {{
-                                "name": "Exercise Name",
-                                "setsReps": "Sets and Reps",
-                                "equipment": "Equipment",
-                                "instructions": "Instructions",
-                                "youtube_video_id": "VideoID"
-                            }},
-                            // ... more exercises ...
-                        ]
-                    }}
+                        "name": "Exercise Name",
+                        "setsReps": "Sets and Reps",
+                        "equipment": "Equipment",
+                        "instructions": "Instructions"
+                    }},
+                    // ... more exercises ...
                 ]
             }}
             ```
-
             **Instructions:**
             1. **Provide only the JSON response without any additional explanations or text.**
             2. **Ensure the JSON is properly formatted and adheres strictly to the provided schema.**
@@ -402,7 +383,6 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
                                 "setsReps": "Sets and Reps",
                                 "equipment": "Equipment",
                                 "instructions": "Instructions",
-                                "youtube_video_id": "VideoID12345"
                             }},
                             // ... more exercises ...
                         ]
@@ -476,24 +456,26 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
         if 'workoutDays' in modified_session and modified_session['workoutDays']:
             # Extract the first (and only) workout day
             workout_day = modified_session['workoutDays'][0]
-            
+
             # If 'day' is missing, add it using the session_name
             if 'day' not in workout_day:
                 workout_day['day'] = feedback_data['session_name']
-            
+
             # Replace the entire modified_session with just the workout day
             modified_session = workout_day
-        
+
         # Validate the modified session
         if validate_session(modified_session):
+            # Assign video IDs to the exercises
+            assign_video_ids_to_session(modified_session)
             return modified_session
         else:
             raise ValueError("Modified session JSON does not adhere to the required schema.")
-    
+
     except:
         logger.error("Error processing feedback with AI", exc_info=True)
         return None
-    
+
 
 # def send_workout_plan_to_group(user, workout_plan):
 #         """

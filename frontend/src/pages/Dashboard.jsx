@@ -8,7 +8,6 @@ import ErrorMessage from '../components/ErrorMessage';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-
 import './Dashboard.css'; 
 
 function Dashboard() {
@@ -57,6 +56,7 @@ function Dashboard() {
           // Update workout plans with the new plan data
           setWorkoutPlans((prevPlans) => {
             const updatedPlan = {
+              id: data.plan_id || prevPlans[0]?.id,
               user: user.id,
               plan_data: data.plan_data,
             };
@@ -75,7 +75,7 @@ function Dashboard() {
         console.error('WebSocket error:', error);
       };
     },
-    [authToken] // Dependencies
+    [authToken]
   );
 
   useEffect(() => {
@@ -144,6 +144,11 @@ function Dashboard() {
     return <ErrorMessage message={error} />;
   }
 
+  // Ensure workoutPlans[0].id is defined before rendering LogSessionForm
+  if (!workoutPlans || workoutPlans.length === 0 || !workoutPlans[0].id) {
+    return <div className="dashboard-loading">No valid workout plans available.</div>;
+  }
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-content">
@@ -153,7 +158,7 @@ function Dashboard() {
         {workoutPlans.length > 0 ? (
           <>
             {/* WorkoutPlan component to display the latest workout plan */}
-            <WorkoutPlan workoutData={workoutPlans[0].plan_data} />
+            <WorkoutPlan initialWorkoutData={workoutPlans[0].plan_data} />
 
             {/* LogSessionForm to handle logging sessions */}
             <LogSessionForm
