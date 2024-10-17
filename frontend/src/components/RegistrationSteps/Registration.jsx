@@ -12,6 +12,7 @@ import Equipment from './Equipment';
 import FitnessGoals from './FitnessGoals';
 import ReviewSubmit from './ReviewSubmit';
 import axiosInstance from '../../api/axiosInstance'; // Ensure correct import path
+import * as Yup from 'yup';
 import {
   Stepper,
   Step,
@@ -119,6 +120,12 @@ function Registration() {
       sex: Yup.string()
         .oneOf(['Male', 'Female', 'Other', 'Prefer not to say'], 'Invalid selection')
         .required('Sex is required'),
+      weight: Yup.number()
+        .required('Weight is required')
+        .min(1, 'Weight must be at least 1 kg'),
+      height: Yup.number()
+        .required('Height is required')
+        .min(1, 'Height must be at least 1 cm'),
     }),
     // Step 2: Fitness Level
     Yup.object({

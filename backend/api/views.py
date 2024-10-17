@@ -387,3 +387,31 @@ class UserProgressionView(APIView):
         }
 
         return Response(progression_data, status=status.HTTP_200_OK)
+
+class CheckUsernameView(APIView):
+    authentication_classes = []  # Allow unauthenticated access
+    permission_classes = []
+
+    def get(self, request):
+        username = request.query_params.get('username', None)
+        if username:
+            if User.objects.filter(username=username).exists():
+                return Response({'available': False}, status=status.HTTP_200_OK)
+            else:
+                return Response({'available': True}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Username not provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class CheckEmailView(APIView):
+    authentication_classes = []  # Allow unauthenticated access
+    permission_classes = []
+
+    def get(self, request):
+        email = request.query_params.get('email', None)
+        if email:
+            if User.objects.filter(email=email).exists():
+                return Response({'available': False}, status=status.HTTP_200_OK)
+            else:
+                return Response({'available': True}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Email not provided.'}, status=status.HTTP_400_BAD_REQUEST)

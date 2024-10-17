@@ -1,18 +1,74 @@
 // src/components/RegistrationSteps/PersonalInfo.jsx
 
-import React from 'react';
-import { Button, Box, Typography, TextField, FormControl, InputLabel, Select, MenuItem, FormHelperText } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import {
+  Button,
+  Box,
+  Typography,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
+  InputAdornment,
+} from '@mui/material';
 import { useFormikContext } from 'formik';
 import PropTypes from 'prop-types';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import axiosInstance from '../../api/axiosInstance';
+import debounce from 'lodash.debounce';
 
 function PersonalInfo({ nextStep, prevStep }) {
-  const { values, errors, touched, handleChange, handleBlur } = useFormikContext();
+  const { values, errors, touched, handleChange, handleBlur, setFieldError, setFieldTouched } = useFormikContext();
+  const [emailAvailable, setEmailAvailable] = useState(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+
+  // Debounced function to check email availability
+  const checkEmailAvailability = debounce(async (email) => {
+    if (email && /\S+@\S+\.\S+/.test(email)) {
+      setCheckingEmail(true);
+      try {
+        const response = await axiosInstance.get('check_email/', {
+          params: { email },
+        });
+        if (response.data.available) {
+          setEmailAvailable(true);
+          setFieldError('email', null);
+        } else {
+          setEmailAvailable(false);
+          setFieldError('email', 'Email address has already been in use.');
+        }
+      } catch (error) {
+        console.error('Error checking email availability:', error);
+      } finally {
+        setCheckingEmail(false);
+      }
+    } else {
+      setEmailAvailable(null);
+      setFieldError('email', null);
+    }
+  }, 500); // Adjust debounce delay as needed
+
+  // Effect to check email availability when email changes
+  useEffect(() => {
+    if (touched.email) {
+      checkEmailAvailability(values.email);
+    }
+    // Cleanup function to cancel debounce on unmount
+    return () => {
+      checkEmailAvailability.cancel();
+    };
+  }, [values.email, touched.email]);
 
   // Function to check if the current step's fields are valid
   const isStepValid = () => {
-    const requiredFields = ['firstName', 'lastName', 'email', 'age', 'weight', 'height'];
-    return requiredFields.every(
-      (field) => touched[field] && !errors[field] && values[field] !== ''
+    const requiredFields = ['firstName', 'lastName', 'email', 'age', 'sex', 'weight', 'height'];
+    return (
+      requiredFields.every(
+        (field) => touched[field] && !errors[field] && values[field] !== ''
+      ) && emailAvailable === true
     );
   };
 
@@ -53,13 +109,27 @@ function PersonalInfo({ nextStep, prevStep }) {
         name="email"
         type="email"
         value={values.email}
-        onChange={handleChange}
+        onChange={(e) => {
+          handleChange(e);
+          setFieldTouched('email', true, false);
+        }}
         onBlur={handleBlur}
         error={touched.email && Boolean(errors.email)}
         helperText={touched.email && errors.email}
         fullWidth
         margin="normal"
         required
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              {checkingEmail ? null : emailAvailable === true ? (
+                <CheckCircleIcon style={{ color: 'green' }} />
+              ) : emailAvailable === false ? (
+                <CancelIcon style={{ color: 'red' }} />
+              ) : null}
+            </InputAdornment>
+          ),
+        }}
       />
 
       <TextField
