@@ -77,7 +77,7 @@ function RegistrationPage() {
     lastName: Yup.string().required('Last Name is required'),
     email: Yup.string().email('Invalid email').required('Email is required'),
     age: Yup.number().required('Age is required').positive().integer(),
-    sex: Yup.string().oneOf(['Male', 'Female', 'Other']).required('Sex is required'),
+    sex: Yup.string().oneOf(['Male', 'Female', 'Other', 'Prefer not to say']).required('Sex is required'),
     weight: Yup.number().required('Weight is required').positive(),
     height: Yup.number().required('Height is required').positive(),
     fitnessLevel: Yup.string().required('Fitness Level is required'),

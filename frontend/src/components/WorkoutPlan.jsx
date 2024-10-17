@@ -101,17 +101,17 @@ function WorkoutPlan({ workoutData, username }) {
                       </div>
 
                       {/* YouTube Thumbnail */}
-                      {exercise.youtube_video_id && (
+                      {exercise.videoId && (
                         <div className="video-thumbnail">
                           <img
-                            src={getYoutubeThumbnailUrl(exercise.youtube_video_id)}
+                            src={getYoutubeThumbnailUrl(exercise.videoId)}
                             alt={`${exercise.name} video`}
                             className="youtube-thumbnail"
-                            onClick={() => openVideoModal(exercise.youtube_video_id)} // Open modal on click
+                            onClick={() => openVideoModal(exercise.videoId)} // Open modal on click
                             tabIndex="0" // Make the image focusable
                             onKeyPress={(e) => {
                               if (e.key === 'Enter') {
-                                openVideoModal(exercise.youtube_video_id);
+                                openVideoModal(exercise.videoId);
                               }
                             }}
                             loading="lazy" // Enables lazy loading
@@ -164,7 +164,7 @@ WorkoutPlan.propTypes = {
             setsReps: PropTypes.string,
             equipment: PropTypes.string,
             instructions: PropTypes.string,
-            youtube_video_id: PropTypes.string, // Updated field name
+            videoId: PropTypes.string, // Updated field name
           })
         ),
       })

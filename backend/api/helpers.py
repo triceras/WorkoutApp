@@ -1,6 +1,7 @@
 # api/helpers.py
 
 import os
+import re
 import logging
 import requests
 from django.core.cache import cache
@@ -24,8 +25,11 @@ def get_youtube_video_id(exercise_name):
         logger.error("YouTube API key not found. Please set the 'YOUTUBE_API_KEY' environment variable.")
         return None
 
+    # Sanitize the cache key
+    sanitized_name = sanitize_cache_key(exercise_name.lower())
+    cache_key = f"youtube_video_id_{sanitized_name}"
+
     # Implement caching to reduce API calls
-    cache_key = f"youtube_video_id_{exercise_name.lower()}"
     video_id = cache.get(cache_key)
     if video_id:
         logger.debug(f"Cache hit for exercise '{exercise_name}': {video_id}")
@@ -58,9 +62,8 @@ def get_youtube_video_id(exercise_name):
         # Cache the result for future use (e.g., 7 days)
         cache.set(cache_key, video_id, timeout=60*60*24*7)
         logger.debug(f"Cached YouTube video ID for exercise '{exercise_name}': {video_id}")
-        
-        if video_id:
-            sanitize_and_cache_youtube_video_id.delay(exercise_name, video_id)
+
+        # Removed the call to sanitize_and_cache_youtube_video_id
 
         return video_id
 
@@ -100,3 +103,12 @@ def send_workout_plan_to_group(user, workout_plan):
     except Exception as e:
         logger.error(f"Error sending workout plan to group: {e}", exc_info=True)
         raise
+
+
+def sanitize_cache_key(key):
+    """
+    Sanitizes a cache key by replacing or removing invalid characters.
+    """
+    # Replace any character that is not alphanumeric, hyphen, or underscore with '_'
+    sanitized_key = re.sub(r'[^a-zA-Z0-9_-]', '_', key)
+    return sanitized_key

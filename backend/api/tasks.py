@@ -22,7 +22,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)  # Configure retries
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def generate_workout_plan_task(self, user_id):
     """
     Celery task to generate a workout plan for a user.
@@ -32,14 +32,16 @@ def generate_workout_plan_task(self, user_id):
         logger.info(f"Generating workout plan for user ID: {user.id}, username: {user.username}")
 
         # Generate the workout plan using the service function
-        workout_plan_data = generate_workout_plan(user)
+        plan = generate_workout_plan(user.id)
 
-        if not workout_plan_data:
+        if not plan:
             logger.error(f"No workout plan data returned for user {user.username}")
             raise self.retry(exc=ValueError("No workout plan data returned"), countdown=60)
 
-        logger.info(f"Workout plan generated for user {user.username}: {workout_plan_data}")
-        return workout_plan_data  # Return the workout plan data
+        logger.info(f"Workout plan generated for user {user.username}: Plan ID {plan.id}")
+
+        # Do not return the plan instance
+        return  # Or simply omit the return statement
 
     except ReplicateServiceUnavailable as e:
         logger.error(f"Replicate service unavailable for user_id {user_id}: {e}")
@@ -58,7 +60,7 @@ def generate_workout_plan_task(self, user_id):
         except self.MaxRetriesExceededError:
             logger.error(f"Max retries exceeded for user_id {user_id}")
 
-    return None 
+
 
 @shared_task(bind=True, max_retries=1, time_limit=600, soft_time_limit=550)
 def process_feedback_submission_task(self, training_session_id):
@@ -144,17 +146,3 @@ def process_feedback_submission_task(self, training_session_id):
         logger.error(f"TrainingSession with ID {training_session_id} does not exist.")
     except Exception as e:
         logger.error(f"Unexpected error in processing feedback: {e}", exc_info=True)
-
-
-@shared_task
-def sanitize_and_cache_youtube_video_id(exercise_name, video_id):
-    """
-    Helper Celery task to sanitize cache key and store the YouTube video ID.
-    """
-    sanitized_name = sanitize_cache_key(exercise_name.lower())
-    cache_key = f"youtube_video_id_{sanitized_name}"
-    try:
-        cache.set(cache_key, video_id, timeout=60*60*24*7)  # Cache for 7 days
-        logger.debug(f"Cached YouTube video ID for exercise '{exercise_name}': {video_id}")
-    except Exception as e:
-        logger.error(f"Failed to cache YouTube video ID for '{exercise_name}': {e}")
