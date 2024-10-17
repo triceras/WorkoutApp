@@ -1,43 +1,56 @@
 // src/components/RegistrationSteps/AccountDetailsForm.jsx
 
-import React, { useState, useEffect } from 'react';
-import { Field, useFormikContext } from 'formik';
-import { TextField, Button, InputAdornment } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFormikContext } from 'formik';
+import { TextField, Button, InputAdornment, Tooltip, IconButton } from '@mui/material'; // Combined imports
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import InfoIcon from '@mui/icons-material/Info';
 import axiosInstance from '../../api/axiosInstance';
 import debounce from 'lodash.debounce';
 
 function AccountDetailsForm({ nextStep }) {
-  const { values, errors, touched, handleChange, handleBlur, setFieldError, setFieldTouched } = useFormikContext();
+  const {
+    values,
+    errors,
+    touched,
+    handleChange,
+    handleBlur,
+    setFieldError,
+    setFieldTouched,
+  } = useFormikContext();
+
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
 
   // Debounced function to check username availability
-  const checkUsernameAvailability = debounce(async (username) => {
-    if (username && username.length >= 3) {
-      setCheckingUsername(true);
-      try {
-        const response = await axiosInstance.get('check_username/', {
-          params: { username },
-        });
-        if (response.data.available) {
-          setUsernameAvailable(true);
-          setFieldError('username', null);
-        } else {
-          setUsernameAvailable(false);
-          setFieldError('username', 'Username has already been in use.');
+  const checkUsernameAvailability = useCallback(
+    debounce(async (username) => {
+      if (username && username.length >= 3) {
+        setCheckingUsername(true);
+        try {
+          const response = await axiosInstance.get('check_username/', {
+            params: { username },
+          });
+          if (response.data.available) {
+            setUsernameAvailable(true);
+            setFieldError('username', null);
+          } else {
+            setUsernameAvailable(false);
+            setFieldError('username', 'Username has already been in use.');
+          }
+        } catch (error) {
+          console.error('Error checking username availability:', error);
+        } finally {
+          setCheckingUsername(false);
         }
-      } catch (error) {
-        console.error('Error checking username availability:', error);
-      } finally {
-        setCheckingUsername(false);
+      } else {
+        setUsernameAvailable(null);
+        setFieldError('username', null);
       }
-    } else {
-      setUsernameAvailable(null);
-      setFieldError('username', null);
-    }
-  }, 500); // Adjust debounce delay as needed
+    }, 500),
+    [setFieldError]
+  );
 
   // Effect to check username availability when username changes
   useEffect(() => {
@@ -48,7 +61,7 @@ function AccountDetailsForm({ nextStep }) {
     return () => {
       checkUsernameAvailability.cancel();
     };
-  }, [values.username, touched.username]);
+  }, [values.username, touched.username, checkUsernameAvailability]);
 
   return (
     <div>
@@ -92,6 +105,17 @@ function AccountDetailsForm({ nextStep }) {
         value={values.password}
         error={touched.password && Boolean(errors.password)}
         helperText={touched.password && errors.password}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <Tooltip title="Password must be at least 6 characters long.">
+                <IconButton>
+                  <InfoIcon />
+                </IconButton>
+              </Tooltip>
+            </InputAdornment>
+          ),
+        }}
       />
 
       <TextField

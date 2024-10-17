@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Formik, Form } from 'formik';
 import { FormikDevTools } from 'formik-devtools'; // Correctly import FormikDevTools
+import { CSSTransition, TransitionGroup } from 'react-transition-group';
 import * as Yup from 'yup';
 import PersonalInfo from './PersonalInfo';
 import AccountDetailsForm from './AccountDetailsForm';
@@ -11,6 +12,7 @@ import Availability from './Availability';
 import Equipment from './Equipment';
 import FitnessGoals from './FitnessGoals';
 import ReviewSubmit from './ReviewSubmit';
+import './Registration.css';
 import axiosInstance from '../../api/axiosInstance'; // Ensure correct import path
 import * as Yup from 'yup';
 import {
@@ -333,14 +335,14 @@ function Registration() {
   }
 
   return (
-    <Box width="100%" maxWidth="800px" margin="0 auto" padding="20px">
+    <Box width="100%" maxWidth="800px" margin="0 auto" className="registration-container">
       {/* Stepper to visualize the registration steps */}
-      <Stepper activeStep={activeStep} alternativeLabel>
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
+      <Stepper
+        activeStep={activeStep}
+        alternativeLabel
+        style={{ padding: '20px 0', backgroundColor: 'transparent' }}
+      >
+        {/* ... rest of the Stepper */}
       </Stepper>
 
       {/* Formik form management */}
@@ -354,6 +356,12 @@ function Registration() {
       >
         {(formikProps) => (
           <Form>
+            <TransitionGroup>
+              <CSSTransition
+                key={activeStep}
+                timeout={300}
+                classNames="step"
+              >
             {/* Render the appropriate form step */}
             {getStepContent(activeStep)}
 
@@ -366,6 +374,9 @@ function Registration() {
                 {formikProps.errors.general}
               </Box>
             )}
+            </CSSTransition>
+            </TransitionGroup>
+
 
             {/* Navigation Buttons */}
             <Box display="flex" justifyContent="space-between" alignItems="center" marginTop="20px">

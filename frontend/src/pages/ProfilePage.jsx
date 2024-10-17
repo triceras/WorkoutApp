@@ -14,6 +14,7 @@ const ProfilePage = () => {
     const [expandedSessions, setExpandedSessions] = useState({}); // Track expanded sessions
     const [modalIsOpen, setModalIsOpen] = useState(false);
     const [currentVideoId, setCurrentVideoId] = useState(null);
+    // const [openModal, setOpenModal] = useState(false);
 
     // Function to fetch profile data from the backend
     const fetchProfileData = async () => {
@@ -49,10 +50,10 @@ const ProfilePage = () => {
     };
 
     // Open video modal
-    const openModal = (videoId) => {
-        setCurrentVideoId(videoId);
-        setModalIsOpen(true);
-    };
+    // const openModal = (videoId) => {
+    //     setCurrentVideoId(videoId);
+    //     setModalIsOpen(true);
+    // };
 
     // Close video modal
     const closeModal = () => {

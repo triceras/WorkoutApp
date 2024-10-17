@@ -24,6 +24,7 @@
     "react-modal": "^3.16.1",
     "react-router-dom": "^6.26.2",
     "react-scripts": "^5.0.1",
+    "react-transition-group": "^4.4.5",
     "reconnecting-websocket": "^4.4.0",
     "rehype-sanitize": "^6.0.0",
     "rimraf": "^4.4.1",

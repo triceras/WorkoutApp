@@ -1,6 +1,6 @@
 // src/components/RegistrationSteps/PersonalInfo.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Button,
   Box,
@@ -26,30 +26,34 @@ function PersonalInfo({ nextStep, prevStep }) {
   const [checkingEmail, setCheckingEmail] = useState(false);
 
   // Debounced function to check email availability
-  const checkEmailAvailability = debounce(async (email) => {
-    if (email && /\S+@\S+\.\S+/.test(email)) {
-      setCheckingEmail(true);
-      try {
-        const response = await axiosInstance.get('check_email/', {
-          params: { email },
-        });
-        if (response.data.available) {
-          setEmailAvailable(true);
-          setFieldError('email', null);
-        } else {
-          setEmailAvailable(false);
-          setFieldError('email', 'Email address has already been in use.');
+  // Debounced function to check email availability
+  const checkEmailAvailability = useCallback(
+    debounce(async (email) => {
+      if (email && /\S+@\S+\.\S+/.test(email)) {
+        setCheckingEmail(true);
+        try {
+          const response = await axiosInstance.get('check_email/', {
+            params: { email },
+          });
+          if (response.data.available) {
+            setEmailAvailable(true);
+            setFieldError('email', null);
+          } else {
+            setEmailAvailable(false);
+            setFieldError('email', 'Email address has already been in use.');
+          }
+        } catch (error) {
+          console.error('Error checking email availability:', error);
+        } finally {
+          setCheckingEmail(false);
         }
-      } catch (error) {
-        console.error('Error checking email availability:', error);
-      } finally {
-        setCheckingEmail(false);
+      } else {
+        setEmailAvailable(null);
+        setFieldError('email', null);
       }
-    } else {
-      setEmailAvailable(null);
-      setFieldError('email', null);
-    }
-  }, 500); // Adjust debounce delay as needed
+    }, 500),
+    [setFieldError]
+  );
 
   // Effect to check email availability when email changes
   useEffect(() => {
@@ -60,7 +64,7 @@ function PersonalInfo({ nextStep, prevStep }) {
     return () => {
       checkEmailAvailability.cancel();
     };
-  }, [values.email, touched.email]);
+  }, [values.email, touched.email, checkEmailAvailability]);
 
   // Function to check if the current step's fields are valid
   const isStepValid = () => {

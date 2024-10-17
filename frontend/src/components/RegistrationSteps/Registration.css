@@ -1,0 +1,25 @@
+/* src/components/RegistrationSteps/Registration.css */
+
+.registration-container {
+    background-color: #F5F5DC; /* Beige color */
+    padding: 20px;
+  }
+
+  .step-enter {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  .step-enter-active {
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 300ms, transform 300ms;
+  }
+  .step-exit {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .step-exit-active {
+    opacity: 0;
+    transform: translateX(-100%);
+    transition: opacity 300ms, transform 300ms;
+  }
