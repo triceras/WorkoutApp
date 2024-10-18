@@ -28,7 +28,7 @@
 }
 
 /* Individual Workout Day */
-.workout-day {
+/* .workout-day {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -37,22 +37,35 @@
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+} */
+.workout-day {
+  margin-bottom: 40px;
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Day Cell Styling */
 
 
-.day-cell {
+/* .day-cell {
   width: 100%;
   max-width: 400px;
-  background-color: #4CAF50; /* A more vibrant green color */
+  background-color: #4CAF50;
   padding: 10px 20px;
   border-radius: 5px 5px 0 0;
   margin-bottom: 0;
   text-align: left;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  
+} */
+
+.day-cell {
+  background-color: #4CAF50;
+  padding: 15px 20px;
+  border-radius: 10px 10px 0 0;
+  color: #fff;
 }
 
 .day-cell:hover {
@@ -60,29 +73,36 @@
   transform: translateY(-2px);
 }
 
-day-title {
-  color: #333;
-  font-size: 1.2rem;
+.day-title {
+  font-size: 1.5rem;
   font-weight: bold;
   margin: 0;
-  text-transform: uppercase; /* Uppercase text for a more official look */
-  letter-spacing: 1px; /* Spread out the letters slightly */
+}
+
+.day-duration {
+  font-size: 1rem;
+  margin-top: 5px;
+  color: grey;
 }
 
 /* Exercises Container */
 .exercises-container {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
-  justify-content: center;
-  margin-bottom: 40px;
   padding: 20px;
 }
 
 /* Individual Exercise */
 .exercise-item {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  overflow: hidden;
   cursor: pointer;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
 }
 
 .exercise-item:hover {
@@ -92,8 +112,7 @@ day-title {
 
 /* Exercise Details */
 .exercise-details {
-  display: flex;
-  flex-direction: column;
+  padding: 15px;
 }
 
 .exercise-name {
@@ -106,6 +125,23 @@ day-title {
 /* Exercise Detail Labels */
 .exercise-detail {
   margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+.exercise-detail::before {
+  margin-right: 5px;
+}
+
+.sets-reps-detail::before {
+  content: "💪";
+}
+
+.equipment-detail::before {
+  content: "🏋️";
+}
+
+.instructions-detail::before {
+  content: "📝";
 }
 
 .label-sets-reps,
@@ -214,6 +250,9 @@ day-title {
 .youtube-thumbnail {
   cursor: pointer;
   transition: transform 0.3s ease;
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
 }
 
 .youtube-thumbnail:hover {

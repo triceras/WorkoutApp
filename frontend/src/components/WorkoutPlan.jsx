@@ -95,7 +95,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
               <Typography variant="h4" className="day-title">
                 {day.day}
               </Typography>
-              <Typography variant="subtitle2" style={{ marginTop: '2px', color: '#555' }}>
+              <Typography variant="subtitle1" className="day-duration">
                 {day.duration}
               </Typography>
             </Box>
@@ -118,34 +118,28 @@ function WorkoutPlan({ initialWorkoutData, username }) {
                         />
                       )}
                       <CardContent className="exercise-details">
-                        <Typography variant="h6" className="exercise-name" gutterBottom>
+                        <Typography variant="h6" className="exercise-name">
                           {exercise.name}
                         </Typography>
                         {exercise.setsReps && (
-                          <div className="exercise-detail sets-reps-detail">
-                            <span className="label-sets-reps">💪 Sets and Reps:</span>
-                            <span className="detail-text">{exercise.setsReps}</span>
-                          </div>
+                          <Typography variant="body2" className="exercise-detail sets-reps-detail">
+                            <strong>Sets and Reps:</strong> {exercise.setsReps}
+                          </Typography>
                         )}
                         {exercise.equipment && (
-                          <div className="exercise-detail equipment-detail">
-                            <span className="label-equipment">🏋️ Equipment Required:</span>
-                            <span className="detail-text">{exercise.equipment}</span>
-                          </div>
+                          <Typography variant="body2" className="exercise-detail equipment-detail">
+                            <strong>Equipment Required:</strong> {exercise.equipment}
+                          </Typography>
                         )}
                         {exercise.instructions && (
-                          <div className="exercise-detail instructions-detail">
-                            <span className="label-instructions">📋 Instructions:</span>
+                          <Typography variant="body2" className="exercise-detail instructions-detail">
+                            <strong>Instructions:</strong>
                             <ul className="instruction-list">
-                              {splitIntoSentences(exercise.instructions).map(
-                                (sentence, sentenceIdx) => (
-                                  <li key={sentenceIdx} className="instruction-item">
-                                    {sentence}.
-                                  </li>
-                                )
-                              )}
+                              {splitIntoSentences(exercise.instructions).map((sentence, index) => (
+                                <li key={index} className="instruction-item">{sentence}</li>
+                              ))}
                             </ul>
-                          </div>
+                          </Typography>
                         )}
                       </CardContent>
                     </Card>
