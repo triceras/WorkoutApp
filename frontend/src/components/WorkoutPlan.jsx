@@ -11,6 +11,7 @@ import {
   Grid,
   Box,
   Container,
+  Paper,
 } from '@mui/material';
 import './WorkoutPlan.css';
 
@@ -25,7 +26,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    const socket = new WebSocket(`ws://localhost:8001/ws/workout-plan/?token=${token}`);
+    const socket = new WebSocket(`${process.env.REACT_APP_WS_BASE_URL}/ws/workout-plan/?token=${token}`);
 
     socket.onopen = () => {
       console.log('WebSocket connection established.');
@@ -89,10 +90,10 @@ function WorkoutPlan({ initialWorkoutData, username }) {
 
       {workoutDays && workoutDays.length > 0 ? (
         workoutDays.map((day) => (
-          <Box key={day.day} className="workout-day">
+          <Paper key={day.day} className="workout-day" elevation={3}>
             {/* Day and Duration */}
             <Box className="day-cell">
-              <Typography variant="h4" className="day-title">
+              <Typography variant="h5" className="day-title">
                 {day.day}
               </Typography>
               <Typography variant="subtitle1" className="day-duration">
@@ -118,28 +119,34 @@ function WorkoutPlan({ initialWorkoutData, username }) {
                         />
                       )}
                       <CardContent className="exercise-details">
-                        <Typography variant="h6" className="exercise-name">
+                        <Typography variant="h6" className="exercise-name" gutterBottom>
                           {exercise.name}
                         </Typography>
                         {exercise.setsReps && (
-                          <Typography variant="body2" className="exercise-detail sets-reps-detail">
-                            <strong>Sets and Reps:</strong> {exercise.setsReps}
-                          </Typography>
+                          <div className="exercise-detail sets-reps-detail">
+                            <span className="label">💪 Sets and Reps:</span>
+                            <span className="detail-text">{exercise.setsReps}</span>
+                          </div>
                         )}
                         {exercise.equipment && (
-                          <Typography variant="body2" className="exercise-detail equipment-detail">
-                            <strong>Equipment Required:</strong> {exercise.equipment}
-                          </Typography>
+                          <div className="exercise-detail equipment-detail">
+                            <span className="label">🏋️ Equipment Required:</span>
+                            <span className="detail-text">{exercise.equipment}</span>
+                          </div>
                         )}
                         {exercise.instructions && (
-                          <Typography variant="body2" className="exercise-detail instructions-detail">
-                            <strong>Instructions:</strong>
+                          <div className="exercise-detail instructions-detail">
+                            <span className="label">📋 Instructions:</span>
                             <ul className="instruction-list">
-                              {splitIntoSentences(exercise.instructions).map((sentence, index) => (
-                                <li key={index} className="instruction-item">{sentence}</li>
-                              ))}
+                              {splitIntoSentences(exercise.instructions).map(
+                                (sentence, sentenceIdx) => (
+                                  <li key={sentenceIdx} className="instruction-item">
+                                    {sentence}.
+                                  </li>
+                                )
+                              )}
                             </ul>
-                          </Typography>
+                          </div>
                         )}
                       </CardContent>
                     </Card>
@@ -151,7 +158,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
                 No exercises listed for this day.
               </Typography>
             )}
-          </Box>
+          </Paper>
         ))
       ) : (
         <div className="error-message">No workout days found in the plan.</div>

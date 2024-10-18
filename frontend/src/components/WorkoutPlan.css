@@ -3,20 +3,16 @@
 /* Container for the entire workout plan */
 .workout-plan-container {
   padding: 30px;
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: #333;
-  background-color: #f9f9f9;
-  border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.workout-plan-container h3 {
+.workout-plan-container h4 {
   text-align: center;
   margin-bottom: 10px;
   color: #333;
-  font-size: 2rem;
 }
 
 .workout-plan-container p {
@@ -28,79 +24,49 @@
 }
 
 /* Individual Workout Day */
-/* .workout-day {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  margin-bottom: 40px;
-  background-color: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-} */
 .workout-day {
   margin-bottom: 40px;
-  background-color: #fff;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 0 40px;
+  background-color: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Day Cell Styling */
-
-
-/* .day-cell {
-  width: 100%;
-  max-width: 400px;
-  background-color: #4CAF50;
-  padding: 10px 20px;
-  border-radius: 5px 5px 0 0;
-  margin-bottom: 0;
-  text-align: left;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-} */
-
 .day-cell {
   background-color: #4CAF50;
-  padding: 15px 20px;
+  padding: 20px;
   border-radius: 10px 10px 0 0;
   color: #fff;
 }
 
-.day-cell:hover {
-  background-color: #45a049;
-  transform: translateY(-2px);
-}
-
 .day-title {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: bold;
   margin: 0;
+  color: gray;
 }
 
 .day-duration {
-  font-size: 1rem;
+  font-size: 1.2rem;
   margin-top: 5px;
-  color: grey;
+  color: gray;
 }
 
 /* Exercises Container */
 .exercises-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  padding: 20px 0;
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
-  padding: 20px;
 }
 
 /* Individual Exercise */
 .exercise-item {
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  overflow: hidden;
   cursor: pointer;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  align-items: center;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -113,11 +79,14 @@
 /* Exercise Details */
 .exercise-details {
   padding: 15px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .exercise-name {
   color: #000;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   margin-bottom: 10px;
   font-weight: 600;
 }
@@ -125,107 +94,23 @@
 /* Exercise Detail Labels */
 .exercise-detail {
   margin-bottom: 10px;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
-.exercise-detail::before {
-  margin-right: 5px;
-}
-
-.sets-reps-detail::before {
-  content: "💪";
-}
-
-.equipment-detail::before {
-  content: "🏋️";
-}
-
-.instructions-detail::before {
-  content: "📝";
-}
-
-.label-sets-reps,
-.label-equipment,
-.label-instructions {
+.exercise-detail .label {
   font-weight: bold;
   display: block;
   margin-bottom: 5px;
 }
 
-/* Additional Tips Section
-.additional-tips {
-  margin-top: 40px;
-  padding: 20px;
-  background-color: #e6ffe6;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
+.detail-text {
+  display: block;
+  margin-left: 10px;
 }
 
-.additional-tips:hover {
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
-}
-
-.additional-tips h5 {
-  margin-top: 0;
-  color: #28a745;
-  font-size: 1.5rem;
-}
-
-.additional-tips ul {
-  list-style-position: outside;
-  padding-left: 20px;
-  margin: 0;
-}
-
-.additional-tips li {
-  margin-bottom: 10px;
-  color: #555;
-  font-size: 1rem;
-  display: list-item;
-} */
-
-/* Additional Tips Section */
-.additional-tips {
-  margin-top: 40px;
-  padding: 20px;
-  background-color: #e6ffe6;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
-}
-
-.additional-tips:hover {
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
-}
-
-.additional-tips h5 {
-  margin-top: 0;
-  color: #28a745;
-  font-size: 1.5rem;
-}
-
-.additional-tips ul {
-  list-style-type: disc; /* Use standard bullet points */
-  padding-left: 20px; /* Adjust this value to move bullets closer to or further from the left edge */
-  margin: 0;
-}
-
-.additional-tips li {
-  margin-bottom: 10px;
-  color: #555;
-  font-size: 1rem;
-  padding-left: 5px; /* Add a small padding to separate bullet from text */
-}
-
-.additional-tips li .MuiTypography-body1 {
-  display: inline; /* Make the Typography component inline */
-}
-
-/* Instruction List */
 .instruction-list {
-  list-style-type: none;
-  padding-left: 0;
+  list-style-type: disc;
+  padding-left: 20px;
   margin: 5px 0;
   color: #555;
   font-size: 1rem;
@@ -233,17 +118,7 @@
 }
 
 .instruction-item {
-  position: relative;
-  padding-left: 25px;
   margin-bottom: 8px;
-}
-
-.instruction-item::before {
-  content: "📌";
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: #28a745;
 }
 
 /* YouTube Thumbnail */
@@ -257,6 +132,37 @@
 
 .youtube-thumbnail:hover {
   transform: scale(1.05);
+}
+
+/* Additional Tips Section */
+.additional-tips {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #e6ffe6;
+  border-radius: 8px;
+}
+
+.additional-tips h5 {
+  margin-top: 0;
+  color: #28a745;
+  font-size: 1.5rem;
+}
+
+.additional-tips ul {
+  list-style-type: disc;
+  padding-left: 20px; /* Reduced from the original value */
+  margin: 0;
+}
+
+.additional-tips li {
+  margin-bottom: 10px;
+  color: #555;
+  font-size: 1rem;
+  padding-left: 5px; /* Added to create space between bullet and text */
+}
+
+.additional-tips li .MuiTypography-body1 {
+  display: inline; /* Ensures the text stays inline with the bullet point */
 }
 
 /* Error Message Styling */
@@ -277,31 +183,30 @@
     font-size: 1.5rem;
   }
 
-  .exercise-card {
-    width: 100%;
-  }
-
   .exercise-name {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
   }
 
   .workout-plan-container p {
     font-size: 1rem;
   }
 
-  .workout-plan-container h3 {
-    font-size: 1.8rem;
-  }
-
-  .day-title {
+  .workout-plan-container h4 {
     font-size: 1.8rem;
   }
 
   .additional-tips h5 {
     font-size: 1.2rem;
   }
+}
 
-  .instruction-item {
-    padding-left: 20px;
+/* Responsive Design */
+@media (max-width: 600px) {
+  .workout-day {
+    padding: 0 20px; /* Reduce padding on smaller screens */
+  }
+
+  .exercises-container {
+    padding: 10px 0;
   }
 }
