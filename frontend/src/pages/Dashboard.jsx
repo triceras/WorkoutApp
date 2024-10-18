@@ -8,7 +8,8 @@ import ErrorMessage from '../components/ErrorMessage';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import './Dashboard.css'; 
+import { Typography, Container, CircularProgress, Box } from '@mui/material';
+import './Dashboard.css';
 
 function Dashboard() {
   const [userData, setUserData] = useState(null);
@@ -16,30 +17,24 @@ function Dashboard() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const navigate = useNavigate();  // To handle navigation if needed
+  const navigate = useNavigate();
 
-  // Reference to store WebSocket instance
   const socketRef = React.useRef(null);
 
-  // Get authToken from AuthContext
   const { authToken, loading: authLoading } = useContext(AuthContext);
 
-  // Function to handle when a session is logged.
   const handleSessionLogged = (sessionData) => {
     console.log('Session logged:', sessionData);
-    // You can update state, show notifications, or perform other actions here.
+    // Handle session logged actions if needed
   };
 
-  // Define setupWebSocket using useCallback
   const setupWebSocket = useCallback(
     (user) => {
       if (!user || !authToken) return;
 
-      // Build the WebSocket URL
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${protocol}://${window.location.hostname}:8001/ws/workout-plan/?token=${authToken}`;    
+      const wsUrl = `${protocol}://${window.location.hostname}:8001/ws/workout-plan/?token=${authToken}`;
 
-      // Initialize WebSocket
       const socket = new ReconnectingWebSocket(wsUrl);
 
       socketRef.current = socket;
@@ -53,7 +48,6 @@ function Dashboard() {
         console.log('WebSocket message received:', data);
 
         if (data.type === 'workout_plan_generated') {
-          // Update workout plans with the new plan data
           setWorkoutPlans((prevPlans) => {
             const updatedPlan = {
               id: data.plan_id || prevPlans[0]?.id,
@@ -61,7 +55,6 @@ function Dashboard() {
               plan_data: data.plan_data,
             };
 
-            // Replace the existing plan or add a new one
             return [updatedPlan];
           });
         }
@@ -79,24 +72,20 @@ function Dashboard() {
   );
 
   useEffect(() => {
-    if (authLoading) return; // Wait for auth loading to complete
+    if (authLoading) return;
 
     if (!authToken) {
-      // Redirect to login if not authenticated
       navigate('/login');
       return;
     }
 
     const fetchData = async () => {
       try {
-        // Set the Authorization header for axiosInstance
         axiosInstance.defaults.headers['Authorization'] = `Token ${authToken}`;
 
-        // Fetch user data
         const userResponse = await axiosInstance.get('user/');
         setUserData(userResponse.data);
 
-        // Fetch all workout plans
         const workoutPlansResponse = await axiosInstance.get('workout-plans/');
         if (workoutPlansResponse.data && workoutPlansResponse.data.length > 0) {
           setWorkoutPlans(workoutPlansResponse.data);
@@ -104,7 +93,6 @@ function Dashboard() {
           setError('No workout plans available.');
         }
 
-        // Establish WebSocket connection after fetching user data
         setupWebSocket(userResponse.data);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -113,7 +101,6 @@ function Dashboard() {
             setError('No workout plans found. Please create one.');
           } else if (error.response.status === 401) {
             setError('Unauthorized access. Please log in again.');
-            // Redirect to login page
             navigate('/login');
           } else {
             setError('An error occurred while fetching data.');
@@ -128,7 +115,6 @@ function Dashboard() {
 
     fetchData();
 
-    // Cleanup function to close WebSocket when component unmounts
     return () => {
       if (socketRef.current) {
         socketRef.current.close();
@@ -137,40 +123,53 @@ function Dashboard() {
   }, [navigate, authToken, authLoading, setupWebSocket]);
 
   if (loading || authLoading) {
-    return <div className="dashboard-loading">Loading dashboard...</div>;
+    return (
+      <Box className="dashboard-loading">
+        <CircularProgress />
+        <Typography variant="h6" style={{ marginTop: '20px' }}>
+          Loading dashboard...
+        </Typography>
+      </Box>
+    );
   }
 
   if (error) {
     return <ErrorMessage message={error} />;
   }
 
-  // Ensure workoutPlans[0].id is defined before rendering LogSessionForm
   if (!workoutPlans || workoutPlans.length === 0 || !workoutPlans[0].id) {
-    return <div className="dashboard-loading">No valid workout plans available.</div>;
+    return (
+      <Container maxWidth="md">
+        <Typography variant="h5" align="center" color="textSecondary">
+          No valid workout plans available.
+        </Typography>
+      </Container>
+    );
   }
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-content">
-        <h2 className="welcome-message">
-          Welcome {userData?.first_name || userData?.username || 'Valued User'}
-        </h2>
-        {workoutPlans.length > 0 ? (
-          <>
-            {/* WorkoutPlan component to display the latest workout plan */}
-            <WorkoutPlan initialWorkoutData={workoutPlans[0].plan_data} />
+    <Container maxWidth="lg" className="dashboard-container">
+      <Typography variant="h4" className="welcome-message">
+        Welcome, {userData?.first_name || userData?.username || 'Valued User'}
+      </Typography>
+      {workoutPlans.length > 0 ? (
+        <>
+          <WorkoutPlan
+            initialWorkoutData={workoutPlans[0].plan_data}
+            username={userData?.first_name || userData?.username}
+          />
 
-            {/* LogSessionForm to handle logging sessions */}
-            <LogSessionForm
-              workoutPlans={workoutPlans}
-              onSessionLogged={handleSessionLogged}
-            />
-          </>
-        ) : (
-          <p className="no-workout-plans">No workout plans available.</p>
-        )}
-      </div>
-    </div>
+          <LogSessionForm
+            workoutPlans={workoutPlans}
+            onSessionLogged={handleSessionLogged}
+          />
+        </>
+      ) : (
+        <Typography variant="h6" align="center" color="textSecondary">
+          No workout plans available.
+        </Typography>
+      )}
+    </Container>
   );
 }
 

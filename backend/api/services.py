@@ -625,6 +625,8 @@ def assign_video_ids_to_exercises(workout_plan_data):
             else:
                 exercise['videoId'] = None
 
+# api/services.py
+
 def generate_prompt(
     age, sex, weight, height, fitness_level, strength_goals, additional_goals,
     equipment, workout_time, workout_days, feedback_note=None
@@ -651,16 +653,19 @@ You are a fitness expert. Create a personalized weekly workout plan for the foll
 **Feedback:** {feedback_note or 'No feedback available. Create a balanced workout plan.'}
 
 **Requirements:**
-1. Adjust the number of exercises, sets, and reps based on the user's available time.
-2. Incorporate cardio exercises using the available equipment or generic cardio equipment if specific ones are not available.
-3. Tailor the intensity and complexity of exercises based on the user's fitness level, age, and sex.
-4. Vary the workout plan weekly based on user feedback and progression.
-5. Present at least 4 exercises for each day of the week.
-6. Users with more time available will have more exercises or/and more sets/reps.
-7. If Feedback field is provided then change the workout plan accordingly.
+1. **Adjust the number of exercises based on the user's available time:**
+   - For **30 minutes** per session, include **4 to 5 exercises** per day.
+   - For **60 minutes** per session, include **7 to 8 exercises** per day.
+   - For other durations, adjust the number of exercises proportionally.
+2. Adjust the **sets and reps** based on the user's fitness level and time availability.
+3. Incorporate **cardio exercises** using the available equipment or generic cardio equipment if specific ones are not available.
+4. Tailor the **intensity and complexity** of exercises based on the user's fitness level, age, and sex.
+5. Vary the workout plan weekly based on user feedback and progression.
+6. Add some stretches at the end of each session to improve flexibility and reduce muscle soreness.
+6. **If the Feedback field is provided, change the workout plan accordingly.**
 
 **Instructions for Each Exercise:**
-- Provide detailed, step-by-step instructions on how to perform each exercise correctly and safely.
+- Provide **detailed, step-by-step instructions** on how to perform each exercise correctly and safely.
 - **Include a `videoId` field with the YouTube video ID demonstrating the exercise.**
 
 **JSON Schema:**
@@ -674,7 +679,8 @@ You are a fitness expert. Create a personalized weekly workout plan for the foll
           "name": "Barbell Bench Press",
           "setsReps": "3 sets of 8-12 reps",
           "equipment": "Barbell, Bench",
-          "instructions": "Lie on the bench with your feet planted firmly on the ground..."
+          "instructions": "Lie on the bench with your feet planted firmly on the ground...",
+          "videoId": "VIDEO_ID_HERE"
         }},
         // ... other exercises ...
       ]
@@ -696,3 +702,4 @@ You are a fitness expert. Create a personalized weekly workout plan for the foll
 
 """
     return prompt
+

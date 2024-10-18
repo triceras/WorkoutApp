@@ -1,3 +1,5 @@
+/* src/components/WorkoutPlan.css */
+
 /* Container for the entire workout plan */
 .workout-plan-container {
   padding: 30px;
@@ -13,214 +15,128 @@
 .workout-plan-container h3 {
   text-align: center;
   margin-bottom: 10px;
-  color: #333; /* Black color */
-  font-size: 2rem; /* Increased font size for prominence */
+  color: #333;
+  font-size: 2rem;
 }
 
 .workout-plan-container p {
   text-align: center;
   margin-bottom: 30px;
   color: #555;
-  font-size: 1.1rem; /* Slightly increased font size */
-  line-height: 1.6; /* Improved line height for readability */
-}
-
-/* Workout Days Container */
-.workout-days {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  font-size: 1.1rem;
+  line-height: 1.6;
 }
 
 /* Individual Workout Day */
 .workout-day {
   display: flex;
-  flex-wrap: wrap;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: #fff;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.workout-day:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  flex-direction: column;
+  align-items: center; /* Center children horizontally */
+  margin-bottom: 40px;
+  padding-top: 30px; /* Add space at the top for the floating title */
+  position: relative; /* Add this for positioning context */
 }
 
 /* Day Cell Styling */
 .day-cell {
-  background-color: #f0f8ff;
+  width: calc(100% - 40px); /* Make it wider and account for padding */
+  background-color: #87CEFA; /* Light Sky Blue */
   padding: 20px;
-  flex: 0 0 200px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  border-right: 1px solid #ccc;
-  border-radius: 8px 0 0 8px;
-  transition: background-color 0.3s ease;
+  border-radius: 20px;
+  margin: 0 auto 20px; /* Center horizontally and add bottom margin */
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative; /* Add this to allow z-index */
+  z-index: 1; /* Ensure it's above other elements */
 }
 
-.workout-day:hover .day-cell {
-  background-color: #e6f2ff;
-}
-
-.day-cell h4 {
+.day-title {
+  color: #fff; /* White text */
+  font-size: 1.5rem; /* Reduce font size */
+  font-weight: bold;
   margin: 0;
-  font-size: 1.2rem;
-  color: #000; /* Black color */
-  margin-bottom: 10px; /* Space below the day title */
-}
-
-.day-cell .duration {
-  margin-top: 10px;
-  font-size: 1rem; /* Increased font size */
-  color: #555;
-}
-
-/* Workout Cell Styling */
-.workout-cell {
-  padding: 20px;
-  flex: 1;
-  background-color: #fff0f5;
-  transition: background-color 0.3s ease;
-}
-
-.workout-cell p {
-  display: flex; /* Enable Flexbox */
-  align-items: flex-start; /* Align items to the top */
-  margin: 10px 0;
-  color: #555;
-}
-
-.workout-cell p strong {
-  color: #333;
-  /* Align labels to the left with fixed width */
-  display: inline-block;
-  width: 150px; /* Adjust width as needed */
-  text-align: left; /* Ensure text is left-aligned */
-  margin-right: 10px; /* Space between label and text */
-  font-weight: 600; /* Semi-bold for emphasis */
+  padding: 5px 0;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* Exercises Container */
 .exercises-container {
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  margin-bottom: 40px;
 }
 
 /* Individual Exercise */
 .exercise-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start; /* Align items to the top */
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background-color: #fafafa;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .exercise-item:hover {
-  background-color: #f0f0f0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
 }
 
 /* Exercise Details */
 .exercise-details {
-  flex: 1;
-  margin-right: 20px; /* Space between details and thumbnail */
   display: flex;
   flex-direction: column;
 }
 
-/* Exercise Name */
 .exercise-name {
-  color: #000; /* Black color */
-  font-size: 1.5rem; /* Increased font size */
+  color: #000;
+  font-size: 1.5rem;
   margin-bottom: 10px;
-  font-weight: 600; /* Semi-bold for better visibility */
+  font-weight: 600;
 }
 
 /* Exercise Detail Labels */
+.exercise-detail {
+  margin-bottom: 10px;
+}
+
 .label-sets-reps,
 .label-equipment,
 .label-instructions {
-  display: flex;
-  align-items: center; /* Vertically center the icon and text */
-  margin-bottom: 5px; /* Space below the label */
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
 }
 
-.label-sets-reps svg,
-.label-equipment svg,
-.label-instructions svg {
-  margin-right: 8px; /* Space between icon and label text */
-  color: #28a745; /* Green color for icons */
-  min-width: 20px; /* Ensure consistent icon size */
-}
-
-/* Specific Spacing Between Sections */
-.sets-reps-detail {
-  margin-bottom: 20px; /* Adds space after Sets and Reps */
-}
-
-.equipment-detail {
-  margin-bottom: 20px; /* Adds space after Equipment Required */
-}
-
-.instructions-detail {
-  margin-bottom: 0; /* No extra space after Instructions */
-}
-
-/* Detail Text */
-.detail-text {
-  color: #555;
-  margin-bottom: 10px;
-  font-size: 1rem; /* Consistent font size */
-}
-
-/* Instruction List */
-.instruction-list {
-  list-style-type: none; /* Remove default bullets */
-  padding-left: 0; /* Remove default padding */
-  margin: 5px 0; /* Spacing around the list */
-  color: #555;
-  font-size: 1rem; /* Consistent font size */
-  line-height: 1.6; /* Improved line height */
-}
-
-.instruction-item {
-  position: relative;
-  padding-left: 25px; /* Space for the custom icon */
-  margin-bottom: 8px; /* Space between list items */
-}
-
-.instruction-item::before {
-  content: "📌"; /* Pin emoji as an icon */
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: #28a745; /* Green color for icons */
-}
-
-/* YouTube Thumbnail */
-.video-thumbnail {
-  flex-shrink: 0;
-}
-
-.youtube-thumbnail {
-  width: 140px; /* Increased from 120px */
-  height: 105px; /* Increased from 90px */
-  border-radius: 4px;
+/* Additional Tips Section
+.additional-tips {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #e6ffe6;
+  border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
+  transition: box-shadow 0.3s ease;
 }
 
-.youtube-thumbnail:hover {
-  transform: scale(1.05);
+.additional-tips:hover {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
 }
+
+.additional-tips h5 {
+  margin-top: 0;
+  color: #28a745;
+  font-size: 1.5rem;
+}
+
+.additional-tips ul {
+  list-style-position: outside;
+  padding-left: 20px;
+  margin: 0;
+}
+
+.additional-tips li {
+  margin-bottom: 10px;
+  color: #555;
+  font-size: 1rem;
+  display: list-item;
+} */
 
 /* Additional Tips Section */
 .additional-tips {
@@ -236,21 +152,61 @@
   box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
 }
 
-.additional-tips h4 {
+.additional-tips h5 {
   margin-top: 0;
   color: #28a745;
-  font-size: 1.5rem; /* Increased font size for prominence */
+  font-size: 1.5rem;
 }
 
 .additional-tips ul {
-  list-style-type: disc;
-  padding-left: 20px;
+  list-style-type: disc; /* Use standard bullet points */
+  padding-left: 20px; /* Adjust this value to move bullets closer to or further from the left edge */
+  margin: 0;
 }
 
 .additional-tips li {
   margin-bottom: 10px;
   color: #555;
-  font-size: 1rem; /* Consistent font size */
+  font-size: 1rem;
+  padding-left: 5px; /* Add a small padding to separate bullet from text */
+}
+
+.additional-tips li .MuiTypography-body1 {
+  display: inline; /* Make the Typography component inline */
+}
+
+/* Instruction List */
+.instruction-list {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 5px 0;
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.instruction-item {
+  position: relative;
+  padding-left: 25px;
+  margin-bottom: 8px;
+}
+
+.instruction-item::before {
+  content: "📌";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #28a745;
+}
+
+/* YouTube Thumbnail */
+.youtube-thumbnail {
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.youtube-thumbnail:hover {
+  transform: scale(1.05);
 }
 
 /* Error Message Styling */
@@ -263,24 +219,20 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .exercise-item {
-    flex-direction: column;
-    align-items: flex-start;
+  .day-cell {
+    padding: 15px;
   }
 
-  .video-thumbnail {
-    margin-left: 0;
-    margin-top: 10px;
+  .day-title {
+    font-size: 1.5rem;
   }
 
-  .youtube-thumbnail {
-    width: 100%; /* Allow the thumbnail to take full width */
-    max-width: 300px; /* Limit the maximum width */
-    height: auto; /* Maintain aspect ratio */
+  .exercise-card {
+    width: 100%;
   }
 
   .exercise-name {
-    font-size: 1.3rem; /* Slightly reduced size for smaller screens */
+    font-size: 1.3rem;
   }
 
   .workout-plan-container p {
@@ -291,27 +243,15 @@
     font-size: 1.8rem;
   }
 
-  .day-cell h4 {
-    font-size: 1rem;
+  .day-title {
+    font-size: 1.8rem;
   }
 
-  .additional-tips h4 {
+  .additional-tips h5 {
     font-size: 1.2rem;
   }
 
-  /* Adjust label spacing for smaller screens */
-  .exercise-detail {
-    margin-bottom: 10px; /* Slightly reduce spacing */
-  }
-
-  /* Adjust label widths for smaller screens */
-  .workout-cell p strong {
-    width: 100%; /* Stack labels above values */
-    margin-bottom: 5px;
-  }
-
-  /* Adjust instruction-item padding for smaller screens */
   .instruction-item {
-    padding-left: 20px; /* Reduce padding to fit smaller screens */
+    padding-left: 20px;
   }
 }

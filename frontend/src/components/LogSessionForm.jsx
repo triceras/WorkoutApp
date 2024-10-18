@@ -2,27 +2,46 @@
 
 import React, { useState, useEffect, useContext } from 'react';
 import axiosInstance from '../api/axiosInstance';
-import './LogSessionForm.css';
 import PropTypes from 'prop-types';
-import { AuthContext } from '../context/AuthContext'; // Import AuthContext
-import moment from 'moment'; // Import moment for date manipulation
+import { AuthContext } from '../context/AuthContext';
+import moment from 'moment';
+import {
+  TextField,
+  Button,
+  Typography,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  FormHelperText,
+  Box,
+  Grid,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import {
+  SentimentVeryDissatisfied,
+  SentimentDissatisfied,
+  SentimentNeutral,
+  SentimentSatisfied,
+  SentimentVerySatisfied,
+  SentimentSatisfiedAlt,
+} from '@mui/icons-material';
+import './LogSessionForm.css';
 
-// Define the fixed emojis with corresponding values and descriptions
 const EMOJIS = [
-  { value: 0, emoji: '😞', label: 'Terrible' },
-  { value: 1, emoji: '😟', label: 'Very Bad' },
-  { value: 2, emoji: '😐', label: 'Bad' },
-  { value: 3, emoji: '🙂', label: 'Okay' },
-  { value: 4, emoji: '😃', label: 'Good' },
-  { value: 5, emoji: '😄', label: 'Awesome' },
+  { value: 0, icon: <SentimentVeryDissatisfied fontSize="large" />, label: 'Terrible' },
+  { value: 1, icon: <SentimentDissatisfied fontSize="large" />, label: 'Very Bad' },
+  { value: 2, icon: <SentimentNeutral fontSize="large" />, label: 'Bad' },
+  { value: 3, icon: <SentimentSatisfied fontSize="large" />, label: 'Okay' },
+  { value: 4, icon: <SentimentVerySatisfied fontSize="large" />, label: 'Good' },
+  { value: 5, icon: <SentimentSatisfiedAlt fontSize="large" />, label: 'Awesome' },
 ];
 
 const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
-  // Get the username from AuthContext
   const { user } = useContext(AuthContext);
   const username = user && user.username ? user.username : '';
 
-  // State variables
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [workoutPlanId, setWorkoutPlanId] = useState(
     workoutPlans.length > 0 ? workoutPlans[0].id : ''
@@ -35,22 +54,18 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(false);
-
-  // New state variable to store existing training sessions
   const [existingSessions, setExistingSessions] = useState([]);
 
-  // Effect to clear success message after a delay
   useEffect(() => {
     let timer;
     if (successMessage) {
       timer = setTimeout(() => {
         setSuccessMessage('');
-      }, 5000); // Message disappears after 5 seconds
+      }, 5000);
     }
     return () => clearTimeout(timer);
   }, [successMessage]);
 
-  // Fetch sessions and existing training sessions when workoutPlanId changes
   useEffect(() => {
     const fetchSessions = async () => {
       if (!workoutPlanId) {
@@ -63,27 +78,21 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
       setLoadingSessions(true);
       try {
         const response = await axiosInstance.get(`workout-plans/${workoutPlanId}/`);
-        console.log('Workout plan response:', response.data);
-
         const planData = response.data.plan_data;
-        console.log('Plan data:', planData);
 
         if (planData && planData.workoutDays) {
-          const { workoutDays, additionalTips } = planData;
-          console.log('Parsed Workout Days:', workoutDays);
-          console.log('Parsed Additional Tips:', additionalTips);
+          const { workoutDays } = planData;
 
           if (workoutDays.length > 0) {
             setSessions(workoutDays);
             setSelectedSession(workoutDays[0].day);
-            setError(null); // Clear any previous errors
+            setError(null);
           } else {
             setSessions([]);
             setSelectedSession('');
             setError('No sessions found in the selected workout plan.');
           }
         } else {
-          console.error('Plan data does not contain workoutDays.');
           setError('Failed to load sessions.');
           setSessions([]);
           setSelectedSession('');
@@ -116,21 +125,18 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
     fetchExistingSessions();
   }, [workoutPlanId]);
 
-  // Handle fixed emoji selection
   const handleEmojiSelect = (value) => {
     setEmojiFeedback(value);
   };
 
-  // Handle form submission with validation
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
     setSuccessMessage('');
 
-    // Validate that an emoji has been selected
     if (emojiFeedback === null || emojiFeedback === undefined) {
-      setError('Please select an emoji to provide your feedback.');
+      setError('Please select how you are feeling.');
       setIsSubmitting(false);
       return;
     }
@@ -138,8 +144,7 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
     // Check for existing sessions on the same day
     const isSameDay = existingSessions.some(
       (session) =>
-        session.date === date &&
-        session.session_name === selectedSession
+        session.date === date && session.session_name === selectedSession
     );
 
     if (isSameDay) {
@@ -177,7 +182,7 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
       });
       console.log('Session logged:', response.data);
       onSessionLogged(response.data);
-      
+
       // Reset form fields
       setDate(new Date().toISOString().split('T')[0]);
       setEmojiFeedback(null);
@@ -188,9 +193,7 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
     } catch (error) {
       console.error('Error logging session:', error);
       if (error.response && error.response.data) {
-        // Backend returned a validation error
         const errorData = error.response.data;
-        // Handle different types of errors
         if (typeof errorData === 'string') {
           setError(errorData);
         } else if (errorData.detail) {
@@ -198,7 +201,6 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         } else if (errorData.non_field_errors) {
           setError(errorData.non_field_errors.join(' '));
         } else {
-          // Collect all field errors
           const fieldErrors = Object.values(errorData).flat();
           setError(fieldErrors.join(' '));
         }
@@ -212,119 +214,133 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
 
   return (
     <div className="log-session-form">
-      <h3>Log Training Session</h3>
+      <Typography variant="h4" component="h3" align="center" gutterBottom>
+        Log Training Session
+      </Typography>
       {error && (
-        <p className="error" role="alert">
+        <Typography variant="body1" color="error" align="center">
           {error}
-        </p>
+        </Typography>
       )}
       {successMessage && (
-        <p className="success" role="status">
+        <Typography variant="body1" color="primary" align="center">
           {successMessage}
-        </p>
+        </Typography>
       )}
       <form onSubmit={handleSubmit}>
-        {/* Date Input */}
-        <label htmlFor="session-date">
-          Date:
-          <input
-            type="date"
-            id="session-date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            required
-          />
-        </label>
-
-        {/* Workout Plan Dropdown */}
-        <label htmlFor="workout-plan">
-          Workout Plan:
-          <select
-            id="workout-plan"
-            value={workoutPlanId}
-            onChange={(e) => setWorkoutPlanId(e.target.value)}
-            required
-          >
-            {workoutPlans.map((plan, index) => (
-              <option key={`plan-${plan.id || index}`} value={plan.id}>
-                {username
-                  ? `Workout Plan for ${username}`
-                  : `Workout Plan ${plan.id || index}`}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {/* Session Dropdown */}
-        <label htmlFor="session">
-          Session:
-          {loadingSessions ? (
-            <p>Loading sessions...</p>
-          ) : sessions.length > 0 ? (
-            <select
-              id="session"
-              value={selectedSession}
-              onChange={(e) => setSelectedSession(e.target.value)}
+        <Grid container spacing={3}>
+          {/* Date Input */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              fullWidth
               required
-            >
-              {sessions.map((session, index) => (
-                <option key={`session-${index}`} value={session.day}>
-                  {session.day}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p>No sessions available.</p>
-          )}
-        </label>
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          </Grid>
 
-        {/* Emoji Feedback */}
-        <div className="emoji-feedback-container">
-          <label className="emoji-feedback-label">How are you feeling?</label>
-          <div className="emoji-options">
-            {EMOJIS.map((item) => (
-              <button
-                type="button"
-                key={item.value}
-                className={`emoji-button ${
-                  emojiFeedback === item.value ? 'selected' : ''
-                }`}
-                onClick={() => handleEmojiSelect(item.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleEmojiSelect(item.value);
-                  }
-                }}
-                aria-label={`${item.label} (${item.value})`}
-                title={`${item.label} (${item.value})`}
+          {/* Workout Plan Dropdown */}
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth required>
+              <InputLabel id="workout-plan-label">Workout Plan</InputLabel>
+              <Select
+                labelId="workout-plan-label"
+                id="workout-plan"
+                value={workoutPlanId}
+                onChange={(e) => setWorkoutPlanId(e.target.value)}
+                label="Workout Plan"
               >
-                <span role="img" aria-hidden="true" className="emoji">
-                  {item.emoji}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+                {workoutPlans.map((plan) => (
+                  <MenuItem key={plan.id} value={plan.id}>
+                    {username
+                      ? `Workout Plan for ${username}`
+                      : `Workout Plan ${plan.id}`}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
 
-        {/* Comments Section */}
-        <div className="comments-section">
-          <label htmlFor="comments">Comments:</label>
-          <textarea
-            id="comments"
-            value={comments}
-            onChange={(e) => setComments(e.target.value)}
-            placeholder="Add any additional comments about your training session..."
-            rows="5"
-            maxLength="500"
-            required
-          />
-        </div>
+          {/* Session Dropdown */}
+          <Grid item xs={12}>
+            {loadingSessions ? (
+              <Typography variant="body1">Loading sessions...</Typography>
+            ) : sessions.length > 0 ? (
+              <FormControl fullWidth required>
+                <InputLabel id="session-label">Session</InputLabel>
+                <Select
+                  labelId="session-label"
+                  id="session"
+                  value={selectedSession}
+                  onChange={(e) => setSelectedSession(e.target.value)}
+                  label="Session"
+                >
+                  {sessions.map((session) => (
+                    <MenuItem key={session.day} value={session.day}>
+                      {session.day}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : (
+              <Typography variant="body1" color="error">
+                No sessions available.
+              </Typography>
+            )}
+          </Grid>
 
-        {/* Submit Button */}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Logging...' : 'Log Session'}
-        </button>
+          {/* Emoji Feedback */}
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              How are you feeling?
+            </Typography>
+            <Box display="flex" justifyContent="space-between" flexWrap="wrap">
+              {EMOJIS.map((item) => (
+                <Tooltip key={item.value} title={item.label}>
+                  <IconButton
+                    color={emojiFeedback === item.value ? 'primary' : 'default'}
+                    onClick={() => handleEmojiSelect(item.value)}
+                    size="large"
+                  >
+                    {item.icon}
+                  </IconButton>
+                </Tooltip>
+              ))}
+            </Box>
+          </Grid>
+
+          {/* Comments Section */}
+          <Grid item xs={12}>
+            <TextField
+              label="Comments"
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+              placeholder="Add any additional comments about your training session..."
+              multiline
+              rows={4}
+              fullWidth
+              required
+            />
+          </Grid>
+
+          {/* Submit Button */}
+          <Grid item xs={12}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={isSubmitting}
+              fullWidth
+            >
+              {isSubmitting ? 'Logging...' : 'Log Session'}
+            </Button>
+          </Grid>
+        </Grid>
       </form>
     </div>
   );

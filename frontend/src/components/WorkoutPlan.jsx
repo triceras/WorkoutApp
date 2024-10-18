@@ -2,22 +2,29 @@
 
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import VideoModal from './VideoModal'; // Ensure the path is correct
-import './WorkoutPlan.css'; // Ensure this path is correct
+import VideoModal from './VideoModal';
+import {
+  Typography,
+  Card,
+  CardContent,
+  CardMedia,
+  Grid,
+  Box,
+  Container,
+} from '@mui/material';
+import './WorkoutPlan.css';
 
-// Utility function to get the YouTube thumbnail URL from videoId
 const getYoutubeThumbnailUrl = (videoId) => {
-  return `https://img.youtube.com/vi/${videoId}/0.jpg`; // Default to the first thumbnail (hqdefault.jpg)
+  return `https://img.youtube.com/vi/${videoId}/0.jpg`;
 };
 
 function WorkoutPlan({ initialWorkoutData, username }) {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState(null);
   const [workoutData, setWorkoutData] = useState(initialWorkoutData);
-  
+
   useEffect(() => {
-    // Establish WebSocket connection
-    const token = localStorage.getItem('authToken'); // Adjust based on how you store the token
+    const token = localStorage.getItem('authToken');
     const socket = new WebSocket(`ws://localhost:8001/ws/workout-plan/?token=${token}`);
 
     socket.onopen = () => {
@@ -28,7 +35,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
       const data = JSON.parse(event.data);
       if (data.type === 'workout_plan_generated') {
         console.log('Received updated workout plan:', data.plan_data);
-        setWorkoutData(data.plan_data); // Update the state with the new plan data
+        setWorkoutData(data.plan_data);
       }
     };
 
@@ -40,19 +47,16 @@ function WorkoutPlan({ initialWorkoutData, username }) {
       console.error('WebSocket error:', error);
     };
 
-    // Clean up the WebSocket connection when the component unmounts
     return () => {
       socket.close();
     };
   }, []);
 
-  // Function to open video modal
   const openVideoModal = (videoId) => {
     setCurrentVideoId(videoId);
     setModalIsOpen(true);
   };
 
-  // Function to close video modal
   const closeVideoModal = () => {
     setModalIsOpen(false);
     setCurrentVideoId(null);
@@ -65,7 +69,6 @@ function WorkoutPlan({ initialWorkoutData, username }) {
 
   const { workoutDays, additionalTips } = workoutData;
 
-  // Utility function to split instructions into sentences
   const splitIntoSentences = (text) => {
     return text
       .split('.')
@@ -74,113 +77,113 @@ function WorkoutPlan({ initialWorkoutData, username }) {
   };
 
   return (
-    <div className="workout-plan-container">
-      <h3>Your Personalized Weekly Workout Plan{username ? ` for ${username}` : ''}</h3>
-      <p>
-        Based on your inputs, we've created a personalized weekly workout plan to help you build muscle. Please find the plan below:
-      </p>
+    <Container maxWidth="lg" className="workout-plan-container">
+      <Typography variant="h4" align="center" gutterBottom>
+        Your Personalized Weekly Workout Plan
+        {username ? ` for ${username}` : ''}
+      </Typography>
+      <Typography variant="body1" align="center" paragraph>
+        Based on your inputs, we've created a personalized weekly workout plan to help you build
+        muscle. Please find the plan below:
+      </Typography>
 
       {workoutDays && workoutDays.length > 0 ? (
         workoutDays.map((day) => (
-          <section className="workout-day" key={day.day}>
-            <div className="day-cell">
-              <h4>{day.day}</h4>
-              <span className="duration">{day.duration}</span>
-            </div>
-            <div className="workout-cell">
-              {day.exercises && day.exercises.length > 0 ? (
-                <div className="exercises-container">
-                  {day.exercises.map((exercise) => (
-                    <article className="exercise-item" key={exercise.name}>
-                      <div className="exercise-details">
-                        <h5 className="exercise-name">{exercise.name}</h5>
-                        
-                        {/* Sets and Reps */}
+          <Box key={day.day} className="workout-day">
+            {/* Day and Duration */}
+            <Box className="day-cell">
+              <Typography variant="h4" className="day-title">
+                {day.day}: {day.duration}
+              </Typography>
+            </Box>
+            {/* Exercises */}
+            {day.exercises && day.exercises.length > 0 ? (
+              <Grid container spacing={3} className="exercises-container">
+                {day.exercises.map((exercise) => (
+                  <Grid item xs={12} sm={6} md={4} key={exercise.name}>
+                    <Card
+                      className="exercise-card exercise-item"
+                      onClick={() => openVideoModal(exercise.videoId)}
+                    >
+                      {exercise.videoId && (
+                        <CardMedia
+                          component="img"
+                          height="140"
+                          image={getYoutubeThumbnailUrl(exercise.videoId)}
+                          alt={`${exercise.name} video`}
+                          className="youtube-thumbnail"
+                        />
+                      )}
+                      <CardContent className="exercise-details">
+                        <Typography variant="h6" className="exercise-name" gutterBottom>
+                          {exercise.name}
+                        </Typography>
                         {exercise.setsReps && (
                           <div className="exercise-detail sets-reps-detail">
-                            <strong className="label-sets-reps">
-                              💪 Sets and Reps:
-                            </strong>
+                            <span className="label-sets-reps">💪 Sets and Reps:</span>
                             <span className="detail-text">{exercise.setsReps}</span>
                           </div>
                         )}
-
-                        {/* Equipment Required */}
                         {exercise.equipment && (
                           <div className="exercise-detail equipment-detail">
-                            <strong className="label-equipment">
-                              🏋️ Equipment Required:
-                            </strong>
+                            <span className="label-equipment">🏋️ Equipment Required:</span>
                             <span className="detail-text">{exercise.equipment}</span>
                           </div>
                         )}
-
-                        {/* Instructions */}
                         {exercise.instructions && (
                           <div className="exercise-detail instructions-detail">
-                            <strong className="label-instructions">
-                              📋 Instructions:
-                            </strong>
+                            <span className="label-instructions">📋 Instructions:</span>
                             <ul className="instruction-list">
-                              {splitIntoSentences(exercise.instructions).map((sentence, sentenceIdx) => (
-                                <li className="instruction-item" key={sentenceIdx}>
-                                  {sentence}.
-                                </li>
-                              ))}
+                              {splitIntoSentences(exercise.instructions).map(
+                                (sentence, sentenceIdx) => (
+                                  <li key={sentenceIdx} className="instruction-item">
+                                    {sentence}.
+                                  </li>
+                                )
+                              )}
                             </ul>
                           </div>
                         )}
-                      </div>
-
-                      {/* YouTube Thumbnail */}
-                      {exercise.videoId && (
-                        <div className="video-thumbnail">
-                          <img
-                            src={getYoutubeThumbnailUrl(exercise.videoId)}
-                            alt={`${exercise.name} video`}
-                            className="youtube-thumbnail"
-                            onClick={() => openVideoModal(exercise.videoId)} // Open modal on click
-                            tabIndex="0" // Make the image focusable
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                openVideoModal(exercise.videoId);
-                              }
-                            }}
-                            loading="lazy" // Enables lazy loading
-                          />
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p>No exercises listed for this day.</p>
-              )}
-            </div>
-          </section>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            ) : (
+              <Typography variant="body1" color="textSecondary">
+                No exercises listed for this day.
+              </Typography>
+            )}
+          </Box>
         ))
       ) : (
         <div className="error-message">No workout days found in the plan.</div>
       )}
 
+      {/* Additional Tips */}
       {additionalTips && additionalTips.length > 0 && (
-        <div className="additional-tips">
-          <h4>Additional Tips:</h4>
+        <Box mt={5} className="additional-tips">
+          <Typography variant="h5" gutterBottom>
+            Additional Tips:
+          </Typography>
           <ul>
-            {additionalTips.map((tip) => (
-              <li key={tip}>{tip}</li>
+            {additionalTips.map((tip, index) => (
+              <li key={index}>
+                <Typography variant="body1" color="textSecondary">
+                  {tip}
+                </Typography>
+              </li>
             ))}
           </ul>
-        </div>
+        </Box>
       )}
 
-      {/* Video Modal Component */}
       <VideoModal
         isOpen={modalIsOpen}
         onRequestClose={closeVideoModal}
         videoId={currentVideoId}
       />
-    </div>
+    </Container>
   );
 }
 
@@ -196,7 +199,7 @@ WorkoutPlan.propTypes = {
             setsReps: PropTypes.string,
             equipment: PropTypes.string,
             instructions: PropTypes.string,
-            videoId: PropTypes.string, // Updated field name
+            videoId: PropTypes.string,
           })
         ),
       })
