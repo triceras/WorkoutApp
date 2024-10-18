@@ -93,7 +93,10 @@ function WorkoutPlan({ initialWorkoutData, username }) {
             {/* Day and Duration */}
             <Box className="day-cell">
               <Typography variant="h4" className="day-title">
-                {day.day}: {day.duration}
+                {day.day}
+              </Typography>
+              <Typography variant="subtitle2" style={{ marginTop: '2px', color: '#555' }}>
+                {day.duration}
               </Typography>
             </Box>
             {/* Exercises */}

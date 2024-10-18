@@ -31,32 +31,42 @@
 .workout-day {
   display: flex;
   flex-direction: column;
-  align-items: center; /* Center children horizontally */
+  align-items: stretch;
   margin-bottom: 40px;
-  padding-top: 30px; /* Add space at the top for the floating title */
-  position: relative; /* Add this for positioning context */
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Day Cell Styling */
+
+
 .day-cell {
-  width: calc(100% - 40px); /* Make it wider and account for padding */
-  background-color: #87CEFA; /* Light Sky Blue */
-  padding: 20px;
-  border-radius: 20px;
-  margin: 0 auto 20px; /* Center horizontally and add bottom margin */
-  text-align: center;
+  width: 100%;
+  max-width: 400px;
+  background-color: #4CAF50; /* A more vibrant green color */
+  padding: 10px 20px;
+  border-radius: 5px 5px 0 0;
+  margin-bottom: 0;
+  text-align: left;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  position: relative; /* Add this to allow z-index */
-  z-index: 1; /* Ensure it's above other elements */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  
 }
 
-.day-title {
-  color: #fff; /* White text */
-  font-size: 1.5rem; /* Reduce font size */
+.day-cell:hover {
+  background-color: #45a049;
+  transform: translateY(-2px);
+}
+
+day-title {
+  color: #333;
+  font-size: 1.2rem;
   font-weight: bold;
   margin: 0;
-  padding: 5px 0;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  text-transform: uppercase; /* Uppercase text for a more official look */
+  letter-spacing: 1px; /* Spread out the letters slightly */
 }
 
 /* Exercises Container */
@@ -66,6 +76,7 @@
   gap: 20px;
   justify-content: center;
   margin-bottom: 40px;
+  padding: 20px;
 }
 
 /* Individual Exercise */

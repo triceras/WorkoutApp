@@ -105,10 +105,15 @@ def validate_session(session):
                         "name": {"type": "string"},
                         "setsReps": {"type": "string"},
                         "equipment": {"type": "string"},
-                        "instructions": {"type": "string"}
+                        "instructions": {"type": "string"},
+                        "videoId": {"type": ["string", "null"]},
                     },
-                    "required": ["name", "setsReps", "equipment", "instructions"],
+                    "required": ["name", "setsReps", "equipment", "instructions", "videoId"],
                 },
+            },
+            "additionalTips": {
+                "type": "array",
+                "items": {"type": "string"},
             },
         },
         "required": ["day", "duration", "exercises"],
@@ -339,6 +344,10 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
                         "instructions": "Instructions"
                     }},
                     // ... more exercises ...
+                ],
+                "additionalTips": [
+                    "Tip 1",
+                    "Tip 2"
                 ]
             }}
             ```
@@ -444,13 +453,18 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
             modified_session = json.loads(output_str)
         except json.JSONDecodeError:
             # If that fails, try to extract the session object from within the output
-            json_match = re.search(r'\{.*?\}', full_output, re.DOTALL)
+            json_match = re.search(r'\{.*\}', output_str, re.DOTALL)
             if json_match:
                 json_content = json_match.group(0)
-                modified_session = json.loads(json_content)
+                try:
+                    modified_session = json.loads(json_content)
+                except json.JSONDecodeError as e2:
+                    logger.error(f"Failed to parse extracted JSON content: {str(e2)}")
+                    raise ValueError("Failed to parse JSON content")
             else:
                 logger.error("No JSON content found in AI output")
                 raise ValueError("No JSON content found in AI output")
+
 
         # Check if 'workoutDays' exists and has at least one item
         if 'workoutDays' in modified_session and modified_session['workoutDays']:
