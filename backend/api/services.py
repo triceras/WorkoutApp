@@ -139,95 +139,6 @@ def assign_video_ids_to_session(session_data):
             exercise['videoId'] = None
 
 
-# def create_prompt(age, sex, weight, height, fitness_level, strength_goals, equipment, workout_days, workout_time, additional_goals, feedback_note):
-#     """
-#     Creates a detailed prompt based on user's profile to generate a personalized workout plan.
-#     Instructs the AI to return the plan in a predefined JSON format.
-#     """
-#     equipment_list = ', '.join(equipment) if equipment else 'None'
-#     strength_goals_list = ', '.join(strength_goals) if strength_goals else 'None'
-
-#     prompt = (
-#         f"Create a personalized weekly workout plan for the following user in strict JSON format. "
-#         f"Ensure the JSON adheres exactly to the provided schema without any additional text or explanations.\n\n"
-#         f"**User Profile:**\n"
-#         f"- Age: {age}\n"
-#         f"- Sex: {sex}\n"
-#         f"- Weight: {weight} kg\n"
-#         f"- Height: {height} cm\n"
-#         f"- Fitness Level: {fitness_level}\n"
-#         f"- Strength Goals: {strength_goals_list}\n"
-#         f"- Additional Goals: {additional_goals}\n"
-#         f"- Available Equipment: {equipment_list}\n"
-#         f"- Workout Availability: {workout_time} minutes per session, {workout_days} days per week\n\n"
-#         f"**Feedback:** {feedback_note}\n\n"
-#         f"**Requirements:**\n"
-#         f"1. Adjust the number of exercises, sets, and reps based on the user's available time.\n"
-#         f"2. Incorporate cardio exercises using the available equipment or generic cardio equipment if specific ones are not available.\n"
-#         f"3. Tailor the intensity and complexity of exercises based on the user's fitness level, age, and sex.\n"
-#         f"4. Vary the workout plan weekly based on user feedback and progression.\n\n"
-#         f"5. Present at least 4 exercises for each day of the week.\n\n"
-#         f"6. Users with more time available will have more exercises or/and more sets/reps.\n\n"
-#         f"7. If Feedback field is provided then change the workout plan accordingly.\n\n"
-#         f"**Instructions for Each Exercise:**\n"
-#         f"Provide detailed, step-by-step instructions on how to perform each exercise correctly and safely.\n\n"
-#         f"**JSON Schema:**\n"
-#         f"```json\n"
-#         f"{{\n"
-#         f"  \"workoutDays\": [\n"
-#         f"    {{\n"
-#         f"      \"day\": \"Day 1: Chest and Triceps\",\n"
-#         f"      \"duration\": \"60 minutes\",\n"
-#         f"      \"exercises\": [\n"
-#         f"        {{\n"
-#         f"          \"name\": \"Barbell Bench Press\",\n"
-#         f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
-#         f"          \"equipment\": \"Barbell, Bench\",\n"
-#         f"          \"instructions\": \"Lie on the bench with your feet planted firmly on the ground. Grip the barbell slightly wider than shoulder-width apart. Lower the barbell to your chest while inhaling, then press it back up while exhaling. Maintain a steady pace and control throughout the movement.\"\n"
-#         f"        }},\n"
-#         f"        {{\n"
-#         f"          \"name\": \"Tricep Pushdown\",\n"
-#         f"          \"setsReps\": \"3 sets of 12-15 reps\",\n"
-#         f"          \"equipment\": \"Cable Machine\",\n"
-#         f"          \"instructions\": \"Attach a straight bar to the high pulley of the cable machine. Grasp the bar with an overhand grip, keeping your elbows close to your body. Push the bar down until your arms are fully extended, then slowly return to the starting position.\"\n"
-#         f"        }}\n"
-#         f"      ]\n"
-#         f"    }},\n"
-#         f"    {{\n"
-#         f"      \"day\": \"Day 2: Back and Biceps\",\n"
-#         f"      \"duration\": \"60 minutes\",\n"
-#         f"      \"exercises\": [\n"
-#         f"        {{\n"
-#         f"          \"name\": \"Deadlifts\",\n"
-#         f"          \"setsReps\": \"3 sets of 8-12 reps\",\n"
-#         f"          \"equipment\": \"Barbell\",\n"
-#         f"          \"instructions\": \"Stand with your feet shoulder-width apart, gripping the barbell with your hands shoulder-width apart. Keeping your back straight and your core engaged, lift the barbell off the ground. Stand up, squeezing your glutes and pushing your hips back. Lower the barbell to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
-#         f"        }},\n"
-#         f"        {{\n"
-#         f"          \"name\": \"Bicep Curl\",\n"
-#         f"          \"setsReps\": \"3 sets of 10-12 reps\",\n"
-#         f"          \"equipment\": \"Dumbbells\",\n"
-#         f"          \"instructions\": \"Stand with your feet shoulder-width apart, holding a dumbbell in each hand with your palms facing forward. Curl the dumbbells up towards your shoulders, keeping your upper arms still. Lower the dumbbells to the starting position, keeping control throughout the entire range of motion. Repeat for the desired number of reps and sets.\"\n"
-#         f"        }}\n"
-#         f"      ]\n"
-#         f"    }}\n"
-#         f"  ],\n"
-#         f"  \"additionalTips\": [\n"
-#         f"    \"Ensure proper form to prevent injuries.\",\n"
-#         f"    \"Stay hydrated throughout your workouts.\"\n"
-#         f"  ]\n"
-#         f"}}\n"
-#         f"```\n\n"
-#         f"**Instructions:**\n"
-#         f"1. **Provide only the JSON response without any additional explanations or text.**\n"
-#         f"2. **Ensure the JSON is properly formatted and adheres strictly to the provided schema.**\n"
-#         f"3. **Do not include any text before or after the JSON.**\n"
-#         f"4. **Do not include markdown code blocks or triple backticks.**\n"
-#         f"5. **If you need to mention anything, include it within the JSON as 'additionalTips'.**\n"
-#     )
-
-#     return prompt
-
 def get_latest_feedback(user):
     """
     Retrieves the latest feedback from the user's training sessions to adjust the workout plan.
@@ -274,15 +185,27 @@ def extract_json_from_text(text):
         str or None: The extracted JSON string, or None if not found.
     """
     try:
-        # Regular expression to find JSON object
-        json_pattern = r'\{(?:[^{}]|(?R))*\}'
-        matches = re.findall(json_pattern, text, re.DOTALL)
-
-        if matches:
-            # Return the first JSON object found
-            return matches[0]
-        else:
+        # Find the first opening brace
+        start_index = text.find('{')
+        if start_index == -1:
             return None
+
+        # Initialize a stack to keep track of braces
+        stack = []
+        for index in range(start_index, len(text)):
+            char = text[index]
+            if char == '{':
+                stack.append('{')
+            elif char == '}':
+                if stack:
+                    stack.pop()
+                    if not stack:
+                        # Found the matching closing brace
+                        return text[start_index:index+1]
+                else:
+                    # Unbalanced closing brace
+                    break
+        return None  # No matching closing brace found
     except Exception as e:
         logger.error(f"Error extracting JSON: {e}")
         return None
@@ -413,111 +336,115 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
             """
 
         # Get the Replicate API token
-        replicate_api_token = os.environ.get('REPLICATE_API_TOKEN')
-        if not replicate_api_token:
-            logger.error("Replicate API token not found in environment variables.")
+        # replicate_api_token = os.environ.get('REPLICATE_API_TOKEN')
+        # if not replicate_api_token:
+        #     logger.error("Replicate API token not found in environment variables.")
+        #     return None
+        
+        # Get OpenRouter AI API Key
+        openrouter_api_key = os.environ.get('OPENROUTER_API_KEY')
+        if not openrouter_api_key:
+            logger.error("OpenRouter API Key not found in environment variables.")
             return None
 
-        os.environ["REPLICATE_API_TOKEN"] = replicate_api_token  # Set the environment variable
+        #os.environ["REPLICATE_API_TOKEN"] = replicate_api_token  # Set the environment variable
 
-        client = replicate.Client(api_token=replicate_api_token, timeout=300)
+        client = replicate.Client(api_token=openrouter_api_key, timeout=300)
 
         # Define the model name (Update with the correct model name)
-        model_name = "meta/meta-llama-3-70b-instruct"
+        # model_name = "meta/meta-llama-3-70b-instruct"
 
-        # Define the inputs
-        inputs = {
-            "prompt": prompt,
-            "temperature": 0.7,
-            "max_new_tokens": 1500,  # Adjust as needed
-            # Add other parameters if needed
+        # # Define the inputs
+        # inputs = {
+        #     "prompt": prompt,
+        #     "temperature": 0.7,
+        #     "max_new_tokens": 1500,  # Adjust as needed
+        #     # Add other parameters if needed
+        # }
+        # Prepare the payload for OpenRouter AI
+        payload = {
+            "model": "openai/gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.5,
         }
         
-        # Run the model and collect the output
-        output = client.run(
-            model_name,
-            input=inputs,
-        )
+        headers = {
+            "Authorization": f"Bearer {openrouter_api_key}",
+            "Content-Type": "application/json",
+        }
+        
+        # Run the model using OpenRouter AI
+        try:
+            response = requests.post(
+                url="https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                data=json.dumps(payload)
+            )
+            response.raise_for_status()  # Raise an error for bad status codes
+            ai_response = response.json()
+            # Extract the assistant's reply
+            output_str = ai_response['choices'][0]['message']['content']
+        except requests.exceptions.HTTPError as http_err:
+            logger.error(f"HTTP error occurred during AI model invocation: {http_err}")
+            raise AIServiceUnavailable(f"AI model HTTP error: {http_err}")
+        except Exception as err:
+            logger.error(f"Error during AI model invocation: {err}")
+            raise AIServiceUnavailable(f"AI model error: {err}")
 
-        # Log the AI output
-        logger.debug(f"AI Output String: {output}")
+        # Log the AI output for debugging
+        logger.debug(f"AI Model Output:\n{output_str}")
 
-        # Convert output to string if it's a list
-        if isinstance(output, list):
-            output_str = ''.join(output)
-        else:
-            output_str = str(output)
+        # Clean the output
+        output_str = output_str.strip()
+
+        if not output_str:
+            logger.error("AI model returned an empty response.")
+            raise ValueError("AI model returned an empty response.")
 
         # Parse the JSON content
         try:
-            modified_session = json.loads(output_str)
+            workout_plan_data = json.loads(output_str)
         except json.JSONDecodeError:
-            # If that fails, try to extract the session object from within the output
-            json_match = re.search(r'\{.*\}', output_str, re.DOTALL)
-            if json_match:
-                json_content = json_match.group(0)
+            # Try to extract the JSON from within the output
+            json_content = extract_json_from_text(output_str)
+            if json_content:
                 try:
-                    modified_session = json.loads(json_content)
+                    workout_plan_data = json.loads(json_content)
                 except json.JSONDecodeError as e2:
                     logger.error(f"Failed to parse extracted JSON content: {str(e2)}")
                     raise ValueError("Failed to parse JSON content")
             else:
                 logger.error("No JSON content found in AI output")
+                logger.debug(f"AI Output Received:\n{output_str}")
                 raise ValueError("No JSON content found in AI output")
 
-
         # Check if 'workoutDays' exists and has at least one item
-        if 'workoutDays' in modified_session and modified_session['workoutDays']:
-            # Extract the first (and only) workout day
-            workout_day = modified_session['workoutDays'][0]
-
-            # If 'day' is missing, add it using the session_name
-            if 'day' not in workout_day:
-                workout_day['day'] = feedback_data['session_name']
-
-            # Replace the entire modified_session with just the workout day
-            modified_session = workout_day
-
-        # Validate the modified session
-        if validate_session(modified_session):
-            # Assign video IDs to the exercises
-            assign_video_ids_to_session(modified_session)
-            return modified_session
+        if modify_specific_session:
+            # For specific session modification, expect a single session dict
+            if validate_session(modified_session):
+                # Assign video IDs to the exercises
+                assign_video_ids_to_session(modified_session)
+                return modified_session
+            else:
+                raise ValueError("Modified session JSON does not adhere to the required schema.")
         else:
-            raise ValueError("Modified session JSON does not adhere to the required schema.")
-
+            # For full workout plan modification
+            if validate_workout_plan(modified_session):
+                # Assign video IDs to the exercises
+                assign_video_ids_to_exercises(modified_session)
+                return modified_session
+            else:
+                raise ValueError("Modified workout plan JSON does not adhere to the required schema.")
     except:
-        logger.error("Error processing feedback with AI", exc_info=True)
+        raise ValueError("Error processing feedback with AI", exc_info=True)
         return None
 
 
-# def send_workout_plan_to_group(user, workout_plan):
-#         """
-#         Sends the workout plan to the user's group via Channels.
-
-#         Args:
-#             user: A User object.
-#             workout_plan (dict): The workout plan data.
-#         """
-#         try:
-#             channel_layer = get_channel_layer()
-#             if channel_layer is None:
-#                 logger.error("Channel layer is not configured.")
-#                 return
-
-#             group_name = f'workout_plan_{user.id}'
-
-#             async_to_sync(channel_layer.group_send)(
-#                 group_name,
-#                 {
-#                     'type': 'workout_plan_generated',
-#                     'plan_data': workout_plan, 
-#                 }
-#             )
-#             logger.info(f"Workout plan sent to group: {group_name}")
-#         except Exception as e:
-#             logger.error(f"Error sending workout plan to group: {e}", exc_info=True)
-#             raise
 
 def generate_workout_plan(user_id, feedback_text=None):
     # Retrieve the user instance
@@ -558,53 +485,88 @@ def generate_workout_plan(user_id, feedback_text=None):
         additional_goals=additional_goals,
         feedback_note=feedback_note
     )
+    
+    # Get OpenRouter AI API Key
+    openrouter_api_key = os.environ.get('OPENROUTER_API_KEY')
+    if not openrouter_api_key:
+        logger.error("OpenRouter API Key not found in environment variables.")
+        raise ValueError("OpenRouter API Key not found")
 
-    # Run the model using the Replicate Python client
-    try:
-        output = replicate.run(
-            "meta/meta-llama-3-70b-instruct",  # Replace with your model identifier and version
-            input={
-                "prompt": prompt,
-                "max_new_tokens": 3000,
-                "temperature": 0.5
+    # Prepare the payload for OpenRouter AI
+    payload = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
             }
-        )
-    except replicate.exceptions.ReplicateException as e:
-        logger.error(f"Error during AI model invocation: {e}")
-        raise Exception(f"AI model error: {e}")
+        ],
+        "temperature": 0.5,
+    }
 
-    # The output might be a list of strings; concatenate them
-    if isinstance(output, list):
-        full_output = ''.join(output)
-    else:
-        full_output = output
+    headers = {
+        "Authorization": f"Bearer {openrouter_api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Optional headers
+    site_url = os.environ.get('YOUR_SITE_URL')
+    app_name = os.environ.get('YOUR_APP_NAME')
+    if site_url:
+        headers["HTTP-Referer"] = site_url
+    if app_name:
+        headers["X-Title"] = app_name
+        
+    # Run the model using OpenRouter AI
+    try:
+        response = requests.post(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            data=json.dumps(payload)
+        )
+        response.raise_for_status()  # Raise an error for bad status codes
+        ai_response = response.json()
+        # Extract the assistant's reply
+        output_str = ai_response['choices'][0]['message']['content']
+    except requests.exceptions.HTTPError as http_err:
+        logger.error(f"HTTP error occurred during AI model invocation: {http_err}")
+        raise AIServiceUnavailable(f"AI model HTTP error: {http_err}")
+    except Exception as err:
+        logger.error(f"Error during AI model invocation: {err}")
+        raise AIServiceUnavailable(f"AI model error: {err}")
+
+    # Log the AI output for debugging
+    logger.debug(f"AI Model Output:\n{output_str}")
 
     # Clean the output
-    full_output = full_output.strip()
+    output_str = output_str.strip()
 
-    # Remove any extra text before or after the JSON
-    start_index = full_output.find('{')
-    end_index = full_output.rfind('}') + 1  # Include the closing brace
-    if start_index != -1 and end_index != -1:
-        json_content = full_output[start_index:end_index]
-        # Remove comments and extra whitespace
-        json_content = remove_comments(json_content).strip()
-        try:
-            workout_plan_data = json.loads(json_content)
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing JSON: {e}")
-            logger.debug(f"JSON content attempted to parse: {json_content}")
-            raise ValueError(f"Error parsing JSON: {e}")
-    else:
-        logger.error("No JSON content found in AI output")
-        logger.debug(f"Full AI output: {full_output}")
-        raise ValueError("No JSON content found in AI output")
-    
+    if not output_str:
+        logger.error("AI model returned an empty response.")
+        raise ValueError("AI model returned an empty response.")
+
+    # Parse the JSON content
+    try:
+        workout_plan_data = json.loads(output_str)
+    except json.JSONDecodeError:
+        # Try to extract the JSON from within the output
+        json_content = extract_json_from_text(output_str)
+        if json_content:
+            try:
+                workout_plan_data = json.loads(json_content)
+            except json.JSONDecodeError as e2:
+                logger.error(f"Failed to parse extracted JSON content: {str(e2)}")
+                raise ValueError("Failed to parse JSON content")
+        else:
+            logger.error("No JSON content found in AI output")
+            logger.debug(f"AI Output Received:\n{output_str}")
+            raise ValueError("No JSON content found in AI output")
+
     # Validate the workout plan
     if not validate_workout_plan(workout_plan_data):
         logger.error("Generated workout plan does not conform to the schema.")
         raise ValueError("Generated workout plan does not conform to the schema.")
-    
+
     # Assign YouTube video IDs to exercises
     assign_video_ids_to_exercises(workout_plan_data)
 
@@ -620,6 +582,7 @@ def generate_workout_plan(user_id, feedback_text=None):
         raise Exception(f"Error saving WorkoutPlan: {e}")
 
     return plan
+
 
 def remove_comments(json_str):
     """
