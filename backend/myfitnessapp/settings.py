@@ -271,9 +271,17 @@ if DEBUG:
 
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 
+# ./backend/myfitnessapp/settings.py
+
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",  # Use DB 1 for caching
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
     }
 }
+
+# Cache timeout for YouTube video IDs (24 hours)
+YOUTUBE_VIDEO_ID_CACHE_TIMEOUT = 86400

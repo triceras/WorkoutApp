@@ -20,6 +20,7 @@ from .views import (
     UserProgressionView,
     CheckUsernameView,
     CheckEmailView,
+    get_video_details
 )
 
 router = routers.DefaultRouter()
@@ -41,6 +42,7 @@ urlpatterns = [
     path('check_username/', CheckUsernameView.as_view(), name='check_username'),
     path('check_email/', CheckEmailView.as_view(), name='check_email'),
     path('user/progression/', UserProgressionView.as_view(), name='user-progression'),
+    path('get-video-details/', get_video_details, name='get-video-details'),
     path('api-token-auth/', obtain_auth_token, name='api_token_auth'),  # Endpoint to obtain auth tokens
     path('', include(router.urls)),
 ]

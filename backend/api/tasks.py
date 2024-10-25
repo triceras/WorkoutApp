@@ -9,20 +9,20 @@ from .services import (
     process_feedback_with_ai,
     ReplicateServiceUnavailable,
     get_latest_feedback
-    # Add other service functions as needed
 )
 from .helpers import (
-    send_workout_plan_to_group
+    send_workout_plan_to_group,
+    assign_video_ids_to_exercises
 )
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
-import asyncio
+
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@shared_task(bind=True, max_retries=1, default_retry_delay=60)
 def generate_workout_plan_task(self, user_id):
     """
     Celery task to generate a workout plan for a user.
@@ -38,10 +38,10 @@ def generate_workout_plan_task(self, user_id):
             logger.error(f"No workout plan data returned for user {user.username}")
             raise self.retry(exc=ValueError("No workout plan data returned"), countdown=60)
 
-        logger.info(f"Workout plan generated for user {user.username}: Plan ID {plan.id}")
+        logger.info(f"Workout plan generated and saved for user {user.username}: Plan ID {plan.id}")
 
-        # Do not return the plan instance
-        return  # Or simply omit the return statement
+        # Optionally, send the workout plan to the user's group via Channels
+        # send_workout_plan_to_group(user, plan.plan_data)
 
     except ReplicateServiceUnavailable as e:
         logger.error(f"Replicate service unavailable for user_id {user_id}: {e}")
@@ -141,7 +141,7 @@ def process_feedback_submission_task(self, training_session_id):
         workout_plan.save()
 
         logger.info(f"Workout plan updated for user {user.username}")
-        
+
         # **Send the updated workout plan to the user's group via WebSocket**
         try:
             send_workout_plan_to_group(user, workout_plan.plan_data)

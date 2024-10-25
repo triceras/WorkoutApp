@@ -134,10 +134,15 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ExerciseSerializer(serializers.ModelSerializer):
-    videoId = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    video_id = serializers.SerializerMethodField()
+
     class Meta:
         model = Exercise
-        fields = '__all__'
+        fields = ['id', 'name', 'description', 'video_url', 'videoId', 'video_id']
+
+    def get_video_id(self, obj):
+        return obj.get_cached_video_id()
+
 
 class WorkoutPlanSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)

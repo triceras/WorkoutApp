@@ -6,7 +6,9 @@ from django.conf import settings
 from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-
+import uuid
+import re
+from django.core.cache import cache
 class User(AbstractUser):
     username = models.CharField(max_length=150, unique=True)
     first_name = models.CharField(max_length=30, blank=True)
@@ -33,6 +35,7 @@ class User(AbstractUser):
     additional_goals = models.TextField(blank=True, null=True)
     profile_picture = models.ImageField(
         upload_to='profile_pictures/',
+        max_length=255,
         null=True,
         blank=True
     )
@@ -81,12 +84,48 @@ class Exercise(models.Model):
     name = models.CharField(max_length=100)
     description = models.JSONField()
     video_url = models.URLField(null=True, blank=True)
-    videoId = models.CharField(max_length=50, null=True, blank=True) 
+    videoId = models.CharField(max_length=50, null=True, blank=True)
+
+    def extract_youtube_id(self, url):
+        """Extract YouTube video ID from various URL formats."""
+        if not url:
+            return None
+
+        youtube_regex = (
+            r'(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)'
+            r'([^"&?/ ]{11})'
+        )
+        match = re.search(youtube_regex, url)
+        return match.group(1) if match else None
+
+    def save(self, *args, **kwargs):
+        if self.video_url:
+            self.videoId = self.extract_youtube_id(self.video_url)
+            if self.videoId:
+                cache_key = f'exercise_video_{self.id}'
+                cache.set(cache_key, self.videoId, timeout=86400)  # Cache for 24 hours
+        super().save(*args, **kwargs)
+
+    def get_cached_video_id(self):
+        """Get cached video ID or extract from URL if not cached."""
+        if not self.id:
+            return None
+
+        cache_key = f'exercise_video_{self.id}'
+        video_id = cache.get(cache_key)
+
+        if video_id is None and self.video_url:
+            video_id = self.extract_youtube_id(self.video_url)
+            if video_id:
+                cache.set(cache_key, video_id, timeout=86400)
+
+        return video_id
 
     def __str__(self):
         return self.name
 
 class WorkoutPlan(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -94,6 +133,8 @@ class WorkoutPlan(models.Model):
     )
     week_number = models.PositiveIntegerField(default=1)
     plan_data = models.JSONField()
+    dashboard_background = models.CharField(max_length=255, blank=True, null=True)
+    workoutplan_background = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -147,3 +188,13 @@ class TrainingSession(models.Model):
     
     class Meta:
         unique_together = ('user', 'date', 'session_name')
+
+class YouTubeVideo(models.Model):
+    video_id = models.CharField(max_length=20, unique=True)
+    title = models.CharField(max_length=255)
+    thumbnail_url = models.URLField()
+    video_url = models.URLField()
+    cached_at = models.DateTimeField(auto_now=True)  # Timestamp for TTL
+
+    def __str__(self):
+        return self.title

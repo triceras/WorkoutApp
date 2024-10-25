@@ -35,7 +35,7 @@ const EMOJIS = [
   { value: 2, icon: <SentimentNeutral fontSize="large" />, label: 'Bad' },
   { value: 3, icon: <SentimentSatisfied fontSize="large" />, label: 'Okay' },
   { value: 4, icon: <SentimentVerySatisfied fontSize="large" />, label: 'Good' },
-  { value: 5, icon: <SentimentSatisfiedAlt fontSize="large" />, label: 'Awesome' },
+  { value: 5, icon: <SentimentSatisfiedAlt fontSize="large" />, label: 'Awesome' }, 
 ];
 
 const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
@@ -346,10 +346,11 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
   );
 };
 
+// Updated PropTypes to accept 'id' as a string instead of a number
 LogSessionForm.propTypes = {
   workoutPlans: PropTypes.arrayOf(
     PropTypes.shape({
-      id: PropTypes.number.isRequired,
+      id: PropTypes.string.isRequired, // Changed from PropTypes.number.isRequired to PropTypes.string.isRequired
       plan_data: PropTypes.object.isRequired,
     })
   ).isRequired,

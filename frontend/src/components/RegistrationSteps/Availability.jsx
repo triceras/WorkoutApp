@@ -29,7 +29,7 @@ function Availability({ nextStep, prevStep }) {
         min={15}
         max={120}
         valueLabelDisplay="auto"
-        value={values.workoutTime || 30}
+        value={values.workoutTime || 45}
         onChange={(_, value) => setFieldValue('workoutTime', value)}
       />
       {touched.workoutTime && errors.workoutTime && (

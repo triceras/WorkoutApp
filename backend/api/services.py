@@ -8,7 +8,7 @@ import requests
 from jsonschema import validate, ValidationError
 from django.conf import settings
 from .models import TrainingSession, WorkoutPlan
-from .helpers import send_workout_plan_to_group, get_youtube_video_id
+from .helpers import send_workout_plan_to_group, get_youtube_video, assign_video_ids_to_exercises
 from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from asgiref.sync import async_to_sync
@@ -71,6 +71,42 @@ def validate_workout_plan(workout_plan):
     Returns:
         bool: True if valid, False otherwise.
     """
+    WORKOUT_PLAN_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "workoutDays": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "day": {"type": "string"},
+                        "duration": {"type": "string"},
+                        "exercises": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "setsReps": {"type": "string"},
+                                    "equipment": {"type": "string"},
+                                    "instructions": {"type": "string"},
+                                    "videoId": {"type": ["string", "null"]},
+                                },
+                                # Remove 'videoId' from the required list
+                                "required": ["name", "setsReps", "equipment", "instructions"],
+                            },
+                        },
+                    },
+                    "required": ["day", "duration", "exercises"],
+                },
+            },
+            "additionalTips": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        },
+        "required": ["workoutDays"],
+    }
     try:
         validate(instance=workout_plan, schema=WORKOUT_PLAN_SCHEMA)
         logger.debug("Workout plan JSON is valid.")
@@ -108,7 +144,7 @@ def validate_session(session):
                         "instructions": {"type": "string"},
                         "videoId": {"type": ["string", "null"]},
                     },
-                    "required": ["name", "setsReps", "equipment", "instructions", "videoId"],
+                    "required": ["name", "setsReps", "equipment", "instructions"],
                 },
             },
             "additionalTips": {
@@ -133,10 +169,48 @@ def assign_video_ids_to_session(session_data):
     for exercise in session_data.get('exercises', []):
         exercise_name = exercise.get('name')
         if exercise_name:
-            video_id = get_youtube_video_id(exercise_name)
-            exercise['videoId'] = video_id if video_id else None
+            video_data = get_youtube_video(exercise_name)  
+            exercise['videoId'] = video_data['video_id'] if video_data else None
         else:
             exercise['videoId'] = None
+            
+def assign_video_ids_to_exercise_list(exercise_list):
+    """
+    Assigns YouTube video IDs to a list of exercises.
+    """
+    async def fetch_all_video_ids(exercise_names):
+        ssl_context = ssl.create_default_context()
+        connector = TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            tasks = [fetch_video_id(session, name) for name in exercise_names]
+            results = await asyncio.gather(*tasks)
+            return results
+
+    # Collect all unique exercise names
+    exercise_names = set()
+    for exercise in exercise_list:
+        exercise_name = exercise.get('name')
+        if exercise_name:
+            exercise_names.add(exercise_name)
+
+    # Run the asynchronous fetching of video IDs
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    results = loop.run_until_complete(fetch_all_video_ids(exercise_names))
+    loop.close()
+
+    # Create a mapping from exercise names to video IDs
+    exercise_video_id_map = {name: video_id for name, video_id in results}
+
+    # Assign video IDs to exercises
+    for exercise in exercise_list:
+        exercise_name = exercise.get('name')
+        if exercise_name:
+            exercise['videoId'] = exercise_video_id_map.get(exercise_name)
+            logger.info(f"Assigned videoId '{exercise['videoId']}' to exercise '{exercise_name}'.")
+        else:
+            exercise['videoId'] = None
+            logger.warning("Exercise name is missing.")
 
 
 def get_latest_feedback(user):
@@ -426,6 +500,7 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
         # Check if 'workoutDays' exists and has at least one item
         if modify_specific_session:
             # For specific session modification, expect a single session dict
+            modified_session = workout_plan_data  # Assign the parsed data to modified_session
             if validate_session(modified_session):
                 # Assign video IDs to the exercises
                 assign_video_ids_to_session(modified_session)
@@ -434,15 +509,18 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
                 raise ValueError("Modified session JSON does not adhere to the required schema.")
         else:
             # For full workout plan modification
-            if validate_workout_plan(modified_session):
+            modified_plan = workout_plan_data  # Assign the parsed data to modified_plan
+            if validate_workout_plan(modified_plan):
                 # Assign video IDs to the exercises
-                assign_video_ids_to_exercises(modified_session)
-                return modified_session
+                assign_video_ids_to_exercises(modified_plan)
+                return modified_plan
             else:
                 raise ValueError("Modified workout plan JSON does not adhere to the required schema.")
-    except:
-        raise ValueError("Error processing feedback with AI", exc_info=True)
-        return None
+    
+    except Exception as e:
+        logger.exception("Error processing feedback with AI")
+        raise ValueError("Error processing feedback with AI") from e
+
 
 
 
@@ -577,6 +655,13 @@ def generate_workout_plan(user_id, feedback_text=None):
             plan_data=workout_plan_data,
             created_at=timezone.now()
         )
+        # plan, created = WorkoutPlan.objects.update_or_create(
+        #     user=user,
+        #     defaults={
+        #         'plan_data': workout_plan_data,
+        #         'created_at': timezone.now()
+        #     }
+        # )
     except Exception as e:
         logger.error(f"Error saving WorkoutPlan: {e}")
         raise Exception(f"Error saving WorkoutPlan: {e}")
@@ -592,17 +677,23 @@ def remove_comments(json_str):
     json_str = re.sub(r'//.*?\n', '', json_str)
     return json_str
 
-def assign_video_ids_to_exercises(workout_plan_data):
-    for day in workout_plan_data.get('workoutDays', []):
-        for exercise in day.get('exercises', []):
-            exercise_name = exercise.get('name')
-            if exercise_name:
-                video_id = get_youtube_video_id(exercise_name)
-                exercise['videoId'] = video_id if video_id else None
-            else:
-                exercise['videoId'] = None
-
-# api/services.py
+# def assign_video_ids_to_exercises(workout_plan_data):
+#     for day in workout_plan_data.get('workoutDays', []):
+#         logger.info(f"Processing day: {day.get('day')}")
+#         for exercise in day.get('exercises', []):
+#             exercise_name = exercise.get('name')
+#             logger.info(f"Processing exercise: {exercise_name}")
+#             if exercise_name:
+#                 video_data = get_youtube_video(exercise_name)
+#                 if video_data and 'video_id' in video_data:
+#                     exercise['videoId'] = video_data['video_id']
+#                     logger.info(f"Assigned videoId {video_data['video_id']} to exercise {exercise_name}")
+#                 else:
+#                     exercise['videoId'] = None
+#                     logger.warning(f"No videoId found for exercise {exercise_name}")
+#             else:
+#                 exercise['videoId'] = None
+#                 logger.warning("Exercise name is missing.")
 
 def generate_prompt(
     age, sex, weight, height, fitness_level, strength_goals, additional_goals,
@@ -634,6 +725,7 @@ You are a fitness expert. Create a personalized weekly workout plan for the foll
    - For **30 minutes** per session, include **4 to 5 exercises** per day.
    - For **60 minutes** per session, include **7 to 8 exercises** per day.
    - For other durations, adjust the number of exercises proportionally.
+   - **Do not include more than 10 exercises per session.**
 2. Adjust the **sets and reps** based on the user's fitness level and time availability.
 3. Incorporate **cardio exercises** using the available equipment or generic cardio equipment if specific ones are not available.
 4. Tailor the **intensity and complexity** of exercises based on the user's fitness level, age, and sex.

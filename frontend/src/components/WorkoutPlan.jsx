@@ -16,7 +16,9 @@ import {
 import './WorkoutPlan.css';
 
 const getYoutubeThumbnailUrl = (videoId) => {
-  return `https://img.youtube.com/vi/${videoId}/0.jpg`;
+  const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
+  console.log(`Thumbnail URL for videoId ${videoId}:`, thumbnailUrl); // Ensure this line is present
+  return thumbnailUrl;
 };
 
 function WorkoutPlan({ initialWorkoutData, username }) {
@@ -26,6 +28,12 @@ function WorkoutPlan({ initialWorkoutData, username }) {
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
+    const wsBaseUrl = process.env.REACT_APP_WS_BASE_URL;
+    if (!wsBaseUrl) {
+      console.error('WebSocket base URL is not defined.');
+      return;
+    }
+    console.log('WebSocket Base URL:', wsBaseUrl); // Add this line
     const socket = new WebSocket(`${process.env.REACT_APP_WS_BASE_URL}/ws/workout-plan/?token=${token}`);
 
     socket.onopen = () => {
@@ -105,17 +113,16 @@ function WorkoutPlan({ initialWorkoutData, username }) {
               <Grid container spacing={3} className="exercises-container">
                 {day.exercises.map((exercise) => (
                   <Grid item xs={12} sm={6} md={4} key={exercise.name}>
-                    <Card
-                      className="exercise-card exercise-item"
-                      onClick={() => openVideoModal(exercise.videoId)}
-                    >
+                    <Card className="exercise-card exercise-item">
                       {exercise.videoId && (
                         <CardMedia
-                          component="img"
-                          height="140"
-                          image={getYoutubeThumbnailUrl(exercise.videoId)}
-                          alt={`${exercise.name} video`}
-                          className="youtube-thumbnail"
+                        component="img"
+                        height="140"
+                        image={getYoutubeThumbnailUrl(exercise.videoId)}
+                        alt={`${exercise.name} video`}
+                        className="youtube-thumbnail"
+                        onClick={() => openVideoModal(exercise.videoId)} // Add this line
+                        style={{ cursor: 'pointer' }} // Optional: Changes cursor to pointer on hover
                         />
                       )}
                       <CardContent className="exercise-details">
@@ -185,6 +192,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
       <VideoModal
         isOpen={modalIsOpen}
         onRequestClose={closeVideoModal}
+        contentLabel="Watch Video"
         videoId={currentVideoId}
       />
     </Container>

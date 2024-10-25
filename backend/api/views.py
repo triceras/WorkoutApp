@@ -10,7 +10,8 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.db.models import Avg, Count
-from django.utils import timezone
+from django.core.cache import cache
+from django.conf import settings
 from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, TrainingSession, StrengthGoal, Equipment
 from .tasks import process_feedback_submission_task, generate_workout_plan_task
 from .serializers import (
@@ -25,7 +26,9 @@ from .serializers import (
     StrengthGoalSerializer,
     EquipmentSerializer
 )
+from .helpers import get_youtube_video
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -207,6 +210,20 @@ def logout_user(request):
         logger.error(f"Error during logout for user {request.user.username}: {str(e)}", exc_info=True)
         return Response({'detail': 'Error during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response(status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_video_details(request):
+    video_id = request.GET.get('video_id')
+    if not video_id:
+        return Response({'error': 'video_id parameter is required.'}, status=400)
+    
+    video_data = get_youtube_video(video_id)
+    if video_data:
+        source = 'cache' if 'cached_at' in video_data else 'api'
+        return Response({'source': source, 'data': video_data}, status=200)
+    
+    return Response({'error': 'Video not found or could not be fetched.'}, status=404)
 
 
 class RegisterView(generics.CreateAPIView):
