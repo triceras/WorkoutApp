@@ -26,7 +26,7 @@ from .serializers import (
     StrengthGoalSerializer,
     EquipmentSerializer
 )
-from .helpers import get_youtube_video
+from .helpers import get_video_data_by_id
 import logging
 import requests
 
@@ -218,12 +218,13 @@ def get_video_details(request):
     if not video_id:
         return Response({'error': 'video_id parameter is required.'}, status=400)
     
-    video_data = get_youtube_video(video_id)
+    video_data = get_video_data_by_id(video_id)
     if video_data:
         source = 'cache' if 'cached_at' in video_data else 'api'
         return Response({'source': source, 'data': video_data}, status=200)
     
     return Response({'error': 'Video not found or could not be fetched.'}, status=404)
+
 
 
 class RegisterView(generics.CreateAPIView):

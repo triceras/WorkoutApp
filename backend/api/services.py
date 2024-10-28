@@ -8,12 +8,17 @@ import requests
 from jsonschema import validate, ValidationError
 from django.conf import settings
 from .models import TrainingSession, WorkoutPlan
-from .helpers import send_workout_plan_to_group, get_youtube_video, assign_video_ids_to_exercises
+from .helpers import send_workout_plan_to_group, assign_video_ids_to_exercises, assign_video_ids_to_exercise_list
 from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from asgiref.sync import async_to_sync
 import re
 from django.utils import timezone
+import asyncio
+import aiohttp
+from aiohttp import TCPConnector
+import ssl
+
 
 
 logger = logging.getLogger(__name__)
@@ -166,13 +171,7 @@ def validate_session(session):
         raise
 
 def assign_video_ids_to_session(session_data):
-    for exercise in session_data.get('exercises', []):
-        exercise_name = exercise.get('name')
-        if exercise_name:
-            video_data = get_youtube_video(exercise_name)  
-            exercise['videoId'] = video_data['video_id'] if video_data else None
-        else:
-            exercise['videoId'] = None
+    assign_video_ids_to_exercise_list(session_data.get('exercises', []))
             
 def assign_video_ids_to_exercise_list(exercise_list):
     """

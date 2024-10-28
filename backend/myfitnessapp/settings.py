@@ -204,13 +204,18 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['file', 'console'],
-            'level': 'WARNING',
+            'level': 'INFO',
             'propagate': True,
         },
         'api': {  # Your app's logger
             'handlers': ['file', 'console'],
             'level': 'INFO',
             'propagate': False,
+        },
+        '': {
+            'handlers': ['console'],  # Adjust as per your handlers
+            'level': 'INFO',          # Set to 'INFO' to capture info logs
+            'propagate': True,
         },
     },
 }

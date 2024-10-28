@@ -190,7 +190,8 @@ class TrainingSession(models.Model):
         unique_together = ('user', 'date', 'session_name')
 
 class YouTubeVideo(models.Model):
-    video_id = models.CharField(max_length=20, unique=True)
+    exercise_name = models.CharField(max_length=255, unique=True)
+    video_id = models.CharField(max_length=20)
     title = models.CharField(max_length=255)
     thumbnail_url = models.URLField()
     video_url = models.URLField()
