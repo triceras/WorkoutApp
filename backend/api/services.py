@@ -170,46 +170,47 @@ def validate_session(session):
         logger.error(f"Unexpected error during session JSON validation: {e}")
         raise
 
-def assign_video_ids_to_session(session_data):
-    assign_video_ids_to_exercise_list(session_data.get('exercises', []))
-            
-def assign_video_ids_to_exercise_list(exercise_list):
-    """
-    Assigns YouTube video IDs to a list of exercises.
-    """
-    async def fetch_all_video_ids(exercise_names):
-        ssl_context = ssl.create_default_context()
-        connector = TCPConnector(ssl=ssl_context)
-        async with aiohttp.ClientSession(connector=connector) as session:
-            tasks = [fetch_video_id(session, name) for name in exercise_names]
-            results = await asyncio.gather(*tasks)
-            return results
+# def assign_video_ids_to_session(session_data):
+#     assign_video_ids_to_exercise_list(session_data.get('exercises', []))
 
-    # Collect all unique exercise names
-    exercise_names = set()
-    for exercise in exercise_list:
-        exercise_name = exercise.get('name')
-        if exercise_name:
-            exercise_names.add(exercise_name)
 
-    # Run the asynchronous fetching of video IDs
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    results = loop.run_until_complete(fetch_all_video_ids(exercise_names))
-    loop.close()
+# def assign_video_ids_to_exercise_list(exercise_list):
+#     """
+#     Assigns YouTube video IDs to a list of exercises.
+#     """
+#     async def fetch_all_video_ids(exercise_names):
+#         ssl_context = ssl.create_default_context()
+#         connector = TCPConnector(ssl=ssl_context)
+#         async with aiohttp.ClientSession(connector=connector) as session:
+#             tasks = [fetch_video_id(session, name) for name in exercise_names]
+#             results = await asyncio.gather(*tasks)
+#             return results
 
-    # Create a mapping from exercise names to video IDs
-    exercise_video_id_map = {name: video_id for name, video_id in results}
+#     # Collect all unique exercise names
+#     exercise_names = set()
+#     for exercise in exercise_list:
+#         exercise_name = exercise.get('name')
+#         if exercise_name:
+#             exercise_names.add(exercise_name)
 
-    # Assign video IDs to exercises
-    for exercise in exercise_list:
-        exercise_name = exercise.get('name')
-        if exercise_name:
-            exercise['videoId'] = exercise_video_id_map.get(exercise_name)
-            logger.info(f"Assigned videoId '{exercise['videoId']}' to exercise '{exercise_name}'.")
-        else:
-            exercise['videoId'] = None
-            logger.warning("Exercise name is missing.")
+#     # Run the asynchronous fetching of video IDs
+#     loop = asyncio.new_event_loop()
+#     asyncio.set_event_loop(loop)
+#     results = loop.run_until_complete(fetch_all_video_ids(exercise_names))
+#     loop.close()
+
+#     # Create a mapping from exercise names to video IDs
+#     exercise_video_id_map = {name: video_id for name, video_id in results}
+
+#     # Assign video IDs to exercises
+#     for exercise in exercise_list:
+#         exercise_name = exercise.get('name')
+#         if exercise_name:
+#             exercise['videoId'] = exercise_video_id_map.get(exercise_name)
+#             logger.info(f"Assigned videoId '{exercise['videoId']}' to exercise '{exercise_name}'.")
+#         else:
+#             exercise['videoId'] = None
+#             logger.warning("Exercise name is missing.")
 
 
 def get_latest_feedback(user):
@@ -502,7 +503,7 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
             modified_session = workout_plan_data  # Assign the parsed data to modified_session
             if validate_session(modified_session):
                 # Assign video IDs to the exercises
-                assign_video_ids_to_session(modified_session)
+                assign_video_ids_to_exercise_list(modified_session.get('exercises', []))
                 return modified_session
             else:
                 raise ValueError("Modified session JSON does not adhere to the required schema.")
@@ -563,6 +564,9 @@ def generate_workout_plan(user_id, feedback_text=None):
         feedback_note=feedback_note
     )
     
+    # Log the prompt for debugging
+    logger.info(f"Prompt for AI model:\n{prompt}")
+    
     # Get OpenRouter AI API Key
     openrouter_api_key = os.environ.get('OPENROUTER_API_KEY')
     if not openrouter_api_key:
@@ -603,6 +607,10 @@ def generate_workout_plan(user_id, feedback_text=None):
         )
         response.raise_for_status()  # Raise an error for bad status codes
         ai_response = response.json()
+        
+        # Log AI model response
+        logger.info(f"AI Model Response: {ai_response}")
+
         # Extract the assistant's reply
         output_str = ai_response['choices'][0]['message']['content']
     except requests.exceptions.HTTPError as http_err:
@@ -676,23 +684,6 @@ def remove_comments(json_str):
     json_str = re.sub(r'//.*?\n', '', json_str)
     return json_str
 
-# def assign_video_ids_to_exercises(workout_plan_data):
-#     for day in workout_plan_data.get('workoutDays', []):
-#         logger.info(f"Processing day: {day.get('day')}")
-#         for exercise in day.get('exercises', []):
-#             exercise_name = exercise.get('name')
-#             logger.info(f"Processing exercise: {exercise_name}")
-#             if exercise_name:
-#                 video_data = get_youtube_video(exercise_name)
-#                 if video_data and 'video_id' in video_data:
-#                     exercise['videoId'] = video_data['video_id']
-#                     logger.info(f"Assigned videoId {video_data['video_id']} to exercise {exercise_name}")
-#                 else:
-#                     exercise['videoId'] = None
-#                     logger.warning(f"No videoId found for exercise {exercise_name}")
-#             else:
-#                 exercise['videoId'] = None
-#                 logger.warning("Exercise name is missing.")
 
 def generate_prompt(
     age, sex, weight, height, fitness_level, strength_goals, additional_goals,

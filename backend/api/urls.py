@@ -20,7 +20,8 @@ from .views import (
     UserProgressionView,
     CheckUsernameView,
     CheckEmailView,
-    get_video_details
+    get_video_details,
+    YouTubeVideoViewSet
 )
 
 router = routers.DefaultRouter()
@@ -32,6 +33,7 @@ router.register(r'training_sessions', TrainingSessionViewSet, basename='training
 router.register(r'strength-goals', StrengthGoalViewSet, basename='strengthgoal')
 router.register(r'equipment', EquipmentViewSet, basename='equipment')
 router.register(r'users', UserViewSet, basename='user')
+router.register(r'youtube-videos', YouTubeVideoViewSet, basename='youtubevideo')
 
 urlpatterns = [
     path('user/', current_user),

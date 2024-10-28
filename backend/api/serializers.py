@@ -4,7 +4,7 @@ from rest_framework import serializers
 from .models import (
     User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog,
     WorkoutSession, TrainingSession,
-    StrengthGoal, Equipment
+    StrengthGoal, Equipment, YouTubeVideo
 )
 from django.contrib.auth import get_user_model
 from rest_framework.validators import UniqueValidator
@@ -273,3 +273,9 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         user = request.user
         validated_data['user'] = user  # Assign the user to validated_data
         return super().create(validated_data)
+
+
+class YouTubeVideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = YouTubeVideo
+        fields = '__all__'

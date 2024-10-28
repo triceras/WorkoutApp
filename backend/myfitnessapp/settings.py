@@ -213,7 +213,7 @@ LOGGING = {
             'propagate': False,
         },
         '': {
-            'handlers': ['console'],  # Adjust as per your handlers
+            'handlers': ['file', 'console'],  # Adjust as per your handlers
             'level': 'INFO',          # Set to 'INFO' to capture info logs
             'propagate': True,
         },

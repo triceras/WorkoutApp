@@ -61,8 +61,15 @@ def fetch_youtube_video_from_api(query):
         'type': 'video',
     }
     try:
+        # Log the API call details
+        logger.info(f"Making YouTube API call: GET {url} with params {params}")
+
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
+
+        # Optionally, log the response status
+        logger.info(f"YouTube API response status code: {response.status_code}")
+
         data = response.json()
         items = data.get('items')
         if not items:
@@ -175,46 +182,6 @@ def cache_youtube_video(video_data):
         logger.error(f"Database error while saving video ID {video_data['video_id']}: {e}", exc_info=True)
 
 
-# def assign_video_ids_to_exercises(workout_plan_data):
-#     """
-#     Assigns YouTube video IDs to each exercise in the workout plan data.
-#     Fetches video IDs asynchronously.
-#     """
-#     async def fetch_all_video_ids(exercise_names):
-#         ssl_context = ssl.create_default_context()
-#         connector = TCPConnector(ssl=ssl_context)
-#         async with aiohttp.ClientSession(connector=connector) as session:
-#             tasks = [fetch_video_id(session, name) for name in exercise_names]
-#             results = await asyncio.gather(*tasks)
-#             return results
-
-#     # Collect all unique exercise names
-#     exercise_names = set()
-#     for day in workout_plan_data.get('workoutDays', []):
-#         for exercise in day.get('exercises', []):
-#             exercise_name = exercise.get('name')
-#             if exercise_name:
-#                 exercise_names.add(exercise_name)
-
-#     # Run the asynchronous fetching of video IDs
-#     loop = asyncio.new_event_loop()
-#     asyncio.set_event_loop(loop)
-#     results = loop.run_until_complete(fetch_all_video_ids(exercise_names))
-#     loop.close()
-
-#     # Create a mapping from exercise names to video IDs
-#     exercise_video_id_map = {name: video_id for name, video_id in results}
-
-#     # Assign video IDs to exercises in the workout plan data
-#     for day in workout_plan_data.get('workoutDays', []):
-#         for exercise in day.get('exercises', []):
-#             exercise_name = exercise.get('name')
-#             if exercise_name:
-#                 exercise['videoId'] = exercise_video_id_map.get(exercise_name)
-#                 logger.info(f"Assigned videoId '{exercise['videoId']}' to exercise '{exercise_name}'.")
-#             else:
-#                 exercise['videoId'] = None
-#                 logger.warning("Exercise name is missing.")
 
 def get_youtube_video(query):
     """
@@ -362,8 +329,18 @@ def assign_video_ids_to_exercise_list(exercise_list):
 
 
 def assign_video_ids_to_exercises(workout_plan_data):
+    """
+    Assigns YouTube video IDs to all exercises in the workout plan.
+    """
+    # Collect all exercises across all days
+    all_exercises = []
     for day in workout_plan_data.get('workoutDays', []):
-        assign_video_ids_to_exercise_list(day.get('exercises', []))
+        exercises = day.get('exercises', [])
+        all_exercises.extend(exercises)
+
+    # Assign video IDs to all exercises
+    assign_video_ids_to_exercise_list(all_exercises)
+
 
 def assign_video_ids_to_session(session_data):
     assign_video_ids_to_exercise_list(session_data.get('exercises', []))

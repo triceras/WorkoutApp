@@ -1,6 +1,6 @@
 # backend/api/views.py
 
-from rest_framework import viewsets, permissions, status, generics
+from rest_framework import viewsets, permissions, status, generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes, action
@@ -12,8 +12,9 @@ from django.db import IntegrityError
 from django.db.models import Avg, Count
 from django.core.cache import cache
 from django.conf import settings
-from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, TrainingSession, StrengthGoal, Equipment
+from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, TrainingSession, StrengthGoal, Equipment, YouTubeVideo
 from .tasks import process_feedback_submission_task, generate_workout_plan_task
+from .helpers import get_video_data_by_id
 from .serializers import (
     ExerciseSerializer,
     WorkoutPlanSerializer,
@@ -24,11 +25,11 @@ from .serializers import (
     UserRegistrationSerializer,
     TrainingSessionSerializer,
     StrengthGoalSerializer,
-    EquipmentSerializer
+    EquipmentSerializer,
+    YouTubeVideoSerializer,
 )
-from .helpers import get_video_data_by_id
+
 import logging
-import requests
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -38,6 +39,26 @@ class ExerciseViewSet(viewsets.ModelViewSet):
     queryset = Exercise.objects.all()
     serializer_class = ExerciseSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def by_exercise_name(self, request):
+        exercise_name = request.query_params.get('exercise_name')
+        if exercise_name:
+            videos = self.queryset.filter(exercise_name__icontains=exercise_name)
+            serializer = self.get_serializer(videos, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({'error': 'exercise_name parameter is required.'}, status=400)
+
+class YouTubeVideoViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    A simple ViewSet for viewing YouTube videos.
+    """
+    queryset = YouTubeVideo.objects.all()
+    serializer_class = YouTubeVideoSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['exercise_name', 'title']
 
 
 class WorkoutPlanViewSet(viewsets.ModelViewSet):
