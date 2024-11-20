@@ -2,10 +2,13 @@
 
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext'; // Import AuthContext
-import './Navbar.css'; // Ensure this path is correct
+import { AuthContext } from '../context/AuthContext';
+import './Navbar.css';
+import { useMediaQuery } from '@mui/material'; // Import from MUI
+import { getMenuItems } from '../menuItems';
 
-function Navbar() {
+function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
+  const isMobile = useMediaQuery('(max-width:768px)'); // Use MUI's useMediaQuery
   const [isOpen, setIsOpen] = useState(false); // State to manage mobile menu
   const [isProfileOpen, setIsProfileOpen] = useState(false); // State to manage profile dropdown
   const { authToken } = useContext(AuthContext); // Access authToken from context
@@ -43,12 +46,28 @@ function Navbar() {
     return null; // Do not render Navbar on Login and Register pages
   }
 
+  const menuItems = getMenuItems(authToken);
+
   return (
     <nav className="navbar" aria-label="Main Navigation">
       <div className="navbar-container">
+        {/* Sidebar Toggle Button for Mobile */}
+        {isMobile && (
+          <button
+            className="navbar-sidebar-toggle"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            aria-label="Toggle sidebar"
+          >
+            ☰
+          </button>
+        )}
+
         <div className="navbar-logo">
-          <NavLink to="/" aria-label="MyFitnessApp Home">MyFitnessApp</NavLink>
+          <NavLink to="/" aria-label="MyFitnessApp Home">
+            MyFitnessApp
+          </NavLink>
         </div>
+
         <button
           className="navbar-hamburger"
           onClick={toggleMenu}
@@ -59,99 +78,21 @@ function Navbar() {
           <div className="bar"></div>
           <div className="bar"></div>
         </button>
+
         <ul className={`navbar-menu ${isOpen ? 'active' : ''}`}>
-          {authToken && (
-            <>
-              <li className="navbar-item">
-                <NavLink
-                  to="/dashboard"
-                  className={({ isActive }) =>
-                    isActive ? 'navbar-link active-link no-underline' : 'navbar-link'
-                  }
-                  onClick={() => setIsOpen(false)}
-                >
-                  Dashboard
-                </NavLink>
-              </li>
-              <li className="navbar-item navbar-dropdown" ref={profileRef}>
-                <button
-                  className="navbar-link dropdown-toggle"
-                  onClick={toggleProfileDropdown}
-                  aria-haspopup="true"
-                  aria-expanded={isProfileOpen}
-                >
-                  Profile
-                </button>
-                {isProfileOpen && (
-                  <ul className="dropdown-menu">
-                    <li>
-                      <NavLink
-                        to="/profile"
-                        className="dropdown-item"
-                        onClick={() => {
-                          setIsProfileOpen(false);
-                          setIsOpen(false);
-                        }}
-                      >
-                        View Profile
-                      </NavLink>
-                    </li>
-                    {/* Uncomment the following if you have a Settings page */}
-                    {/* <li>
-                      <NavLink
-                        to="/settings"
-                        className="dropdown-item"
-                        onClick={() => {
-                          setIsProfileOpen(false);
-                          setIsOpen(false);
-                        }}
-                      >
-                        Settings
-                      </NavLink>
-                    </li> */}
-                    {/* Add more dropdown items here if needed */}
-                  </ul>
-                )}
-              </li>
-              <li className="navbar-item">
-                <NavLink
-                  to="/logout"
-                  className={({ isActive }) =>
-                    isActive ? 'navbar-link active-link' : 'navbar-link'
-                  }
-                  onClick={() => setIsOpen(false)}
-                >
-                  Logout
-                </NavLink>
-              </li>
-            </>
-          )}
-          {!authToken && (
-            <>
-              <li className="navbar-item">
-                <NavLink
-                  to="/login"
-                  className={({ isActive }) =>
-                    isActive ? 'navbar-link active-link' : 'navbar-link'
-                  }
-                  onClick={() => setIsOpen(false)}
-                >
-                  Login
-                </NavLink>
-              </li>
-              <li className="navbar-item">
-                <NavLink
-                  to="/register"
-                  className={({ isActive }) =>
-                    isActive ? 'navbar-link active-link' : 'navbar-link'
-                  }
-                  onClick={() => setIsOpen(false)}
-                >
-                  Register
-                </NavLink>
-              </li>
-            </>
-          )}
+          {menuItems.map((item) => (
+            <li className="navbar-item" key={item.path}>
+              <NavLink
+                to={item.path}
+                className={({ isActive }) =>
+                  isActive ? 'navbar-link active-link' : 'navbar-link'
+                }
+                onClick={() => setIsOpen(false)}
+              >
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
         </ul>
       </div>
     </nav>

@@ -1,0 +1,99 @@
+/* src/components/Sidebar.css */
+
+.sidebar {
+    position: fixed;
+    top: 60px; /* Adjust based on Navbar height */
+    left: 0;
+    width: 200px; /* Sidebar width when open */
+    height: calc(100% - 60px); /* Full height minus Navbar height */
+    background-color: #000; /* Black background */
+    overflow-x: hidden;
+    transition: width 0.3s ease;
+    z-index: 999; /* Ensure the sidebar is above other elements */
+    color: #fff; /* White text color */
+  }
+  
+  .sidebar.collapsed {
+    width: 60px; /* Width when collapsed */
+  }
+  
+  .sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0 0 0;
+  }
+  
+  .sidebar-item {
+    margin: 10px 0;
+  }
+  
+  .sidebar-link {
+    color: #fff; /* White text color */
+    text-decoration: none;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s ease;
+  }
+  
+  .sidebar-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .sidebar-link .icon {
+    min-width: 30px;
+    font-size: 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .sidebar.collapsed .link-text {
+    display: none;
+  }
+  
+  .sidebar-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Toggle Button Styles */
+  .sidebar-toggle {
+    background-color: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    margin: 10px;
+    align-self: flex-end;
+  }
+  
+  .sidebar.collapsed .sidebar-toggle {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  /* Adjust icon alignment when collapsed */
+  .sidebar.collapsed .sidebar-link .icon {
+    justify-content: center;
+  }
+  
+  /* Optional: Adjust font size for the icons */
+  .sidebar-link .icon {
+    font-size: 1.3rem;
+  }
+  
+  @media (max-width: 768px) {
+    .sidebar {
+      width: 250px;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+    }
+  
+    .sidebar.open {
+      transform: translateX(0);
+    }
+  
+    .sidebar.collapsed {
+      width: 250px;
+    }
+  }
+  
