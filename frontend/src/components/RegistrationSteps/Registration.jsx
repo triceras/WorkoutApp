@@ -14,7 +14,6 @@ import FitnessGoals from './FitnessGoals';
 import ReviewSubmit from './ReviewSubmit';
 import './Registration.css';
 import axiosInstance from '../../api/axiosInstance'; // Ensure correct import path
-import * as Yup from 'yup';
 import {
   Stepper,
   Step,

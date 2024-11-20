@@ -1,12 +1,27 @@
 // src/components/RegistrationSteps/FitnessGoals.jsx
 
 import React from 'react';
-import { FormControlLabel, Checkbox, FormGroup, FormControl, FormLabel, Button, TextField, Box } from '@mui/material';
-import { Field, ErrorMessage, useFormikContext } from 'formik';
+import { useFormikContext } from 'formik';
+import {
+  FormControlLabel,
+  Checkbox,
+  FormGroup,
+  FormControl,
+  FormLabel,
+  Button,
+  Box,
+  Typography,
+  TextField,
+} from '@mui/material';
 import PropTypes from 'prop-types';
 
-function FitnessGoals({ nextStep, prevStep, strengthGoalOptions }) {
-  const { values, errors, touched,  handleChange, handleBlur, setFieldValue } = useFormikContext();
+function FitnessGoals({ nextStep, prevStep, strengthGoalsOptions }) {
+  const {
+    values,
+    errors,
+    touched,
+    setFieldValue,
+  } = useFormikContext();
 
   const handleCheckboxChange = (event) => {
     const { value, checked } = event.target;
@@ -14,85 +29,91 @@ function FitnessGoals({ nextStep, prevStep, strengthGoalOptions }) {
     if (checked) {
       setFieldValue('strengthGoals', [...values.strengthGoals, id]);
     } else {
-      setFieldValue('strengthGoals', values.strengthGoals.filter((item) => item !== id));
+      setFieldValue(
+        'strengthGoals',
+        values.strengthGoals.filter((item) => item !== id)
+      );
     }
   };
 
+  const isStepValid = () => {
+    return (
+      Array.isArray(values.strengthGoals) &&
+      values.strengthGoals.length > 0 &&
+      !errors.strengthGoals
+    );
+  };
+
   return (
-    <div>
+    <Box width="100%" maxWidth="600px" margin="0 auto">
+      <Typography variant="h5" gutterBottom>
+        Fitness Goals
+      </Typography>
       <FormControl
         component="fieldset"
-        margin="normal"
         error={touched.strengthGoals && Boolean(errors.strengthGoals)}
       >
         <FormLabel component="legend">Select Your Strength Goals</FormLabel>
         <FormGroup>
-          {strengthGoalOptions.length === 0 ? (
-            <p>No strength goals available.</p>
+          {strengthGoalsOptions.length === 0 ? (
+            <Typography variant="body1">No strength goals available.</Typography>
           ) : (
-            strengthGoalOptions.map((goal) => (
+            strengthGoalsOptions.map((item) => (
               <FormControlLabel
-                key={goal.id}
+                key={item.id}
                 control={
                   <Checkbox
                     name="strengthGoals"
-                    value={goal.id}
-                    checked={values.strengthGoals.includes(goal.id)}
+                    value={item.id}
+                    checked={values.strengthGoals.includes(item.id)}
                     onChange={handleCheckboxChange}
                   />
                 }
-                label={goal.name}
+                label={item.name}
               />
             ))
           )}
         </FormGroup>
         {touched.strengthGoals && errors.strengthGoals && (
-          <div style={{ color: 'red', marginTop: '5px' }}>{errors.strengthGoals}</div>
+          <Typography variant="body2" color="error">
+            {errors.strengthGoals}
+          </Typography>
         )}
-        {/* Additional Goals TextField */}
-        {/* Additional Goals Section */}
-        <Box mt={3}>
-          <FormLabel component="legend" sx={{ fontSize: '1.25rem', marginBottom: '10px' }}>
-            Additional Goals (optional)
-          </FormLabel>
-
-          <Field
-            as={TextField}
-            name="additionalGoals"
-            multiline
-            rows={3}
-            placeholder="e.g., Incorporate Olympic lifts and kettlebell exercises."
-            value={values.additionalGoals}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            fullWidth
-          />
-          <ErrorMessage name="additionalGoals" component="div" style={{ color: 'red', marginTop: '4px' }} />
-        </Box>
       </FormControl>
 
+      <TextField
+        label="Additional Goals"
+        name="additionalGoals"
+        value={values.additionalGoals}
+        onChange={(e) => setFieldValue('additionalGoals', e.target.value)}
+        fullWidth
+        margin="normal"
+        multiline
+        rows={4}
+      />
+
       {/* Navigation Buttons */}
-      <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}>
-        <Button variant="contained" onClick={prevStep}>
+      <Box display="flex" justifyContent="space-between" marginTop="20px">
+        <Button variant="contained" onClick={() => prevStep()}>
           Back
         </Button>
         <Button
           variant="contained"
           color="primary"
-          onClick={nextStep}
-          style={{ marginLeft: '10px' }}
+          onClick={() => nextStep()}
+          disabled={!isStepValid()}
         >
           Next
         </Button>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
 FitnessGoals.propTypes = {
   nextStep: PropTypes.func.isRequired,
   prevStep: PropTypes.func.isRequired,
-  strengthGoalOptions: PropTypes.array.isRequired,
+  strengthGoalsOptions: PropTypes.array.isRequired,
 };
 
 export default FitnessGoals;

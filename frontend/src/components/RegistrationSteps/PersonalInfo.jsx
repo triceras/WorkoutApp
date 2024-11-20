@@ -1,6 +1,6 @@
 // src/components/RegistrationSteps/PersonalInfo.jsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Button,
   Box,
@@ -25,9 +25,8 @@ function PersonalInfo({ nextStep, prevStep }) {
   const [emailAvailable, setEmailAvailable] = useState(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
 
-  // Debounced function to check email availability
-  // Debounced function to check email availability
-  const checkEmailAvailability = useCallback(
+  // useRef to store the debounced function
+  const debouncedCheckEmail = useRef(
     debounce(async (email) => {
       if (email && /\S+@\S+\.\S+/.test(email)) {
         setCheckingEmail(true);
@@ -44,6 +43,8 @@ function PersonalInfo({ nextStep, prevStep }) {
           }
         } catch (error) {
           console.error('Error checking email availability:', error);
+          setEmailAvailable(null);
+          setFieldError('email', 'Error checking email availability.');
         } finally {
           setCheckingEmail(false);
         }
@@ -51,20 +52,18 @@ function PersonalInfo({ nextStep, prevStep }) {
         setEmailAvailable(null);
         setFieldError('email', null);
       }
-    }, 500),
-    [setFieldError]
-  );
+    }, 500)
+  ).current;
 
-  // Effect to check email availability when email changes
   useEffect(() => {
     if (touched.email) {
-      checkEmailAvailability(values.email);
+      debouncedCheckEmail(values.email);
     }
-    // Cleanup function to cancel debounce on unmount
+
     return () => {
-      checkEmailAvailability.cancel();
+      debouncedCheckEmail.cancel();
     };
-  }, [values.email, touched.email, checkEmailAvailability]);
+  }, [values.email, touched.email, debouncedCheckEmail]);
 
   // Function to check if the current step's fields are valid
   const isStepValid = () => {

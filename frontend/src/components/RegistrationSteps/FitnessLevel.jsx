@@ -2,11 +2,20 @@
 
 import React from 'react';
 import { useFormikContext } from 'formik';
-import { Button, Box, Typography, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio } from '@mui/material';
+import {
+  Button,
+  Box,
+  Typography,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+} from '@mui/material';
 import PropTypes from 'prop-types';
 
 function FitnessLevel({ nextStep, prevStep }) {
-  const { values, setFieldValue, errors, touched } = useFormikContext();
+  const { values, errors, touched, setFieldValue } = useFormikContext();
   const fitnessLevelOptions = ['Beginner', 'Intermediate', 'Advanced'];
 
   return (
@@ -14,7 +23,10 @@ function FitnessLevel({ nextStep, prevStep }) {
       <Typography variant="h5" gutterBottom>
         Fitness Level
       </Typography>
-      <FormControl component="fieldset" error={touched.fitnessLevel && Boolean(errors.fitnessLevel)}>
+      <FormControl
+        component="fieldset"
+        error={touched.fitnessLevel && Boolean(errors.fitnessLevel)}
+      >
         <FormLabel component="legend">Select Your Fitness Level</FormLabel>
         <RadioGroup
           aria-label="fitnessLevel"
@@ -35,10 +47,15 @@ function FitnessLevel({ nextStep, prevStep }) {
 
       {/* Navigation Buttons */}
       <Box display="flex" justifyContent="space-between" marginTop="20px">
-        <Button variant="contained" color="secondary" onClick={prevStep}>
+        <Button variant="contained" onClick={prevStep}>
           Back
         </Button>
-        <Button variant="contained" color="primary" onClick={nextStep} disabled={!values.fitnessLevel}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={nextStep}
+          disabled={!values.fitnessLevel}
+        >
           Next
         </Button>
       </Box>

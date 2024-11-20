@@ -4,7 +4,13 @@ import React from 'react';
 import { Button, Typography, List, ListItem, ListItemText, Divider } from '@mui/material';
 import PropTypes from 'prop-types';
 
-function ReviewSubmit({ prevStep, values, isSubmitting, equipmentOptions, strengthGoalsOptions }) {
+function ReviewSubmit({
+  prevStep,
+  values,
+  isSubmitting,
+  equipmentOptions,
+  strengthGoalsOptions,
+}) {
   const {
     username,
     firstName,
@@ -12,8 +18,6 @@ function ReviewSubmit({ prevStep, values, isSubmitting, equipmentOptions, streng
     email,
     age,
     sex,
-    weight,
-    height,
     fitnessLevel,
     strengthGoals,
     additionalGoals,
@@ -25,8 +29,8 @@ function ReviewSubmit({ prevStep, values, isSubmitting, equipmentOptions, streng
   // Helper function to map IDs to names
   const getNamesByIds = (ids, options) => {
     return options
-      .filter(option => ids.includes(option.id))
-      .map(option => option.name)
+      .filter((option) => ids.includes(option.id))
+      .map((option) => option.name)
       .join(', ');
   };
 
@@ -61,33 +65,36 @@ function ReviewSubmit({ prevStep, values, isSubmitting, equipmentOptions, streng
         </ListItem>
         <Divider />
         <ListItem>
-          <ListItemText primary="Weight (kg)" secondary={weight} />
-        </ListItem>
-        <Divider />
-        <ListItem>
-          <ListItemText primary="Height (cm)" secondary={height} />
-        </ListItem>
-        <Divider />
-        <ListItem>
           <ListItemText primary="Fitness Level" secondary={fitnessLevel} />
         </ListItem>
         <Divider />
         <ListItem>
           <ListItemText
             primary="Strength Goals"
-            secondary={strengthGoals.length > 0 ? getNamesByIds(strengthGoals, strengthGoalsOptions) : 'N/A'}
+            secondary={
+              strengthGoals.length > 0
+                ? getNamesByIds(strengthGoals, strengthGoalsOptions)
+                : 'N/A'
+            }
           />
         </ListItem>
         <Divider />
         <ListItem>
           <ListItemText
             primary="Available Equipment"
-            secondary={equipment.length > 0 ? getNamesByIds(equipment, equipmentOptions) : 'N/A'}
+            secondary={
+              equipment.length > 0
+                ? getNamesByIds(equipment, equipmentOptions)
+                : 'N/A'
+            }
           />
         </ListItem>
         <Divider />
         <ListItem>
-          <ListItemText primary="Additional Goals" secondary={additionalGoals || 'N/A'} />
+          <ListItemText
+            primary="Additional Goals"
+            secondary={additionalGoals || 'N/A'}
+          />
         </ListItem>
         <Divider />
         <ListItem>
@@ -100,20 +107,16 @@ function ReviewSubmit({ prevStep, values, isSubmitting, equipmentOptions, streng
       </List>
 
       {/* Navigation Buttons */}
-      <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}>
-        <Button
-          variant="contained"
-          onClick={prevStep}
-          size="large"
-          style={{ width: '48%' }}
-        >
+      <div
+        style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}
+      >
+        <Button variant="contained" onClick={() => prevStep(values)} size="large">
           Back
         </Button>
         <Button
           variant="contained"
           color="primary"
           type="submit" // Triggers Formik's handleSubmit
-          style={{ marginLeft: '10px', width: '48%' }}
           disabled={isSubmitting}
         >
           {isSubmitting ? 'Submitting...' : 'Submit'}

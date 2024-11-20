@@ -1,8 +1,17 @@
 // src/components/RegistrationSteps/Equipment.jsx
 
 import React from 'react';
-import { FormControlLabel, Checkbox, FormGroup, FormControl, FormLabel, Button } from '@mui/material';
 import { useFormikContext } from 'formik';
+import {
+  FormControlLabel,
+  Checkbox,
+  FormGroup,
+  FormControl,
+  FormLabel,
+  Button,
+  Box,
+  Typography,
+} from '@mui/material';
 import PropTypes from 'prop-types';
 
 function Equipment({ nextStep, prevStep, equipmentOptions }) {
@@ -14,21 +23,26 @@ function Equipment({ nextStep, prevStep, equipmentOptions }) {
     if (checked) {
       setFieldValue('equipment', [...values.equipment, id]);
     } else {
-      setFieldValue('equipment', values.equipment.filter((item) => item !== id));
+      setFieldValue(
+        'equipment',
+        values.equipment.filter((item) => item !== id)
+      );
     }
   };
 
   return (
-    <div>
+    <Box width="100%" maxWidth="600px" margin="0 auto">
+      <Typography variant="h5" gutterBottom>
+        Available Equipment
+      </Typography>
       <FormControl
         component="fieldset"
-        margin="normal"
         error={touched.equipment && Boolean(errors.equipment)}
       >
-        <FormLabel component="legend">Available Equipment</FormLabel>
+        <FormLabel component="legend">Select Equipment You Have</FormLabel>
         <FormGroup>
           {equipmentOptions.length === 0 ? (
-            <p>No equipment options available.</p>
+            <Typography>No equipment options available.</Typography>
           ) : (
             equipmentOptions.map((item) => (
               <FormControlLabel
@@ -47,12 +61,14 @@ function Equipment({ nextStep, prevStep, equipmentOptions }) {
           )}
         </FormGroup>
         {touched.equipment && errors.equipment && (
-          <div style={{ color: 'red', marginTop: '5px' }}>{errors.equipment}</div>
+          <Typography variant="body2" color="error">
+            {errors.equipment}
+          </Typography>
         )}
       </FormControl>
 
       {/* Navigation Buttons */}
-      <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}>
+      <Box display="flex" justifyContent="space-between" marginTop="20px">
         <Button variant="contained" onClick={prevStep}>
           Back
         </Button>
@@ -60,12 +76,12 @@ function Equipment({ nextStep, prevStep, equipmentOptions }) {
           variant="contained"
           color="primary"
           onClick={nextStep}
-          style={{ marginLeft: '10px' }}
+          disabled={values.equipment.length === 0 || Boolean(errors.equipment)}
         >
           Next
         </Button>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 

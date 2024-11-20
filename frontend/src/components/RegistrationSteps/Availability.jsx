@@ -29,7 +29,7 @@ function Availability({ nextStep, prevStep }) {
         min={15}
         max={120}
         valueLabelDisplay="auto"
-        value={values.workoutTime || 45}
+        value={values.workoutTime}
         onChange={(_, value) => setFieldValue('workoutTime', value)}
       />
       {touched.workoutTime && errors.workoutTime && (
@@ -60,7 +60,6 @@ function Availability({ nextStep, prevStep }) {
           variant="contained"
           color="primary"
           onClick={nextStep}
-          style={{ marginLeft: '10px' }}
           disabled={
             !values.workoutTime ||
             !values.workoutDays ||

@@ -63,7 +63,7 @@ function RegistrationPage() {
     strengthGoals: [], // Array of IDs
     additionalGoals: '',
     equipment: [],    // Array of IDs
-    workoutTime: 30,
+    workoutTime: 45,
     workoutDays: 4,
   };
 
@@ -225,7 +225,7 @@ function RegistrationPage() {
               <FitnessGoals
                 nextStep={nextStep}
                 prevStep={prevStep}
-                strengthGoalOptions={strengthGoalsOptions} // Pass strength goals
+                strengthGoalsOptions={strengthGoalsOptions} // Pass strength goals
               />
             )}
             {step === 4 && (
