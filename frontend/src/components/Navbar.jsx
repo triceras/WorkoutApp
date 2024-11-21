@@ -24,9 +24,9 @@ function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
   };
 
   // Toggle profile dropdown
-  const toggleProfileDropdown = () => {
-    setIsProfileOpen(!isProfileOpen);
-  };
+  // const toggleProfileDropdown = () => {
+  //   setIsProfileOpen(!isProfileOpen);
+  // };
 
   // Close profile dropdown when clicking outside
   useEffect(() => {

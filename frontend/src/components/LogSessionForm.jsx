@@ -73,39 +73,30 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         setError('No workout plan selected.');
         return;
       }
-
+  
       setLoadingSessions(true);
       try {
         const response = await axiosInstance.get(`workout-plans/${workoutPlanId}/`);
-        const planData = response.data.plan_data;
-
-        if (planData && planData.workoutDays) {
-          const { workoutDays } = planData;
-
-          if (workoutDays.length > 0) {
-            setSessions(workoutDays);
-            setSelectedSession(workoutDays[0].day);
-            setError(null);
-          } else {
-            setSessions([]);
-            setSelectedSession('');
-            setError('No sessions found in the selected workout plan.');
-          }
+        const { workoutDays, additionalTips } = response.data;
+  
+        if (workoutDays && workoutDays.length > 0) {
+          setSessions(workoutDays);
+          setSelectedSession(workoutDays[0].day);
+          setError(null);
         } else {
-          setError('Failed to load sessions.');
           setSessions([]);
           setSelectedSession('');
+          setError('No sessions found in the selected workout plan.');
         }
-      } catch (error) {
+      } catch (error) { // Removed the extra '}'
         console.error('Error fetching sessions:', error);
         setError('Failed to load sessions.');
         setSessions([]);
-        setSelectedSession('');
       } finally {
         setLoadingSessions(false);
       }
     };
-
+  
     const fetchExistingSessions = async () => {
       try {
         const response = await axiosInstance.get('training_sessions/', {
@@ -119,10 +110,31 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
         setError('Failed to fetch existing training sessions.');
       }
     };
-
+  
     fetchSessions();
     fetchExistingSessions();
   }, [workoutPlanId]);
+
+  useEffect(() => {
+    if (workoutPlans.length > 0) {
+      // Find the workout plan that includes today
+      const today = moment().format('YYYY-MM-DD');
+      const todaysPlan = workoutPlans.find(plan => {
+        // Assuming each plan has a 'date' field
+        return moment(plan.created_at).isSame(today, 'day');
+      });
+
+      if (todaysPlan) {
+        setWorkoutPlanId(todaysPlan.id);
+      } else {
+        // Optionally, prompt to create a new plan or select a default
+        setWorkoutPlanId(workoutPlans[0].id);
+        // You might also want to show a message to the user
+      }
+    } else {
+      setWorkoutPlanId('');
+    }
+  }, [workoutPlans]);
 
   const handleEmojiSelect = (value) => {
     setEmojiFeedback(value);
@@ -349,8 +361,30 @@ const LogSessionForm = ({ workoutPlans, onSessionLogged }) => {
 LogSessionForm.propTypes = {
   workoutPlans: PropTypes.arrayOf(
     PropTypes.shape({
-      id: PropTypes.string.isRequired, // Changed from PropTypes.number.isRequired to PropTypes.string.isRequired
-      plan_data: PropTypes.object.isRequired,
+      id: PropTypes.string.isRequired,
+      user: PropTypes.shape({
+        username: PropTypes.string.isRequired,
+        // Include other user fields if necessary
+      }).isRequired,
+      workoutDays: PropTypes.arrayOf(
+        PropTypes.shape({
+          day: PropTypes.string.isRequired,
+          duration: PropTypes.string.isRequired,
+          exercises: PropTypes.arrayOf(
+            PropTypes.shape({
+              name: PropTypes.string.isRequired,
+              setsReps: PropTypes.string,
+              equipment: PropTypes.string,
+              instructions: PropTypes.string,
+              videoId: PropTypes.string,
+              description: PropTypes.string,
+              video_url: PropTypes.string,
+            })
+          ).isRequired,
+        })
+      ).isRequired,
+      additionalTips: PropTypes.arrayOf(PropTypes.string).isRequired,
+      created_at: PropTypes.string.isRequired,
     })
   ).isRequired,
   onSessionLogged: PropTypes.func.isRequired,

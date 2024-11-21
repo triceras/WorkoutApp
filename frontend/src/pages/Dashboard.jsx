@@ -2,30 +2,61 @@
 
 import React, { useEffect, useState, useContext, useCallback } from 'react';
 import axiosInstance from '../api/axiosInstance';
-import WorkoutPlan from '../components/WorkoutPlan';
-import LogSessionForm from '../components/LogSessionForm';
+import moment from 'moment';
+import { AuthContext } from '../context/AuthContext';
+import {
+  Typography,
+  CircularProgress,
+  Box,
+  Grid,
+  Paper,
+} from '@mui/material';
+import { makeStyles } from '@mui/styles'; // Updated import statement
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import WorkoutCard from '../components/WorkoutCard';
+import ProgressChart from '../components/ProgressChart';
 import ErrorMessage from '../components/ErrorMessage';
 import ReconnectingWebSocket from 'reconnecting-websocket';
-import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
-import { Typography, Container, CircularProgress, Box } from '@mui/material';
-import './Dashboard.css';
+import LogSessionForm from '../components/LogSessionForm';
+
+const useStyles = makeStyles((theme) => ({
+  dashboardContainer: {
+    display: 'flex',
+  },
+  content: {
+    flexGrow: 1,
+    padding: theme.spacing(3),
+  },
+  welcomeMessage: {
+    marginBottom: theme.spacing(2),
+  },
+  sectionTitle: {
+    marginTop: theme.spacing(4),
+    marginBottom: theme.spacing(2),
+  },
+}));
 
 function Dashboard() {
+  const classes = useStyles();
+  
+  // 1. Define state for Sidebar
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Initialize as open or closed as per your preference
+  
   const [userData, setUserData] = useState(null);
   const [workoutPlans, setWorkoutPlans] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [progressData, setProgressData] = useState(null);
 
   const navigate = useNavigate();
-
   const socketRef = React.useRef(null);
-
   const { authToken, loading: authLoading } = useContext(AuthContext);
 
   const handleSessionLogged = (sessionData) => {
     console.log('Session logged:', sessionData);
-    // Handle session logged actions if needed
+    // Update progress data after a session is logged
+    fetchProgressData();
   };
 
   const setupWebSocket = useCallback(
@@ -71,6 +102,16 @@ function Dashboard() {
     [authToken]
   );
 
+  const fetchProgressData = async () => {
+    try {
+      const response = await axiosInstance.get('user/progression/');
+      setProgressData(response.data);
+    } catch (error) {
+      console.error('Error fetching progress data:', error);
+      setError('Unable to fetch progress data.');
+    }
+  };
+
   useEffect(() => {
     if (authLoading) return;
 
@@ -93,6 +134,7 @@ function Dashboard() {
           setError('No workout plans available.');
         }
 
+        await fetchProgressData();
         setupWebSocket(userResponse.data);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -124,9 +166,9 @@ function Dashboard() {
 
   if (loading || authLoading) {
     return (
-      <Box className="dashboard-loading">
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
         <CircularProgress />
-        <Typography variant="h6" style={{ marginTop: '20px' }}>
+        <Typography variant="h6" style={{ marginLeft: '10px' }}>
           Loading dashboard...
         </Typography>
       </Box>
@@ -137,39 +179,94 @@ function Dashboard() {
     return <ErrorMessage message={error} />;
   }
 
-  if (!workoutPlans || workoutPlans.length === 0 || !workoutPlans[0].id) {
-    return (
-      <Container maxWidth="md">
-        <Typography variant="h5" align="center" color="textSecondary">
-          No valid workout plans available.
-        </Typography>
-      </Container>
-    );
+  const getTodayWorkout = (workoutPlan) => {
+    if (!workoutPlan || !workoutPlan.workoutDays || workoutPlan.workoutDays.length === 0) {
+      return null;
+    }
+
+    const createdAt = moment(workoutPlan.created_at);
+    const todayIndex = moment().diff(createdAt, 'days') % workoutPlan.workoutDays.length;
+
+    return workoutPlan.workoutDays[todayIndex] || null;
+  };
+
+  const todayWorkout = workoutPlans.length > 0 ? getTodayWorkout(workoutPlans[0]) : null;
+  const exercises = todayWorkout?.exercises || [];
+
+  // Log the workoutPlans and progressData to ensure they contain the expected data
+  console.log('workoutPlans:', workoutPlans);
+  if (workoutPlans.length > 0) {
+    console.log('workoutDays:', workoutPlans[0].workoutDays);
+    console.log('todayWorkout:', todayWorkout);
+    console.log('exercises:', exercises);
   }
 
   return (
-    <Container maxWidth="lg" className="dashboard-container">
-      <Typography variant="h4" className="welcome-message">
-        Welcome, {userData?.first_name || userData?.username || 'Valued User'}
-      </Typography>
-      {workoutPlans.length > 0 ? (
-        <>
-          <WorkoutPlan
-            initialWorkoutData={workoutPlans[0].plan_data}
-            username={userData?.first_name || userData?.username}
-          />
+    <div className={classes.dashboardContainer}>
+      {/* 2. Pass isSidebarOpen and setIsSidebarOpen as props */}
+      <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
 
-          <LogSessionForm
-            workoutPlans={workoutPlans}
-            onSessionLogged={handleSessionLogged}
-          />
-        </>
-      ) : (
-        <Typography variant="h6" align="center" color="textSecondary">
-          No workout plans available.
+      {/* Main Content */}
+      <main className={classes.content}>
+        {/* Welcome Message */}
+        <Typography variant="h4" className={classes.welcomeMessage}>
+          Welcome back, {userData?.first_name || userData?.username}!
         </Typography>
-      )}
-    </Container>
+
+        <Grid container spacing={4}>
+          {/* Today's Workout */}
+          <Grid item xs={12} md={6}>
+          <Typography variant="h5" className={classes.sectionTitle}>
+            Today's Workout
+          </Typography>
+          {workoutPlans.length > 0 ? (
+            (() => {
+              const todayWorkout = getTodayWorkout(workoutPlans[0]);
+              return (
+                <WorkoutCard
+                  workouts={exercises}
+                  userName={userData?.first_name || userData?.username}
+                />
+              );
+            })()
+          ) : (
+            <Typography variant="body1">
+              You have no workout scheduled for today. Generate a new plan!
+            </Typography>
+          )}
+          </Grid>
+
+          {/* Progress Chart */}
+          <Grid item xs={12} md={6}>
+            <Typography variant="h5" className={classes.sectionTitle}>
+              Your Progress
+            </Typography>
+            <Paper elevation={3} style={{ padding: '20px' }}>
+              {progressData ? (
+                <ProgressChart progressData={progressData} />
+              ) : (
+                <Typography variant="body1">
+                  Start logging your sessions to see progress.
+                </Typography>
+              )}
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Log Session Form */}
+        <Box marginTop={4}>
+          <Typography variant="h5" className={classes.sectionTitle}>
+            Log a Workout Session
+          </Typography>
+          <Paper elevation={3} style={{ padding: '20px' }}>
+            <LogSessionForm
+              workoutPlans={workoutPlans}
+              onSessionLogged={handleSessionLogged}
+            />
+          </Paper>
+        </Box>
+      </main>
+    </div>
   );
 }
 

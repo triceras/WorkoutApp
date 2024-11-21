@@ -14,18 +14,21 @@ from datetime import timedelta
 
 UserModel = get_user_model()
 
+
 class StrengthGoalSerializer(serializers.ModelSerializer):
     class Meta:
         model = StrengthGoal
         fields = ['id', 'name']
 
+
 class EquipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Equipment
         fields = ['id', 'name']
-        
+
+
 class UserSerializer(serializers.ModelSerializer):
-    # Ensure 'username' is unique and read-only
+    # Ensure 'username' is unique
     username = serializers.CharField(
         required=True,
         validators=[UniqueValidator(queryset=UserModel.objects.all())]
@@ -43,13 +46,13 @@ class UserSerializer(serializers.ModelSerializer):
     # Explicitly define first and last name
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
-    # Ensure 'strength_goals' and 'equipment' are treated as nested serializers
+    # Nested serializers
     strength_goals = StrengthGoalSerializer(many=True, read_only=True)
     equipment = EquipmentSerializer(many=True, read_only=True)
     additional_goals = serializers.CharField(allow_blank=True, required=False)
     profile_picture = serializers.ImageField(required=False, allow_null=True)
     profile_picture_url = serializers.SerializerMethodField()
-    member_since = serializers.SerializerMethodField()  # Updated field
+    member_since = serializers.SerializerMethodField()
 
     class Meta:
         model = UserModel
@@ -58,7 +61,7 @@ class UserSerializer(serializers.ModelSerializer):
             'password', 'confirm_password', 'age', 'weight', 'height',
             'fitness_level', 'strength_goals', 'additional_goals',
             'equipment', 'workout_time', 'workout_days', 'profile_picture',
-            'profile_picture_url', 'member_since',  # Included 'member_since'
+            'profile_picture_url', 'member_since',
         ]
         read_only_fields = ['id']
 
@@ -79,7 +82,6 @@ class UserSerializer(serializers.ModelSerializer):
             if password != confirm_password:
                 raise serializers.ValidationError({"password": "Passwords must match."})
         return data
-
 
     def validate_email(self, value):
         # Allow email to be optional
@@ -111,7 +113,6 @@ class UserSerializer(serializers.ModelSerializer):
         except IntegrityError:
             raise serializers.ValidationError({"detail": "A user with this username or email already exists."})
 
-
     def update(self, instance, validated_data):
         # Remove 'confirm_password' from the data
         validated_data.pop('confirm_password', None)
@@ -125,7 +126,7 @@ class UserSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         instance.save()
         return instance
-    
+
     def get_profile_picture_url(self, obj):
         request = self.context.get('request')
         if obj.profile_picture and request:
@@ -139,35 +140,80 @@ class ExerciseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exercise
         fields = ['id', 'name', 'description', 'video_url', 'videoId', 'video_id']
+        extra_kwargs = {
+            'description': {'required': False, 'allow_null': True},
+            'video_url': {'required': False, 'allow_null': True},
+            'videoId': {'required': False, 'allow_null': True},
+        }
 
     def get_video_id(self, obj):
         return obj.get_cached_video_id()
 
 
+class NestedExerciseSerializer(serializers.Serializer):
+    id = serializers.IntegerField(required=False)
+    name = serializers.CharField(required=True)
+    setsReps = serializers.CharField(required=False, allow_blank=True)
+    equipment = serializers.CharField(required=False, allow_blank=True)
+    instructions = serializers.CharField(required=False, allow_blank=True)
+    videoId = serializers.CharField(required=False, allow_blank=True)
+    description = serializers.DictField(required=False, allow_null=True)
+    video_url = serializers.URLField(required=False, allow_null=True)
+
+
 class WorkoutPlanSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    workoutDays = serializers.SerializerMethodField()
+    additionalTips = serializers.SerializerMethodField()
 
     class Meta:
         model = WorkoutPlan
-        fields = ['id', 'user', 'plan_data', 'created_at']
+        fields = ['id', 'user', 'workoutDays', 'additionalTips', 'created_at']
         read_only_fields = ['id', 'user', 'created_at']
+
+    def get_workoutDays(self, obj):
+        """
+        Extracts 'workoutDays' from the 'plan_data' JSONField.
+        Returns a list of workout days with exercises.
+        """
+        workout_days_data = obj.plan_data.get('workoutDays', [])
+        serialized_workout_days = []
+        for day in workout_days_data:
+            exercises = day.get('exercises', [])
+            serialized_exercises = NestedExerciseSerializer(exercises, many=True).data
+            serialized_day = {
+                'day': day.get('day', ''),
+                'duration': day.get('duration', ''),
+                'exercises': serialized_exercises
+            }
+            serialized_workout_days.append(serialized_day)
+        return serialized_workout_days
+
+    def get_additionalTips(self, obj):
+        """
+        Extracts 'additionalTips' from the 'plan_data' JSONField.
+        Returns a list of tips.
+        """
+        return obj.plan_data.get('additionalTips', [])
+
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutLog
         fields = '__all__'
 
+
 class ExerciseLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseLog
         fields = '__all__'
+
 
 class WorkoutSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutSession
         fields = ['id', 'user', 'date']
         read_only_fields = ['id', 'user', 'date']
-
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -178,10 +224,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         many=True, queryset=Equipment.objects.all()
     )
     confirm_password = serializers.CharField(write_only=True)
-    sex = serializers.ChoiceField(choices=User.SEX_CHOICES, required=True)
+    sex = serializers.ChoiceField(choices=UserModel.SEX_CHOICES, required=True)
 
     class Meta:
-        model = User
+        model = UserModel
         fields = [
             'username', 'password', 'confirm_password', 'first_name',
             'last_name', 'email', 'age', 'weight', 'height',
@@ -203,7 +249,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password')
         validated_data.pop('confirm_password')
 
-        user = User(**validated_data)
+        user = UserModel(**validated_data)
         user.set_password(password)
         user.save()
 
@@ -225,6 +271,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         choices=TrainingSession.EMOJI_FEEDBACK_CHOICES, 
         required=False
     )
+
     class Meta:
         model = TrainingSession
         fields = [

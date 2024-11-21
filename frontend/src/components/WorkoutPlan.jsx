@@ -1,5 +1,3 @@
-// src/components/WorkoutPlan.jsx
-
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import VideoModal from './VideoModal';
@@ -17,7 +15,7 @@ import './WorkoutPlan.css';
 
 const getYoutubeThumbnailUrl = (videoId) => {
   const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-  console.log(`Thumbnail URL for videoId ${videoId}:`, thumbnailUrl); // Ensure this line is present
+  console.log(`Thumbnail URL for videoId ${videoId}:`, thumbnailUrl);
   return thumbnailUrl;
 };
 
@@ -33,8 +31,10 @@ function WorkoutPlan({ initialWorkoutData, username }) {
       console.error('WebSocket base URL is not defined.');
       return;
     }
-    console.log('WebSocket Base URL:', wsBaseUrl); // Add this line
-    const socket = new WebSocket(`${process.env.REACT_APP_WS_BASE_URL}/ws/workout-plan/?token=${token}`);
+    console.log('WebSocket Base URL:', wsBaseUrl);
+    const socket = new WebSocket(
+      `${wsBaseUrl}/ws/workout-plan/?token=${token}`
+    );
 
     socket.onopen = () => {
       console.log('WebSocket connection established.');
@@ -59,7 +59,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
     return () => {
       socket.close();
     };
-  }, []);
+  }, [initialWorkoutData]);
 
   const openVideoModal = (videoId) => {
     setCurrentVideoId(videoId);
@@ -71,12 +71,13 @@ function WorkoutPlan({ initialWorkoutData, username }) {
     setCurrentVideoId(null);
   };
 
-  if (!workoutData || Object.keys(workoutData).length === 0) {
+  // Defensive check
+  if (!workoutData || !Array.isArray(workoutData.workoutDays)) {
     console.error('Invalid plan data:', workoutData);
     return <div className="error-message">No workout days found in the plan.</div>;
   }
 
-  const { workoutDays, additionalTips } = workoutData;
+  const { workoutDays = [], additionalTips = [] } = workoutData;
 
   const splitIntoSentences = (text) => {
     return text
@@ -96,33 +97,33 @@ function WorkoutPlan({ initialWorkoutData, username }) {
         muscle. Please find the plan below:
       </Typography>
 
-      {workoutDays && workoutDays.length > 0 ? (
-        workoutDays.map((day) => (
-          <Paper key={day.day} className="workout-day" elevation={3}>
+      {workoutDays.length > 0 ? (
+        workoutDays.map((workoutDay, index) => (
+          <Paper key={index} className="workout-day" elevation={3}>
             {/* Day and Duration */}
             <Box className="day-cell">
               <Typography variant="h5" className="day-title">
-                {day.day}
+                {workoutDay.day || `Day ${index + 1}`}
               </Typography>
               <Typography variant="subtitle1" className="day-duration">
-                {day.duration}
+                {workoutDay.duration || 'No duration provided'}
               </Typography>
             </Box>
             {/* Exercises */}
-            {day.exercises && day.exercises.length > 0 ? (
+            {workoutDay.exercises && workoutDay.exercises.length > 0 ? (
               <Grid container spacing={3} className="exercises-container">
-                {day.exercises.map((exercise) => (
+                {workoutDay.exercises.map((exercise) => (
                   <Grid item xs={12} sm={6} md={4} key={exercise.name}>
                     <Card className="exercise-card exercise-item">
                       {exercise.videoId && (
                         <CardMedia
-                        component="img"
-                        height="140"
-                        image={getYoutubeThumbnailUrl(exercise.videoId)}
-                        alt={`${exercise.name} video`}
-                        className="youtube-thumbnail"
-                        onClick={() => openVideoModal(exercise.videoId)} // Add this line
-                        style={{ cursor: 'pointer' }} // Optional: Changes cursor to pointer on hover
+                          component="img"
+                          height="140"
+                          image={getYoutubeThumbnailUrl(exercise.videoId)}
+                          alt={`${exercise.name} video`}
+                          className="youtube-thumbnail"
+                          onClick={() => openVideoModal(exercise.videoId)}
+                          style={{ cursor: 'pointer' }}
                         />
                       )}
                       <CardContent className="exercise-details">
@@ -172,7 +173,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
       )}
 
       {/* Additional Tips */}
-      {additionalTips && additionalTips.length > 0 && (
+      {additionalTips.length > 0 && (
         <Box mt={5} className="additional-tips">
           <Typography variant="h5" gutterBottom>
             Additional Tips:
@@ -212,13 +213,23 @@ WorkoutPlan.propTypes = {
             equipment: PropTypes.string,
             instructions: PropTypes.string,
             videoId: PropTypes.string,
+            description: PropTypes.string,
+            video_url: PropTypes.string,
           })
-        ),
+        ).isRequired,
       })
-    ),
-    additionalTips: PropTypes.arrayOf(PropTypes.string),
+    ).isRequired,
+    additionalTips: PropTypes.arrayOf(PropTypes.string).isRequired,
   }).isRequired,
-  username: PropTypes.string,
+  username: PropTypes.string.isRequired,
+};
+
+WorkoutPlan.defaultProps = {
+  initialWorkoutData: {
+    workoutDays: [],
+    additionalTips: [],
+  },
+  username: '',
 };
 
 export default WorkoutPlan;

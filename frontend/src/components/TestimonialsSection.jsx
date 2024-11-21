@@ -1,46 +1,63 @@
 // src/components/TestimonialsSection.jsx
-
 import React from 'react';
-import { Box, Typography, Grid, Container, Avatar } from '@mui/material';
+import { Typography, Container, Box, Paper } from '@mui/material';
+import Carousel from 'react-material-ui-carousel';
 
 function TestimonialsSection() {
   const testimonials = [
     {
+      quote: "This app transformed my fitness journey. The personalized plans are exactly what I needed!",
       name: 'John Doe',
-      feedback:
-        'This workout plan has completely transformed my fitness journey. Highly recommended!',
-      avatar: 'https://i.pravatar.cc/150?img=3', // Placeholder image
     },
     {
+      quote: "I've seen amazing results in just a few weeks. Highly recommend!",
       name: 'Jane Smith',
-      feedback:
-        'I love how personalized the plans are. It fits perfectly with my schedule.',
-      avatar: 'https://i.pravatar.cc/150?img=5', // Placeholder image
     },
-    // Add more testimonials as needed
   ];
 
   return (
-    <Box py={5} bgcolor="#f9f9f9">
-      <Container>
-        <Typography variant="h4" component="h2" align="center" gutterBottom>
+    <Box py={8} sx={{ backgroundColor: '#f5f5f5' }}>
+      <Container maxWidth="md">
+        <Typography variant="h4" align="center" gutterBottom>
           What Our Users Say
         </Typography>
-        <Grid container spacing={4} justifyContent="center">
+        <Carousel
+          animation="slide"
+          indicators={true}
+          navButtonsAlwaysVisible={true}
+          interval={6000}
+          sx={{ minHeight: '200px' }}
+        >
           {testimonials.map((testimonial, index) => (
-            <Grid item xs={12} md={6} key={index}>
-              <Box display="flex" alignItems="center">
-                <Avatar src={testimonial.avatar} alt={testimonial.name} />
-                <Box ml={2}>
-                  <Typography variant="h6" component="h3">
-                    {testimonial.name}
-                  </Typography>
-                  <Typography variant="body1">{testimonial.feedback}</Typography>
-                </Box>
+            <Paper 
+              key={index}
+              elevation={3}
+              sx={{
+                p: 4,
+                m: 2,
+                borderRadius: 2,
+                backgroundColor: 'white'
+              }}
+            >
+              <Box textAlign="center">
+                <Typography 
+                  variant="h6" 
+                  gutterBottom
+                  sx={{ fontStyle: 'italic' }}
+                >
+                  "{testimonial.quote}"
+                </Typography>
+                <Typography 
+                  variant="subtitle1" 
+                  color="primary"
+                  sx={{ mt: 2 }}
+                >
+                  - {testimonial.name}
+                </Typography>
               </Box>
-            </Grid>
+            </Paper>
           ))}
-        </Grid>
+        </Carousel>
       </Container>
     </Box>
   );

@@ -74,12 +74,20 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def current(self, request):
+        """
+        Retrieve the current workout plan for the authenticated user.
+        If no workout plan exists, initiate the generation of a new one.
+        """
         try:
-            workout_plan = WorkoutPlan.objects.get(user=request.user)
+            workout_plan = WorkoutPlan.objects.filter(user=request.user).latest('created_at')
             serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
+            logger.info(f"Retrieved workout plan for user: {request.user.username}")
             return Response(serializer.data, status=status.HTTP_200_OK)
         except WorkoutPlan.DoesNotExist:
-            logger.info(f"No workout plan found for user: {request.user.username}. Initiating generation.")
+            logger.info(
+                "No workout plan found for user: %s. Initiating generation.",
+                request.user.username
+            )
             # Trigger the Celery task to generate the workout plan
             generate_workout_plan_task.delay(request.user.id)
             return Response(

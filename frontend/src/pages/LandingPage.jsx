@@ -1,20 +1,20 @@
 // src/pages/LandingPage.jsx
 
 import React from 'react';
-import { Button, Box, Typography, Container, Grid } from '@mui/material';
+import { Button, Box, Typography, Container } from '@mui/material';
 import { makeStyles } from '@mui/styles';
 import { Link } from 'react-router-dom';
-import HeroImage from '../assets/hero-image.jpg'; // Ensure you have an appropriate image
+import HeroImage from '../assets/WorkoutPlanAi.png'; // Ensure you have an appropriate image
 import FeaturesSection from '../components/FeaturesSection';
 import TestimonialsSection from '../components/TestimonialsSection';
 import Footer from '../components/Footer';
 
 const useStyles = makeStyles((theme) => ({
   heroSection: {
-    backgroundImage: `url(${HeroImage})`,
+    backgroundImage: `linear-gradient(to right, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.1)), url(${HeroImage})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    padding: '100px 0',
+    padding: '150px 0',
     color: '#fff',
     textAlign: 'center',
   },
@@ -23,7 +23,9 @@ const useStyles = makeStyles((theme) => ({
     margin: '0 auto',
   },
   ctaButton: {
-    marginTop: '20px',
+    marginTop: '30px',
+    padding: '15px 30px',
+    fontSize: '1.2rem',
   },
 }));
 
@@ -44,7 +46,7 @@ function LandingPage() {
             </Typography>
             <Button
               variant="contained"
-              color="primary"
+              color="secondary"
               size="large"
               className={classes.ctaButton}
               component={Link}

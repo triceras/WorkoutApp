@@ -11,6 +11,9 @@
     transition: width 0.3s ease;
     z-index: 999; /* Ensure the sidebar is above other elements */
     color: #fff; /* White text color */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   
   .sidebar.collapsed {
@@ -62,8 +65,8 @@
     color: #fff;
     font-size: 1.2rem;
     cursor: pointer;
-    margin: 10px;
-    align-self: flex-end;
+    margin: 10px auto; /* Center horizontally */
+    align-self: center; /* Center vertically if needed */
   }
   
   .sidebar.collapsed .sidebar-toggle {
