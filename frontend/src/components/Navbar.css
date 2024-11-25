@@ -7,8 +7,9 @@
   box-sizing: border-box;
 }
 
+/* Navbar Container */
 .navbar {
-  background-color: #007BFF; /* Bootstrap primary blue */
+  background-color: transparent; /* Make background transparent */
   position: fixed;
   top: 0;
   left: 0;
@@ -16,7 +17,8 @@
   height: 60px;
   display: flex;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Optional: remove shadow */
+  box-shadow: none;
   z-index: 1000;
 }
 
@@ -28,21 +30,23 @@
   justify-content: space-between;
 }
 
+/* Logo Styles */
 .navbar-logo a {
-  color: #ffffff;
+  color: #000000; /* Black text */
   font-size: 1.5rem;
-  font-weight: bold;
+  font-weight: normal; /* Remove bold */
   text-decoration: none;
-  margin-left: 76px; /* Approximately 2 cm */
-  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
+  margin-left: 76px;
+  font-family: 'Montserrat', sans-serif;
 }
 
+/* Menu Styles */
 .navbar-menu {
   list-style: none;
   display: flex;
   align-items: center;
   margin-right: 40px;
-  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
+  font-family: 'Montserrat', sans-serif;
 }
 
 .navbar-item {
@@ -50,24 +54,25 @@
 }
 
 .navbar-menu .navbar-link {
-  color: #ffffff;
+  color: #000000; /* Black text */
   text-decoration: none;
   font-size: 1rem;
-  font-weight: 700; /* Make text bold */
+  font-weight: normal; /* Remove bold */
   transition: color 0.3s ease;
-  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
+  font-family: 'Montserrat', sans-serif;
 }
 
 .navbar-menu .navbar-link:hover {
-  color: #e2e6ea;
+  color: #555555; /* Slight hover effect */
 }
 
+/* Active Link Style */
 .active-link {
-  border-bottom: 2px solid #ffffff;
-  text-decoration: none; /* Ensure no underline */
+  border-bottom: 2px solid #000000; /* Adjust border color to black */
+  text-decoration: none;
 }
 
-/* Dropdown Styles */
+/* Dropdown Styles (If Using Dropdowns) */
 .navbar-dropdown {
   position: relative;
 }
@@ -75,25 +80,26 @@
 .navbar-dropdown .dropdown-toggle {
   background: none;
   border: none;
-  color: #ffffff; /* Explicitly set to white */
+  color: #000000; /* Black text */
   cursor: pointer;
   font: inherit;
   padding: 0.5rem 1rem;
   transition: color 0.3s ease;
-  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
-  font-weight: 700; /* Make text bold */
+  font-family: 'Montserrat', sans-serif;
+  font-weight: normal; /* Remove bold */
 }
 
 .navbar-dropdown .dropdown-toggle:hover {
-  color: #e2e6ea;
+  color: #555555; /* Slight hover effect */
 }
 
 .navbar-dropdown .dropdown-menu {
   position: absolute;
   top: 100%;
   left: 0;
-  background-color: #ffffff; /* White background */
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  background-color: transparent; /* Make dropdown background transparent */
+  /* If you prefer a background for dropdown items but not the container, adjust accordingly */
+  box-shadow: none; /* Remove shadow */
   min-width: 160px;
   z-index: 1000;
   list-style: none;
@@ -101,18 +107,19 @@
   margin: 0;
 }
 
+/* Dropdown Menu Items */
 .navbar-dropdown .dropdown-menu .dropdown-item {
   display: block;
   padding: 0.5rem 1rem;
-  color: #333333; /* Dark text */
+  color: #000000; /* Black text */
   text-decoration: none;
-  font-family: 'Montserrat', sans-serif; /* Apply Montserrat */
-  font-weight: 700; /* Make text bold */
+  font-family: 'Montserrat', sans-serif;
+  font-weight: normal; /* Remove bold */
 }
 
 .navbar-dropdown .dropdown-menu .dropdown-item:hover,
 .navbar-dropdown .dropdown-menu .dropdown-item:focus {
-  background-color: #f1f1f1;
+  background-color: rgba(0, 0, 0, 0.1); /* Optional hover effect */
   color: #000000;
 }
 
@@ -121,12 +128,14 @@
   display: none;
   flex-direction: column;
   cursor: pointer;
+  background: none; /* Remove background */
+  border: none; /* Remove border */
 }
 
 .navbar-hamburger .bar {
   width: 25px;
   height: 3px;
-  background-color: #ffffff;
+  background-color: #000000; /* Black color for bars */
   margin: 4px 0;
   transition: 0.4s;
 }
@@ -138,7 +147,7 @@
     top: 60px;
     left: 0;
     width: 100%;
-    background-color: #007BFF;
+    background-color: transparent; /* Make background transparent */
     flex-direction: column;
     align-items: center;
     max-height: 0;
@@ -148,7 +157,7 @@
   }
 
   .navbar-menu.active {
-    max-height: 300px; /* Adjust based on number of menu items */
+    max-height: 500px; /* Adjust based on number of menu items */
   }
 
   .navbar-item {
@@ -160,26 +169,26 @@
   }
 }
 
-/* Ensure dropdown-toggle inherits white color */
+/* Ensure dropdown-toggle inherits black color */
 .navbar-menu .navbar-dropdown .dropdown-toggle {
-  color: #ffffff;
+  color: #000000;
 }
 
 /* Additional Specificity to Prevent Style Overrides */
 .navbar-container .navbar-dropdown .dropdown-toggle {
-  color: #ffffff;
+  color: #000000;
   background-color: transparent;
-  font-weight: 700; /* Ensure bold */
+  font-weight: normal; /* Remove bold */
 }
 
 .navbar-container .navbar-dropdown .dropdown-menu .dropdown-item {
-  color: #333333;
-  background-color: #ffffff;
-  font-weight: 700; /* Ensure bold */
+  color: #000000;
+  background-color: transparent;
+  font-weight: normal; /* Remove bold */
 }
 
 .navbar-container .navbar-dropdown .dropdown-menu .dropdown-item:hover,
 .navbar-container .navbar-dropdown .dropdown-menu .dropdown-item:focus {
-  background-color: #f1f1f1;
+  background-color: rgba(0, 0, 0, 0.1);
   color: #000000;
 }

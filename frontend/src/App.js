@@ -1,6 +1,6 @@
 // src/App.js
 
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { AuthContext } from './context/AuthContext';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import RegistrationPage from './pages/RegistrationPage';
@@ -23,7 +23,6 @@ import axiosInstance from './api/axiosInstance';
 import { CircularProgress } from '@mui/material';
 
 function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { authToken, loading: authLoading } = useContext(AuthContext);
   const [initialWorkoutData, setInitialWorkoutData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +40,7 @@ function App() {
         console.log('Workout Plans Current Response:', response.data);
 
         if (response.data.workoutDays && response.data.workoutDays.length > 0) {
-          setInitialWorkoutData(response.data); // Pass the entire object containing 'workoutDays'
+          setInitialWorkoutData(response.data);
         } else {
           setError('No workout plans available.');
         }
@@ -71,20 +70,16 @@ function App() {
 
   return (
     <Router>
-      <Navbar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+      <Navbar />
       <div className="app-container">
-        <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+        <Sidebar />
         <div className="main-content">
           <AuthListener />
           <Routes>
             <Route
               path="/"
               element={
-                authToken ? (
-                  <Navigate to="/dashboard" replace />
-                ) : (
-                  <LandingPage />
-                )
+                authToken ? <Navigate to="/dashboard" replace /> : <LandingPage />
               }
             />
             <Route path="/login" element={<LoginPage />} />
@@ -110,7 +105,7 @@ function App() {
               element={
                 <ProtectedRoute>
                   <WorkoutPlan
-                    initialWorkoutData={initialWorkoutData} // Now an object with 'workoutDays'
+                    initialWorkoutData={initialWorkoutData}
                     username={authToken ? authToken.username : ''}
                   />
                 </ProtectedRoute>

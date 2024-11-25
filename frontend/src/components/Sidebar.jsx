@@ -11,11 +11,9 @@ import {
   FaSignOutAlt,
   FaSignInAlt,
   FaUserPlus,
-  FaBars,       // Hamburger icon
-  FaChevronLeft // Left chevron icon
-} from 'react-icons/fa'; // Import icons
+} from 'react-icons/fa'; // Removed FaBars and FaChevronLeft
 
-function Sidebar({ isSidebarOpen, setIsSidebarOpen }) {
+function Sidebar() {
   const { authToken } = React.useContext(AuthContext);
   const menuItems = getMenuItems(authToken);
 
@@ -32,17 +30,8 @@ function Sidebar({ isSidebarOpen, setIsSidebarOpen }) {
       };
 
   return (
-    <div className={`sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`}>
-      {/* Sidebar Header with Toggle Button */}
-      <div className="sidebar-header">
-        <button
-          className="sidebar-toggle"
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-        >
-          {isSidebarOpen ? <FaChevronLeft /> : <FaBars />}
-        </button>
-      </div>
+    <div className="sidebar static">
+      {/* Removed Sidebar Header and Toggle Button */}
 
       <ul className="sidebar-menu">
         {menuItems.map((item) => (
@@ -50,14 +39,9 @@ function Sidebar({ isSidebarOpen, setIsSidebarOpen }) {
             <NavLink
               to={item.path}
               className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-              onClick={() => {
-                if (window.innerWidth <= 768) {
-                  setIsSidebarOpen(false); // Close sidebar on mobile after clicking a link
-                }
-              }}
             >
               <div className="icon">{iconMap[item.path]}</div>
-              {isSidebarOpen && <span className="link-text">{item.label}</span>}
+              <span className="link-text">{item.label}</span>
             </NavLink>
           </li>
         ))}

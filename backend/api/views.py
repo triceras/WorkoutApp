@@ -1,6 +1,6 @@
 # backend/api/views.py
 
-from rest_framework import viewsets, permissions, status, generics, filters
+from rest_framework import viewsets, permissions, status, generics, filters, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes, action
@@ -30,6 +30,10 @@ from .serializers import (
 )
 
 import logging
+from django.utils import timezone
+
+
+
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -329,60 +333,119 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         return TrainingSession.objects.filter(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
+        # Extract 'source' from request data
+        source = request.data.get('source', '').lower()
+        if not source:
+            logger.warning(
+                f"Training session creation failed: 'source' not provided by user {request.user.username}."
+            )
+            return Response(
+                {'source': 'Source identifier is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate 'source' value
+        if source not in ['dashboard', 'profile']:
+            logger.warning(
+                f"Training session creation failed: Invalid 'source' '{source}' by user {request.user.username}."
+            )
+            return Response(
+                {'source': "Invalid source. Must be either 'dashboard' or 'profile'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Initialize serializer with data and context
         serializer = self.get_serializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            training_session = serializer.save(user=request.user)
-            logger.info(f"Training session created for user {request.user.username}: Session ID {training_session.id}")
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError as e:
+            logger.error("Serializer validation failed: %s", e.detail, exc_info=True)
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
-            # Implement the decision logic
-            emoji_feedback = training_session.emoji_feedback
-            comments = training_session.comments.strip() if training_session.comments else ''
+        # Extract the 'date' field from validated data
+        session_date = serializer.validated_data.get('date')
+        if not session_date:
+            logger.warning(
+                f"Training session creation failed: 'date' not provided by user {request.user.username}."
+            )
+            return Response(
+                {'date': 'Date is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-            # Map emoji feedback values to labels
-            EMOJI_LABELS = {
-                0: 'Terrible',
-                1: 'Very Bad',
-                2: 'Bad',
-                3: 'Okay',
-                4: 'Good',
-                5: 'Awesome',
-            }
+        today = timezone.now().date()
 
-            emoji_label = EMOJI_LABELS.get(emoji_feedback)
+        # Perform date validation based on source
+        if source == 'dashboard':
+            if session_date != today:
+                logger.warning(
+                    f"Training session creation failed: Dashboard session date '{session_date}' is not today '{today}' for user {request.user.username}."
+                )
+                return Response(
+                    {'date': "For Dashboard submissions, the date must be today's date."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif source == 'profile':
+            one_week_ago = today - timedelta(days=7)
+            if not (one_week_ago <= session_date <= today):
+                logger.warning(
+                    f"Training session creation failed: Profile session date '{session_date}' is not within the past week for user {request.user.username}."
+                )
+                return Response(
+                    {'date': "For Profile submissions, the date must be within the past week up to today."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # Determine whether to process feedback with AI
-            should_process_with_ai = False
+        # Save the training session
+        training_session = serializer.save(user=request.user)
+        logger.info(
+            f"Training session created for user {request.user.username}: Session ID {training_session.id}"
+        )
 
-            if emoji_label in ['Okay', 'Good', 'Awesome']:
-                if comments and self._contains_modification_request(comments):
-                    # User wants modifications despite positive feedback
-                    should_process_with_ai = True
-            elif emoji_label in ['Terrible', 'Very Bad', 'Bad']:
-                if comments:
-                    # User provided negative feedback with comments
-                    should_process_with_ai = True
+        # Implement the decision logic
+        emoji_feedback = training_session.emoji_feedback
+        comments = training_session.comments.strip() if training_session.comments else ''
 
-            if should_process_with_ai:
-                # Trigger the Celery task to process feedback
-                process_feedback_submission_task.delay(training_session.id)
-                message = 'Feedback received. Your workout plan may be updated shortly.'
-                logger.info(f"Processing feedback with AI for training session {training_session.id}")
-            else:
-                # Just store the feedback without modifying the workout plan
-                message = 'Feedback received.'
-                logger.info(f"No AI processing needed for training session {training_session.id}")
+        # Map emoji feedback values to labels
+        EMOJI_LABELS = {
+            0: 'Terrible',
+            1: 'Very Bad',
+            2: 'Bad',
+            3: 'Okay',
+            4: 'Good',
+            5: 'Awesome',
+        }
 
-            # Prepare response data
-            response_data = {
-                'message': message,
-                'training_session': self.get_serializer(training_session, context={'request': request}).data
-            }
+        emoji_label = EMOJI_LABELS.get(emoji_feedback)
+        should_process_with_ai = False
 
-            headers = self.get_success_headers(serializer.data)
-            return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
+        if emoji_label in ['Okay', 'Good', 'Awesome']:
+            if comments and self._contains_modification_request(comments):
+                # User wants modifications despite positive feedback
+                should_process_with_ai = True
+        elif emoji_label in ['Terrible', 'Very Bad', 'Bad']:
+            if comments:
+                # User provided negative feedback with comments
+                should_process_with_ai = True
+
+        if should_process_with_ai:
+            # Trigger the Celery task to process feedback
+            process_feedback_submission_task.delay(training_session.id)
+            message = 'Feedback received. Your workout plan may be updated shortly.'
+            logger.info(f"Processing feedback with AI for training session {training_session.id}")
         else:
-            logger.warning(f"Validation errors: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Just store the feedback without modifying the workout plan
+            message = 'Feedback received.'
+            logger.info(f"No AI processing needed for training session {training_session.id}")
+
+        # Prepare response data
+        response_data = {
+            'message': message,
+            'training_session': self.get_serializer(training_session, context={'request': request}).data
+        }
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
     def _contains_modification_request(self, comments):
         # Simple keyword-based check to see if the comments contain modification requests
@@ -392,7 +455,6 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         ]
         comments_lower = comments.lower()
         return any(keyword in comments_lower for keyword in modification_keywords)
-
 
 class StrengthGoalViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StrengthGoal.objects.all()

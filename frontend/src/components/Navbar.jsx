@@ -20,12 +20,12 @@ function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
 
   // Toggle mobile menu
   const toggleMenu = () => {
-    setIsOpen(!isOpen);
+    setIsOpen((prev) => !prev);
   };
 
   // Toggle profile dropdown
   // const toggleProfileDropdown = () => {
-  //   setIsProfileOpen(!isProfileOpen);
+  //   setIsProfileOpen((prev) => !prev);
   // };
 
   // Close profile dropdown when clicking outside
@@ -41,6 +41,11 @@ function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Close mobile menu when navigating to a different route
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location]);
 
   if (hideNavbar) {
     return null; // Do not render Navbar on Login and Register pages
@@ -87,12 +92,45 @@ function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
                 className={({ isActive }) =>
                   isActive ? 'navbar-link active-link' : 'navbar-link'
                 }
-                onClick={() => setIsOpen(false)}
+                onClick={() => setIsOpen(false)} // Close menu on link click
               >
                 {item.label}
               </NavLink>
             </li>
           ))}
+
+          {/* Example of Profile Dropdown (Uncomment and customize if needed) */}
+          {/* 
+          <li className="navbar-item navbar-dropdown" ref={profileRef}>
+            <button
+              className="dropdown-toggle"
+              onClick={() => setIsProfileOpen((prev) => !prev)}
+              aria-haspopup="true"
+              aria-expanded={isProfileOpen}
+            >
+              Profile ▼
+            </button>
+            {isProfileOpen && (
+              <ul className="dropdown-menu">
+                <li>
+                  <NavLink to="/profile" className="dropdown-item" onClick={() => setIsOpen(false)}>
+                    View Profile
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/settings" className="dropdown-item" onClick={() => setIsOpen(false)}>
+                    Settings
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/logout" className="dropdown-item" onClick={() => setIsOpen(false)}>
+                    Logout
+                  </NavLink>
+                </li>
+              </ul>
+            )}
+          </li>
+          */}
         </ul>
       </div>
     </nav>

@@ -1,47 +1,153 @@
 /* src/components/LogSessionForm.css */
 
-.log-session-form {
-  background-color: #f9f9f9;
-  padding: 30px;
-  border-radius: 10px;
-  max-width: 800px;
-  margin: 30px auto;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+/* Custom Scrollbar for the Form Container */
+.log-session-form::-webkit-scrollbar {
+  width: 8px;
 }
 
-.log-session-form h3 {
+.log-session-form::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.log-session-form::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.log-session-form::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Emoji Button Styles */
+.emoji-button {
+  margin: 5px;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.emoji-button.selected {
+  background-color: #e0f7fa;
+  transform: scale(1.1);
+}
+
+/* Form Container Styles */
+.log-session-form {
+  background-color: #f9f9f9;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-family: 'Montserrat', sans-serif;
+}
+
+.log-session-form h3,
+.log-session-form h4 {
   text-align: center;
   margin-bottom: 20px;
   color: #333;
 }
 
-.error {
-  color: #d32f2f;
+/* Form Elements */
+.log-session-form .MuiTextField-root,
+.log-session-form .MuiFormControl-root,
+.log-session-form .MuiButton-root {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Exercises Section */
+.log-session-form .exercises-section {
+  margin-bottom: 20px;
+}
+
+.log-session-form .exercise-box {
+  background-color: #ffffff;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-bottom: 15px;
-  text-align: center;
 }
 
-.success {
-  color: #388e3c;
-  margin-bottom: 15px;
-  text-align: center;
+.log-session-form .exercise-box .MuiGrid-item {
+  display: flex;
+  align-items: center;
 }
 
-.emoji-button {
-  transition: transform 0.2s, background-color 0.2s;
+/* Add/Remove Exercise Buttons */
+.log-session-form .exercise-button,
+.log-session-form .remove-exercise-button {
+  margin-top: 10px;
 }
 
-.emoji-button.selected {
-  background-color: #e0e0e0;
+.log-session-form .exercise-button {
+  margin-top: 10px;
 }
 
-.emoji-button:hover {
-  transform: scale(1.1);
+.log-session-form .exercise-field {
+  margin-bottom: 10px;
 }
 
+/* Submit Button */
+.log-session-form .submit-button {
+  margin-top: 20px;
+}
+
+/* Comments Section */
+.log-session-form .comments-section {
+  margin-bottom: 20px;
+}
+
+/* Snackbar Overrides */
+.MuiSnackbar-root {
+  bottom: 20px !important;
+}
+
+.MuiAlert-standardSuccess {
+  background-color: #4caf50;
+  color: white;
+}
+
+.MuiAlert-standardError {
+  background-color: #f44336;
+  color: white;
+}
+
+/* Responsive Adjustments */
 @media (max-width: 600px) {
   .log-session-form {
-    padding: 20px;
-    margin: 20px;
+    padding: 15px;
   }
+
+  .log-session-form .exercise-box {
+    padding: 10px;
+  }
+
+  .log-session-form .MuiGrid-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .log-session-form .exercise-button,
+  .log-session-form .remove-exercise-button {
+    width: 100%;
+    margin-top: 10px;
+  }
+}
+
+/* Hover Effects for Exercise Buttons */
+.log-session-form .add-exercise-button:hover,
+.log-session-form .remove-exercise-button:hover {
+  background-color: #e0f7fa;
+}
+
+/* Disabled Button Styles */
+.log-session-form .MuiButton-containedPrimary.Mui-disabled {
+  background-color: #a5d6a7;
+  color: #ffffff;
+}
+
+/* Additional Styling for Form Elements */
+.log-session-form .MuiFormControl-root .MuiInputLabel-root {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.log-session-form .MuiFormControl-root .MuiSelect-select {
+  font-family: 'Montserrat', sans-serif;
 }

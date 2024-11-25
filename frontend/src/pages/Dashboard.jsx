@@ -10,8 +10,9 @@ import {
   Box,
   Grid,
   Paper,
+  Container,
 } from '@mui/material';
-import { makeStyles } from '@mui/styles'; // Updated import statement
+import { makeStyles } from '@mui/styles';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import WorkoutCard from '../components/WorkoutCard';
@@ -37,11 +38,16 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
+/**
+ * Define the days of the week, starting with Monday as Day 1.
+ */
+const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 function Dashboard() {
   const classes = useStyles();
   
-  // 1. Define state for Sidebar
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Initialize as open or closed as per your preference
+  // Sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const [userData, setUserData] = useState(null);
   const [workoutPlans, setWorkoutPlans] = useState([]);
@@ -83,9 +89,16 @@ function Dashboard() {
             const updatedPlan = {
               id: data.plan_id || prevPlans[0]?.id,
               user: user.id,
-              plan_data: data.plan_data,
+              workoutDays: data.plan_data.map((day, index) => ({
+                ...day,
+                dayNumber: index + 1, // Assign dayNumber based on array index (1-based)
+                dayName: day.dayName || day.day, // Ensure dayName is present
+                type: day.type || (day.exercises && day.exercises.length > 0 ? 'workout' : 'rest'), // Ensure type is present
+              })),
+              additionalTips: data.additional_tips || prevPlans[0]?.additionalTips || [],
+              created_at: data.created_at || new Date().toISOString(),
             };
-
+        
             return [updatedPlan];
           });
         }
@@ -128,8 +141,29 @@ function Dashboard() {
         setUserData(userResponse.data);
 
         const workoutPlansResponse = await axiosInstance.get('workout-plans/');
+        
+        // Inside the fetchData function in Dashboard.jsx
+
         if (workoutPlansResponse.data && workoutPlansResponse.data.length > 0) {
-          setWorkoutPlans(workoutPlansResponse.data);
+          // Process each workoutPlan to include dayName and dayNumber for each workoutDay
+          const updatedWorkoutPlans = workoutPlansResponse.data.map((plan) => ({
+            ...plan,
+            workoutDays: plan.workoutDays.map((day, index) => ({
+              ...day,
+              dayNumber: index + 1, // Assign dayNumber based on array index (1-based)
+              dayName: day.dayName || day.day, // Ensure dayName is present
+              type: day.type || (day.exercises && day.exercises.length > 0 ? 'workout' : 'rest'), // Ensure type is present
+            })),
+          }));
+
+          setWorkoutPlans(updatedWorkoutPlans);
+          console.log('workoutPlans:', updatedWorkoutPlans);
+          updatedWorkoutPlans.forEach((plan, planIdx) => {
+            console.log(`Workout Plan ${planIdx + 1}:`);
+            plan.workoutDays.forEach((day) => {
+              console.log(`  Day ${day.dayNumber}: ${day.dayName} - Type: ${day.type}`);
+            });
+          });
         } else {
           setError('No workout plans available.');
         }
@@ -203,37 +237,32 @@ function Dashboard() {
 
   return (
     <div className={classes.dashboardContainer}>
-      {/* 2. Pass isSidebarOpen and setIsSidebarOpen as props */}
+      {/* Sidebar */}
       <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
 
       {/* Main Content */}
       <main className={classes.content}>
-        {/* Welcome Message */}
-        <Typography variant="h4" className={classes.welcomeMessage}>
-          Welcome back, {userData?.first_name || userData?.username}!
-        </Typography>
-
         <Grid container spacing={4}>
           {/* Today's Workout */}
           <Grid item xs={12} md={6}>
-          <Typography variant="h5" className={classes.sectionTitle}>
-            Today's Workout
-          </Typography>
-          {workoutPlans.length > 0 ? (
-            (() => {
-              const todayWorkout = getTodayWorkout(workoutPlans[0]);
-              return (
-                <WorkoutCard
-                  workouts={exercises}
-                  userName={userData?.first_name || userData?.username}
-                />
-              );
-            })()
-          ) : (
-            <Typography variant="body1">
-              You have no workout scheduled for today. Generate a new plan!
+            <Typography variant="h5" className={classes.sectionTitle}>
+              Today's Workout
             </Typography>
-          )}
+            {workoutPlans.length > 0 ? (
+              (() => {
+                const todayWorkout = getTodayWorkout(workoutPlans[0]);
+                return (
+                  <WorkoutCard
+                    workouts={exercises}
+                    userName={userData?.first_name || userData?.username}
+                  />
+                );
+              })()
+            ) : (
+              <Typography variant="body1">
+                You have no workout scheduled for today. Generate a new plan!
+              </Typography>
+            )}
           </Grid>
 
           {/* Progress Chart */}
@@ -261,6 +290,7 @@ function Dashboard() {
           <Paper elevation={3} style={{ padding: '20px' }}>
             <LogSessionForm
               workoutPlans={workoutPlans}
+              source="dashboard"
               onSessionLogged={handleSessionLogged}
             />
           </Paper>

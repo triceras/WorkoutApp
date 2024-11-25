@@ -182,12 +182,27 @@ class TrainingSession(models.Model):
         (5, '😄 Awesome'),
     ]
     emoji_feedback = models.IntegerField(choices=EMOJI_FEEDBACK_CHOICES, null=True, blank=True)
-    
+    duration = models.PositiveIntegerField(null=True, blank=True)  # in minutes
+    calories_burned = models.PositiveIntegerField(null=True, blank=True)
+    heart_rate_pre = models.PositiveIntegerField(null=True, blank=True)
+    heart_rate_post = models.PositiveIntegerField(null=True, blank=True)
+    intensity_level = models.PositiveIntegerField(null=True, blank=True)
+
     def __str__(self):
-        return f"{self.user.username} - {self.workout_plan} on {self.date}"
-    
+        return f"TrainingSession({self.user.username}, {self.date})"
+
     class Meta:
-        unique_together = ('user', 'date', 'session_name')
+        unique_together = ('user', 'date')
+        
+class TrainingSessionExercise(models.Model):
+    training_session = models.ForeignKey(TrainingSession, on_delete=models.CASCADE, related_name='exercises')
+    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
+    sets = models.PositiveIntegerField()
+    reps = models.PositiveIntegerField()
+    weight = models.FloatField()
+
+    def __str__(self):
+        return f"{self.exercise.name} - {self.sets}x{self.reps} @ {self.weight}kg"
 
 class YouTubeVideo(models.Model):
     exercise_name = models.CharField(max_length=255, unique=True)

@@ -3,7 +3,7 @@
 from rest_framework import serializers
 from .models import (
     User, Exercise, WorkoutPlan, WorkoutLog, ExerciseLog,
-    WorkoutSession, TrainingSession,
+    WorkoutSession, TrainingSession, TrainingSessionExercise,
     StrengthGoal, Equipment, YouTubeVideo
 )
 from django.contrib.auth import get_user_model
@@ -259,18 +259,32 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
+class TrainingSessionExerciseSerializer(serializers.ModelSerializer):
+    exercise_id = serializers.PrimaryKeyRelatedField(
+        queryset=Exercise.objects.all(),
+        source='exercise'
+    )
+    exercise_name = serializers.CharField(source='exercise.name', read_only=True)
+
+    class Meta:
+        model = TrainingSessionExercise
+        fields = ['id', 'exercise_id', 'exercise_name', 'sets', 'reps', 'weight']
+
+
 class TrainingSessionSerializer(serializers.ModelSerializer):
     workout_plan = WorkoutPlanSerializer(read_only=True)
     workout_plan_id = serializers.PrimaryKeyRelatedField(
-        queryset=WorkoutPlan.objects.all(),
+        queryset=WorkoutPlan.objects.none(),  # Initialized in __init__
         source='workout_plan',
         write_only=True,
-        required=False
+        required=True
     )
     emoji_feedback = serializers.ChoiceField(
         choices=TrainingSession.EMOJI_FEEDBACK_CHOICES, 
         required=False
     )
+    exercises = TrainingSessionExerciseSerializer(many=True, required=False)
+    source = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = TrainingSession
@@ -283,24 +297,41 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
             'session_name',
             'week_number',
             'emoji_feedback',
-            'comments'
+            'comments',
+            'duration',
+            'calories_burned',
+            'heart_rate_pre',
+            'heart_rate_post',
+            'intensity_level',
+            'exercises',
+            'source',
         ]
-        read_only_fields = ['user', 'created_at']
+        read_only_fields = ['user', 'created_at', 'session_name', 'week_number', 'workout_plan']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = self.context['request'].user
+        self.fields['workout_plan_id'].queryset = WorkoutPlan.objects.filter(user=user)
 
     def validate(self, data):
-        request = self.context.get('request')
-        user = request.user  # Get the user from the request context
+        user = self.context['request'].user
         session_name = data.get('session_name')
         date = data.get('date')
 
+        errors = {}
         if not session_name:
-            raise serializers.ValidationError({'session_name': 'This field is required.'})
+            errors['session_name'] = 'Session name is required.'
         if not date:
-            raise serializers.ValidationError({'date': 'This field is required.'})
+            errors['date'] = 'Date is required.'
+
+        if errors:
+            raise serializers.ValidationError(errors)
 
         # Check for existing session on the same day
         if TrainingSession.objects.filter(user=user, session_name=session_name, date=date).exists():
-            raise serializers.ValidationError('You have already logged this session for today.')
+            raise serializers.ValidationError({
+                'session_name': 'You have already logged this session for today.'
+            })
 
         # Check for existing session in the same week
         start_of_week = date - timedelta(days=date.weekday())  # Monday
@@ -311,16 +342,34 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
             session_name=session_name,
             date__range=(start_of_week, end_of_week)
         ).exists():
-            raise serializers.ValidationError('You have already logged this session for this week.')
+            raise serializers.ValidationError({
+                'session_name': 'You have already logged this session for this week.'
+            })
 
         return data
 
     def create(self, validated_data):
-        request = self.context.get('request')
-        user = request.user
-        validated_data['user'] = user  # Assign the user to validated_data
-        return super().create(validated_data)
+        exercises_data = validated_data.pop('exercises', [])
+        source = validated_data.pop('source', None)  # Handle 'source' if needed
+        user = self.context['request'].user
+        training_session = TrainingSession.objects.create(user=user, **validated_data)
+        for exercise_data in exercises_data:
+            TrainingSessionExercise.objects.create(training_session=training_session, **exercise_data)
+        return training_session
 
+    def update(self, instance, validated_data):
+        exercises_data = validated_data.pop('exercises', None)
+        source = validated_data.pop('source', None)  # Handle 'source' if needed
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if exercises_data is not None:
+            instance.exercises.all().delete()
+            for exercise_data in exercises_data:
+                TrainingSessionExercise.objects.create(training_session=instance, **exercise_data)
+        return instance
 
 class YouTubeVideoSerializer(serializers.ModelSerializer):
     class Meta:

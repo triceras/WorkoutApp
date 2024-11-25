@@ -23,12 +23,12 @@
   line-height: 1.6;
 }
 
-/* Individual Workout Day */
-.workout-day {
+/* Today Workout Section */
+.today-workout-section {
   margin-bottom: 40px;
   border-radius: 10px;
   overflow: hidden;
-  padding: 0 40px;
+  padding: 0;
   background-color: #fff;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -45,18 +45,18 @@
   font-size: 1.8rem;
   font-weight: bold;
   margin: 0;
-  color: gray;
+  color: white;
 }
 
 .day-duration {
   font-size: 1.2rem;
   margin-top: 5px;
-  color: gray;
+  color: white;
 }
 
 /* Exercises Container */
 .exercises-container {
-  padding: 20px 0;
+  padding: 20px 40px;
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
@@ -150,7 +150,7 @@
 
 .additional-tips ul {
   list-style-type: disc;
-  padding-left: 20px; /* Reduced from the original value */
+  padding-left: 20px;
   margin: 0;
 }
 
@@ -158,11 +158,11 @@
   margin-bottom: 10px;
   color: #555;
   font-size: 1rem;
-  padding-left: 5px; /* Added to create space between bullet and text */
+  padding-left: 5px;
 }
 
 .additional-tips li .MuiTypography-body1 {
-  display: inline; /* Ensures the text stays inline with the bullet point */
+  display: inline;
 }
 
 /* Error Message Styling */
@@ -198,12 +198,15 @@
   .additional-tips h5 {
     font-size: 1.2rem;
   }
+
+  .exercises-container {
+    padding: 10px 20px;
+  }
 }
 
-/* Responsive Design */
 @media (max-width: 600px) {
   .workout-day {
-    padding: 0 20px; /* Reduce padding on smaller screens */
+    padding: 0 20px;
   }
 
   .exercises-container {
