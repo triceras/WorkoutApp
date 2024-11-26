@@ -469,7 +469,7 @@ class EquipmentViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class UserProgressionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]  # Ensure the user is authenticated
+    permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
 
     def get(self, request):
         user = request.user
@@ -486,7 +486,11 @@ class UserProgressionView(APIView):
 
         # Retrieve the user's training sessions
         training_sessions = TrainingSession.objects.filter(user=user).order_by('-date')
-        training_sessions_serializer = TrainingSessionSerializer(training_sessions, many=True, context={'request': request})
+        training_sessions_serializer = TrainingSessionSerializer(
+            training_sessions,
+            many=True,
+            context={'request': request}
+        )
 
         # Compile the progression data
         progression_data = {

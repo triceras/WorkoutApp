@@ -16,7 +16,11 @@ import {
   CardContent,
   Divider,
   CircularProgress,
-} from '@mui/material'; // Removed MenuItem from imports
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+} from '@mui/material';
 import {
   SentimentVeryDissatisfied,
   SentimentDissatisfied,
@@ -82,14 +86,14 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
 
       if (plan.created_at && plan.workoutDays && plan.workoutDays.length > 0) {
         // Set default values for exercises in each workout day
-        const updatedWorkoutDays = plan.workoutDays.map(day => ({
+        const updatedWorkoutDays = plan.workoutDays.map((day) => ({
           ...day,
-          exercises: day.exercises.map(exercise => ({
+          exercises: day.exercises.map((exercise) => ({
             sets: exercise.sets !== undefined ? exercise.sets : 0,
             reps: exercise.reps !== undefined ? exercise.reps : 0,
             weight: exercise.weight !== undefined ? exercise.weight : 0,
-            ...exercise
-          }))
+            ...exercise,
+          })),
         }));
 
         // Calculate the current day index
@@ -136,27 +140,49 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
 
   /**
    * Maps exercise names to their corresponding IDs.
+   * If an exercise is not found, it creates it in the backend.
    * @param {Array} exercises - Array of exercises from the workout plan.
    * @returns {Array} - Array of exercises with mapped exercise_id.
    */
-  const mapExerciseNamesToIds = (exercises) => {
-    return exercises.map(ex => {
-      const matchedExercise = availableExercises.find(aEx => aEx.name.toLowerCase() === ex.name.toLowerCase());
-      if (matchedExercise) {
-        return {
-          ...ex,
-          exercise_id: matchedExercise.id,
-          name: matchedExercise.name, // Ensure name is correctly mapped
-        };
-      } else {
-        console.warn(`Exercise "${ex.name}" not found in availableExercises.`);
-        return {
-          ...ex,
-          exercise_id: '', // Set to empty string if not found
-          name: ex.name || '', // Retain the original name
-        };
+  const mapExerciseNamesToIds = async (exercises) => {
+    const updatedAvailableExercises = [...availableExercises]; // Clone the array
+    const mappedExercises = [];
+
+    for (let ex of exercises) {
+      let matchedExercise = updatedAvailableExercises.find(
+        (aEx) => aEx.name.trim().toLowerCase() === ex.name.trim().toLowerCase()
+      );
+
+      if (!matchedExercise) {
+        // Exercise not found, create it in the backend
+        try {
+          const response = await axiosInstance.post('/exercises/', {
+            name: ex.name,
+            description: ex.description || {},
+            video_url: ex.video_url || '',
+            videoId: ex.videoId || '',
+          });
+          matchedExercise = response.data;
+          // Add the new exercise to the updatedAvailableExercises
+          updatedAvailableExercises.push(matchedExercise);
+        } catch (error) {
+          console.error(`Error creating exercise "${ex.name}":`, error);
+          // Handle the error by skipping this exercise or setting a placeholder ID
+          matchedExercise = { id: null, name: ex.name };
+        }
       }
-    });
+
+      mappedExercises.push({
+        ...ex,
+        exercise_id: matchedExercise.id,
+        name: matchedExercise.name,
+      });
+    }
+
+    // Update the availableExercises state with the new exercises
+    setAvailableExercises(updatedAvailableExercises);
+
+    return mappedExercises;
   };
 
   /**
@@ -174,23 +200,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
       heart_rate_pre: '',
       heart_rate_post: '',
       intensity_level: '',
-      exercises: currentSession
-        ? mapExerciseNamesToIds(currentSession.exercises).map(ex => ({
-            exercise_id: ex.exercise_id || '', // Pre-populated from currentSession
-            name: ex.name || '', // Pre-populated exercise name
-            sets: ex.sets || 0,
-            reps: ex.reps || 0,
-            weight: ex.weight || 0,
-          }))
-        : [
-            {
-              exercise_id: '', // Empty by default
-              name: '', // Empty by default
-              sets: 0,
-              reps: 0,
-              weight: 0,
-            },
-          ],
+      exercises: [], // Initialize with an empty array
       source: source || '',
     },
     enableReinitialize: true,
@@ -208,17 +218,20 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
         .integer('Duration must be an integer')
         .required('Session duration is required'),
       calories_burned: Yup.number()
+        .transform((value, originalValue) => (originalValue === '' ? null : value))
         .positive('Calories burned must be positive')
         .integer('Calories burned must be an integer')
-        .required('Calories burned is required'),
+        .nullable(),
       heart_rate_pre: Yup.number()
+        .transform((value, originalValue) => (originalValue === '' ? null : value))
         .positive('Heart rate must be positive')
         .integer('Heart rate must be an integer')
-        .required('Pre-session heart rate is required'),
+        .nullable(),
       heart_rate_post: Yup.number()
+        .transform((value, originalValue) => (originalValue === '' ? null : value))
         .positive('Heart rate must be positive')
         .integer('Heart rate must be an integer')
-        .required('Post-session heart rate is required'),
+        .nullable(),
       intensity_level: Yup.number()
         .min(1, 'Intensity level must be at least 1')
         .max(10, 'Intensity level cannot exceed 10')
@@ -238,8 +251,9 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
             .integer('Reps must be an integer')
             .required('Number of reps is required'),
           weight: Yup.number()
+            .transform((value, originalValue) => (originalValue === '' ? null : value))
             .min(0, 'Weight cannot be negative')
-            .required('Weight is required'),
+            .nullable(),
         })
       ),
     }),
@@ -256,16 +270,16 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
           emoji_feedback: values.emoji_feedback,
           comments: values.comments,
           duration: values.duration,
-          calories_burned: values.calories_burned,
-          heart_rate_pre: values.heart_rate_pre,
-          heart_rate_post: values.heart_rate_post,
+          calories_burned: values.calories_burned !== '' ? values.calories_burned : null,
+          heart_rate_pre: values.heart_rate_pre !== '' ? values.heart_rate_pre : null,
+          heart_rate_post: values.heart_rate_post !== '' ? values.heart_rate_post : null,
           intensity_level: values.intensity_level,
-          exercises: values.exercises.map(ex => ({
+          exercises: values.exercises.map((ex) => ({
             exercise_id: ex.exercise_id,
             sets: ex.sets,
             reps: ex.reps,
-            weight: ex.weight,
-          })), // Now includes exercise_id as number
+            weight: ex.weight !== '' ? ex.weight : null,
+          })),
           source: source, // ensure this is correctly set
         };
 
@@ -275,7 +289,8 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
         onSessionLogged(response.data);
         resetForm();
         setSubmissionStatus({ success: 'Session(s) logged successfully!', error: '' });
-        setExistingSessions((prev) => [...prev, ...response.data.exercises]);
+        const exercises = response.data.training_session?.exercises || [];
+        setExistingSessions((prev) => [...prev, ...exercises]);
       } catch (error) {
         console.error('Error logging session:', error);
         if (error.response && error.response.data) {
@@ -315,25 +330,25 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
    * Sets the session_name and exercises in Formik once currentSession is determined.
    */
   useEffect(() => {
-    if (currentSession) {
-      const sessionName = currentSession.day; // Using the 'day' field directly
-      formik.setFieldValue('session_name', sessionName);
+    const initializeExercises = async () => {
+      if (currentSession) {
+        const mappedExercises = await mapExerciseNamesToIds(currentSession.exercises);
+        formik.setFieldValue(
+          'exercises',
+          mappedExercises.map((ex) => ({
+            exercise_id: ex.exercise_id || '', // Pre-populated from mapped exercises
+            name: ex.name || '', // Pre-populated exercise name
+            sets: ex.sets || 0,
+            reps: ex.reps || 0,
+            weight: ex.weight || '',
+          }))
+        );
+      }
+    };
 
-      // Update exercises based on currentSession
-      const mappedExercises = mapExerciseNamesToIds(currentSession.exercises);
-      formik.setFieldValue(
-        'exercises',
-        mappedExercises.map(ex => ({
-          exercise_id: ex.exercise_id || '', // Pre-populated from mapped exercises
-          name: ex.name || '', // Pre-populated exercise name
-          sets: ex.sets || 0,
-          reps: ex.reps || 0,
-          weight: ex.weight || 0,
-        }))
-      );
-    }
+    initializeExercises();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSession, availableExercises]);
+  }, [currentSession]);
 
   /**
    * Checks if the current session has already been logged today.
@@ -354,7 +369,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
   /**
    * Handles date change to update session_name and exercises accordingly.
    */
-  const handleDateChange = (e) => {
+  const handleDateChange = async (e) => {
     formik.handleChange(e);
     const selectedDate = e.target.value;
     const dayNumber = getDayNumber(selectedDate);
@@ -364,17 +379,17 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
     // Update exercises based on the new selected date
     if (workoutPlans.length > 0) {
       const plan = workoutPlans[0];
-      const workoutDay = plan.workoutDays.find(w => w.dayNumber === dayNumber);
+      const workoutDay = plan.workoutDays.find((w) => w.dayNumber === dayNumber);
       if (workoutDay) {
-        const mappedExercises = mapExerciseNamesToIds(workoutDay.exercises);
+        const mappedExercises = await mapExerciseNamesToIds(workoutDay.exercises);
         formik.setFieldValue(
           'exercises',
-          mappedExercises.map(ex => ({
+          mappedExercises.map((ex) => ({
             exercise_id: ex.exercise_id || '', // Pre-populated from mapped exercises
             name: ex.name || '', // Pre-populated exercise name
             sets: ex.sets || 0,
             reps: ex.reps || 0,
-            weight: ex.weight || 0,
+            weight: ex.weight || '',
           }))
         );
       } else {
@@ -405,16 +420,6 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
     const plan = workoutPlans[0]; // Assuming the first plan is current
     const workoutDay = plan.workoutDays.find((w) => w.dayNumber === dayNumber);
     return workoutDay ? workoutDay.day : 'Rest Day'; // Using 'day' field directly
-  };
-
-  /**
-   * Retrieves the name of the exercise based on exercise_id.
-   * @param {number} id - The ID of the exercise.
-   * @returns {string} - The name of the exercise or an empty string if not found.
-   */
-  const getExerciseName = (id) => {
-    const exercise = availableExercises.find(ex => ex.id === id);
-    return exercise ? exercise.name : '';
   };
 
   /**
@@ -650,7 +655,6 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
                               onChange={formik.handleChange}
                               onBlur={formik.handleBlur}
                               fullWidth
-                              required
                               variant="outlined"
                               inputProps={{ min: 0 }}
                               error={
@@ -698,7 +702,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
                         name: '', // Initialize as empty
                         sets: 0,
                         reps: 0,
-                        weight: 0,
+                        weight: '',
                       })
                     }
                     style={{ marginBottom: '1rem' }}
@@ -731,25 +735,37 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
 
             {/* Workout Plan Dropdown */}
             <Box mt={2}>
-              <TextField
-                label="Workout Plan"
-                name="workout_plan_id"
-                value={formik.values.workout_plan_id || ''}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                select
+              <FormControl
                 fullWidth
                 required
                 variant="outlined"
                 error={formik.touched.workout_plan_id && Boolean(formik.errors.workout_plan_id)}
-                helperText={formik.touched.workout_plan_id && formik.errors.workout_plan_id}
               >
-                <Button disabled style={{ display: 'none' }}>
-                  {/* Placeholder to prevent errors if no MenuItem is present */}
-                </Button>
-                {/* Removed MenuItem components as Select is now handled via TextField */}
-                {/* If you need to use MenuItem for Workout Plans, ensure it's imported and used correctly */}
-              </TextField>
+                <InputLabel id="workout-plan-label">Workout Plan</InputLabel>
+                <Select
+                  labelId="workout-plan-label"
+                  id="workout-plan"
+                  name="workout_plan_id"
+                  value={formik.values.workout_plan_id || ''}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  label="Workout Plan"
+                >
+                  <MenuItem value="">
+                    <em>Select Workout Plan</em>
+                  </MenuItem>
+                  {workoutPlans.map((plan) => (
+                    <MenuItem key={plan.id} value={plan.id}>
+                      {username ? `Plan for ${username}` : `Workout Plan ${plan.id}`}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {formik.touched.workout_plan_id && formik.errors.workout_plan_id && (
+                  <Typography color="error" variant="body2">
+                    {formik.errors.workout_plan_id}
+                  </Typography>
+                )}
+              </FormControl>
             </Box>
 
             {/* Session Name (Read-Only) */}
@@ -769,94 +785,99 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
               />
             </Box>
 
-            {/* Duration */}
+            {/* Session Details Fields */}
             <Box mt={4}>
-              <TextField
-                label="Duration (minutes)"
-                name="duration"
-                type="number"
-                value={formik.values.duration || ''}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                fullWidth
-                required
-                variant="outlined"
-                inputProps={{ min: 1 }}
-                error={formik.touched.duration && Boolean(formik.errors.duration)}
-                helperText={formik.touched.duration && formik.errors.duration}
-              />
-            </Box>
+              <Typography variant="h6" gutterBottom>
+                Session Details
+              </Typography>
+              <Grid container spacing={2}>
+                {/* Duration */}
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    label="Duration (mins)"
+                    name="duration"
+                    type="number"
+                    value={formik.values.duration || ''}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    required
+                    variant="outlined"
+                    inputProps={{ min: 1 }}
+                    InputLabelProps={{ shrink: true }}
+                    error={formik.touched.duration && Boolean(formik.errors.duration)}
+                    helperText={formik.touched.duration && formik.errors.duration}
+                  />
+                </Grid>
 
-            {/* Calories Burned */}
-            <Box mt={2}>
-              <TextField
-                label="Calories Burned"
-                name="calories_burned"
-                type="number"
-                value={formik.values.calories_burned || ''}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                fullWidth
-                required
-                variant="outlined"
-                inputProps={{ min: 0 }}
-                error={formik.touched.calories_burned && Boolean(formik.errors.calories_burned)}
-                helperText={formik.touched.calories_burned && formik.errors.calories_burned}
-              />
-            </Box>
+                {/* Calories Burned */}
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    label="Calories Burned"
+                    name="calories_burned"
+                    type="number"
+                    value={formik.values.calories_burned || ''}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    variant="outlined"
+                    inputProps={{ min: 0 }}
+                    InputLabelProps={{ shrink: true }}
+                    error={formik.touched.calories_burned && Boolean(formik.errors.calories_burned)}
+                    helperText={formik.touched.calories_burned && formik.errors.calories_burned}
+                  />
+                </Grid>
 
-            {/* Heart Rate Pre-Session */}
-            <Box mt={2}>
-              <TextField
-                label="Heart Rate Before Session"
-                name="heart_rate_pre"
-                type="number"
-                value={formik.values.heart_rate_pre || ''}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                fullWidth
-                required
-                variant="outlined"
-                inputProps={{ min: 0 }}
-                error={formik.touched.heart_rate_pre && Boolean(formik.errors.heart_rate_pre)}
-                helperText={formik.touched.heart_rate_pre && formik.errors.heart_rate_pre}
-              />
-            </Box>
+                {/* Heart Rate Before */}
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    label="Heart Rate Before"
+                    name="heart_rate_pre"
+                    type="number"
+                    value={formik.values.heart_rate_pre || ''}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    variant="outlined"
+                    inputProps={{ min: 0 }}
+                    InputLabelProps={{ shrink: true }}
+                    error={formik.touched.heart_rate_pre && Boolean(formik.errors.heart_rate_pre)}
+                    helperText={formik.touched.heart_rate_pre && formik.errors.heart_rate_pre}
+                  />
+                </Grid>
 
-            {/* Heart Rate Post-Session */}
-            <Box mt={2}>
-              <TextField
-                label="Heart Rate After Session"
-                name="heart_rate_post"
-                type="number"
-                value={formik.values.heart_rate_post || ''}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                fullWidth
-                required
-                variant="outlined"
-                inputProps={{ min: 0 }}
-                error={formik.touched.heart_rate_post && Boolean(formik.errors.heart_rate_post)}
-                helperText={formik.touched.heart_rate_post && formik.errors.heart_rate_post}
-              />
-            </Box>
+                {/* Heart Rate After */}
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    label="Heart Rate After"
+                    name="heart_rate_post"
+                    type="number"
+                    value={formik.values.heart_rate_post || ''}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    variant="outlined"
+                    inputProps={{ min: 0 }}
+                    InputLabelProps={{ shrink: true }}
+                    error={formik.touched.heart_rate_post && Boolean(formik.errors.heart_rate_post)}
+                    helperText={formik.touched.heart_rate_post && formik.errors.heart_rate_post}
+                  />
+                </Grid>
 
-            {/* Intensity Level */}
-            <Box mt={2}>
-              <TextField
-                label="Intensity Level (1-10)"
-                name="intensity_level"
-                type="number"
-                value={formik.values.intensity_level || ''}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                fullWidth
-                required
-                variant="outlined"
-                inputProps={{ min: 1, max: 10 }}
-                error={formik.touched.intensity_level && Boolean(formik.errors.intensity_level)}
-                helperText={formik.touched.intensity_level && formik.errors.intensity_level}
-              />
+                {/* Intensity Level */}
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Intensity Level (1-10)"
+                    name="intensity_level"
+                    type="number"
+                    value={formik.values.intensity_level || ''}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    required
+                    variant="outlined"
+                    inputProps={{ min: 1, max: 10 }}
+                    InputLabelProps={{ shrink: true }}
+                    error={formik.touched.intensity_level && Boolean(formik.errors.intensity_level)}
+                    helperText={formik.touched.intensity_level && formik.errors.intensity_level}
+                  />
+                </Grid>
+              </Grid>
             </Box>
 
             {/* Comments */}
@@ -888,7 +909,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
                   existingSessions.length > 0 ||
                   isSubmitting ||
                   (formik.values.exercises.length > 0 &&
-                    formik.values.exercises.some(ex => ex.exercise_id === ''))
+                    formik.values.exercises.some((ex) => ex.exercise_id === ''))
                 }
                 fullWidth
                 size="large"

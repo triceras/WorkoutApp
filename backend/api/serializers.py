@@ -14,6 +14,12 @@ from datetime import timedelta
 
 UserModel = get_user_model()
 
+class NullableIntegerField(serializers.IntegerField):
+    def to_internal_value(self, data):
+        if data in ('', None):
+            return None
+        return super().to_internal_value(data)
+
 
 class StrengthGoalSerializer(serializers.ModelSerializer):
     class Meta:
@@ -265,6 +271,7 @@ class TrainingSessionExerciseSerializer(serializers.ModelSerializer):
         source='exercise'
     )
     exercise_name = serializers.CharField(source='exercise.name', read_only=True)
+    weight = serializers.FloatField(allow_null=True, required=False)
 
     class Meta:
         model = TrainingSessionExercise
@@ -284,6 +291,9 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         required=False
     )
     exercises = TrainingSessionExerciseSerializer(many=True, required=False)
+    calories_burned = NullableIntegerField(allow_null=True, required=False)
+    heart_rate_pre = NullableIntegerField(allow_null=True, required=False)
+    heart_rate_post = NullableIntegerField(allow_null=True, required=False)
     source = serializers.CharField(write_only=True, required=True)
 
     class Meta:
@@ -306,7 +316,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
             'exercises',
             'source',
         ]
-        read_only_fields = ['user', 'created_at', 'session_name', 'week_number', 'workout_plan']
+        read_only_fields = ['user', 'created_at', 'week_number', 'workout_plan']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -352,6 +362,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         exercises_data = validated_data.pop('exercises', [])
         source = validated_data.pop('source', None)  # Handle 'source' if needed
         user = self.context['request'].user
+        validated_data.pop('user', None)  # Remove 'user' if it exists
         training_session = TrainingSession.objects.create(user=user, **validated_data)
         for exercise_data in exercises_data:
             TrainingSessionExercise.objects.create(training_session=training_session, **exercise_data)

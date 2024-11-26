@@ -1,8 +1,10 @@
 // src/components/WorkoutPlan.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../context/AuthContext'; 
 import PropTypes from 'prop-types';
 import { DateTime } from 'luxon';
+import axiosInstance from '../api/axiosInstance';
 import VideoModal from './VideoModal';
 import {
   Typography,
@@ -17,9 +19,16 @@ import {
 import './WorkoutPlan.css';
 
 /**
- * Define the days of the week, starting with Monday as Day 1.
+ * Splits a text into sentences for better readability.
+ * @param {string} text - The text to split.
+ * @returns {string[]} - Array of sentences.
  */
-const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const splitIntoSentences = (text) => {
+  return text
+    .split('.')
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0);
+};
 
 /**
  * Generates YouTube thumbnail URL based on video ID.
@@ -27,112 +36,51 @@ const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
  * @returns {string} - The thumbnail URL.
  */
 const getYoutubeThumbnailUrl = (videoId) => {
-  const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-  console.log(`Thumbnail URL for videoId ${videoId}:`, thumbnailUrl);
-  return thumbnailUrl;
+  return `https://img.youtube.com/vi/${videoId}/0.jpg`;
 };
 
-/**
- * Generates a full weekly workout plan with rest days.
- * @param {number} workoutDays - Number of workout days per week.
- * @param {Array} initialWorkoutDays - Array of initial workout day data.
- * @returns {Array} - Full weekly plan with workouts and rest days.
- */
-const generateWeeklyPlan = (workoutDays, initialWorkoutDays) => {
-  const fullPlan = [];
-  let workoutDaysAssigned = 0;
-
-  for (let i = 0; i < weekDays.length; i++) {
-    const dayName = weekDays[i];
-    const isWeekend = dayName === 'Saturday' || dayName === 'Sunday';
-    const dayNumber = i + 1; // 1 for Monday, 7 for Sunday
-
-    if (workoutDaysAssigned < workoutDays && (!isWeekend || workoutDays > 5)) {
-      // Assign workout day
-      const workoutDay = initialWorkoutDays[workoutDaysAssigned % initialWorkoutDays.length];
-      fullPlan.push({
-        dayName: dayName, // e.g., 'Monday'
-        workoutDescription: `Day ${dayNumber}: ${workoutDay.exercises[0].name}`,
-        dayNumber: dayNumber, // Correctly assigned
-        type: 'workout', // Ensure type is set
-        duration: workoutDay.duration,
-        exercises: workoutDay.exercises,
-      });
-      workoutDaysAssigned++;
-    } else {
-      // Assign rest day
-      fullPlan.push({
-        dayName: dayName, // Consistent naming
-        dayNumber: dayNumber,
-        type: 'rest', // Ensure type is set
-      });
-    }
-  }
-
-  console.log('Generated Weekly Plan:', fullPlan); // For debugging
-  return fullPlan;
-};
-
-function WorkoutPlan({ initialWorkoutData, username }) {
+function WorkoutPlan() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState(null);
-  const [workoutData, setWorkoutData] = useState(initialWorkoutData);
   const [fullWeeklyPlan, setFullWeeklyPlan] = useState([]);
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [isRestDay, setIsRestDay] = useState(false);
   const [error, setError] = useState(null);
+  const [workoutPlan, setWorkoutPlan] = useState(null);
+  const { user } = useContext(AuthContext);
+  const username = user?.first_name || user?.username || '';
 
+  /**
+   * Fetches the workout plan from the backend.
+   */
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    const wsBaseUrl = process.env.REACT_APP_WS_BASE_URL || 'ws://localhost:8000';
-    if (!wsBaseUrl) {
-      console.error('WebSocket base URL is not defined.');
-      setError('WebSocket base URL is not defined.');
-      return;
-    }
-    console.log('WebSocket Base URL:', wsBaseUrl);
-    const socket = new WebSocket(`${wsBaseUrl}/ws/workout-plan/?token=${token}`);
+    const fetchWorkoutPlan = async () => {
+      try {
+        const response = await axiosInstance.get('/workout_plans/');
+        if (response.data.length === 0) {
+          console.error('No workout plans available:', response.data);
+          setError('No workout plans found.');
+          return;
+        }
 
-    socket.onopen = () => {
-      console.log('WebSocket connection established.');
-    };
+        const currentPlan = response.data[0]; // Use the most recent plan
+        if (!Array.isArray(currentPlan.workoutDays)) {
+          console.error('Invalid workout plan data:', currentPlan);
+          setError('Invalid workout plan data.');
+          return;
+        }
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'workout_plan_generated') {
-        console.log('Received updated workout plan:', data.plan_data);
-        setWorkoutData(data.plan_data);
+        setWorkoutPlan(currentPlan);
+        setFullWeeklyPlan(currentPlan.workoutDays);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching workout plans:', err);
+        setError('Failed to fetch workout plans.');
       }
     };
 
-    socket.onclose = () => {
-      console.log('WebSocket connection closed.');
-    };
-
-    socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setError('WebSocket encountered an error.');
-    };
-
-    return () => {
-      socket.close();
-    };
-  }, [initialWorkoutData]);
-
-  /**
-   * Generates the full weekly plan with rest days when workoutData changes.
-   */
-  useEffect(() => {
-    if (!workoutData || !Array.isArray(workoutData.workoutDays)) {
-      console.error('Invalid workout data:', workoutData);
-      setError('No workout days found in the plan.');
-      return;
-    }
-
-    const workoutDaysPerWeek = workoutData.workoutDays.length;
-    const generatedPlan = generateWeeklyPlan(workoutDaysPerWeek, workoutData.workoutDays);
-    setFullWeeklyPlan(generatedPlan);
-  }, [workoutData]);
+    fetchWorkoutPlan();
+  }, []);
 
   /**
    * Determines today's workout or rest day based on the full weekly plan.
@@ -144,8 +92,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
       return;
     }
 
-    const todayDate = DateTime.local();
-    const todayWeekday = todayDate.weekday; // 1 (Monday) to 7 (Sunday)
+    const todayWeekday = DateTime.local().weekday; // 1 (Monday) to 7 (Sunday)
     const todayPlan = fullWeeklyPlan.find((day) => day.dayNumber === todayWeekday);
 
     if (todayPlan) {
@@ -166,6 +113,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
 
   /**
    * Opens the video modal with the selected video ID.
+   * @param {string} videoId - The ID of the YouTube video to play.
    */
   const openVideoModal = (videoId) => {
     setCurrentVideoId(videoId);
@@ -181,17 +129,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
   };
 
   /**
-   * Splits a text into sentences for better readability.
-   */
-  const splitIntoSentences = (text) => {
-    return text
-      .split('.')
-      .map((sentence) => sentence.trim())
-      .filter((sentence) => sentence.length > 0);
-  };
-
-  /**
-   * If there's an error (e.g., no workout plans), display it.
+   * If there's an error, display it.
    */
   if (error) {
     return (
@@ -202,7 +140,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
   }
 
   /**
-   * If today's workout is not determined, show a loading or rest day message.
+   * If the workout plan is loading, show a loading message.
    */
   if (!fullWeeklyPlan || fullWeeklyPlan.length === 0) {
     return (
@@ -241,11 +179,11 @@ function WorkoutPlan({ initialWorkoutData, username }) {
                     borderLeft: `5px solid ${dayPlan.type === 'rest' ? '#f44336' : '#28a745'}`,
                   }}
                 >
-                  <Typography variant="h6">{dayPlan.day}</Typography>
+                  <Typography variant="h6">{dayPlan.dayName}</Typography>
                   <Typography variant="body2">
                     {dayPlan.type === 'rest' ? 'Rest Day' : `${dayPlan.duration} minutes`}
                   </Typography>
-                  {dayPlan.type === 'workout' && dayPlan.exercises.length > 0 && (
+                  {dayPlan.type === 'workout' && dayPlan.exercises && dayPlan.exercises.length > 0 && (
                     <ul>
                       {dayPlan.exercises.map((exercise, idx) => (
                         <li key={idx}>{exercise.name}</li>
@@ -259,13 +197,13 @@ function WorkoutPlan({ initialWorkoutData, username }) {
         </Box>
 
         {/* Additional Tips */}
-        {workoutData.additionalTips && workoutData.additionalTips.length > 0 && (
+        {workoutPlan && workoutPlan.additionalTips && workoutPlan.additionalTips.length > 0 && (
           <Box mt={5} className="additional-tips">
             <Typography variant="h5" gutterBottom>
               Additional Tips:
             </Typography>
             <ul>
-              {workoutData.additionalTips.map((tip, index) => (
+              {workoutPlan.additionalTips.map((tip, index) => (
                 <li key={index}>
                   <Typography variant="body1" color="textSecondary">
                     {tip}
@@ -284,14 +222,11 @@ function WorkoutPlan({ initialWorkoutData, username }) {
         />
       </Container>
     );
+  }
 
   /**
-   * Get today's workout details
+   * Render today's workout.
    */
-  const todayPlan = fullWeeklyPlan.find(
-    (day) => day.type === 'workout' && day.dayNumber === DateTime.local().weekday
-  );
-
   return (
     <Container maxWidth="lg" className="workout-plan-container">
       <Typography variant="h4" align="center" gutterBottom>
@@ -307,7 +242,7 @@ function WorkoutPlan({ initialWorkoutData, username }) {
           {/* Day and Duration */}
           <Box className="day-cell">
             <Typography variant="h5" className="day-title">
-              {todayWorkout.day || 'Today'}
+              {todayWorkout.dayName || 'Today'}
             </Typography>
             <Typography variant="subtitle1" className="day-duration">
               {todayWorkout.duration || 'No duration provided'}
@@ -378,13 +313,13 @@ function WorkoutPlan({ initialWorkoutData, username }) {
       )}
 
       {/* Additional Tips */}
-      {workoutData.additionalTips && workoutData.additionalTips.length > 0 && (
+      {workoutPlan && workoutPlan.additionalTips && workoutPlan.additionalTips.length > 0 && (
         <Box mt={5} className="additional-tips">
           <Typography variant="h5" gutterBottom>
             Additional Tips:
           </Typography>
           <ul>
-            {workoutData.additionalTips.map((tip, index) => (
+            {workoutPlan.additionalTips.map((tip, index) => (
               <li key={index}>
                 <Typography variant="body1" color="textSecondary">
                   {tip}
@@ -406,37 +341,6 @@ function WorkoutPlan({ initialWorkoutData, username }) {
 }
 
 WorkoutPlan.propTypes = {
-  initialWorkoutData: PropTypes.shape({
-    workoutDays: PropTypes.arrayOf(
-      PropTypes.shape({
-        day: PropTypes.string.isRequired,
-        dayNumber: PropTypes.number.isRequired, // Ensure dayNumber is included
-        duration: PropTypes.string.isRequired,
-        exercises: PropTypes.arrayOf(
-          PropTypes.shape({
-            name: PropTypes.string.isRequired,
-            setsReps: PropTypes.string,
-            equipment: PropTypes.string,
-            instructions: PropTypes.string,
-            videoId: PropTypes.string,
-            description: PropTypes.string,
-            video_url: PropTypes.string,
-          })
-        ).isRequired,
-      })
-    ).isRequired,
-    additionalTips: PropTypes.arrayOf(PropTypes.string).isRequired,
-  }).isRequired,
-  username: PropTypes.string.isRequired,
 };
-
-WorkoutPlan.defaultProps = {
-  initialWorkoutData: {
-    workoutDays: [],
-    additionalTips: [],
-  },
-  username: '',
-};
-}
 
 export default WorkoutPlan;

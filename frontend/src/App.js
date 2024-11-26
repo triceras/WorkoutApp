@@ -106,7 +106,6 @@ function App() {
                 <ProtectedRoute>
                   <WorkoutPlan
                     initialWorkoutData={initialWorkoutData}
-                    username={authToken ? authToken.username : ''}
                   />
                 </ProtectedRoute>
               }

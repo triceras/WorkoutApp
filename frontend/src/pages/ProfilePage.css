@@ -60,7 +60,6 @@
   flex: 1; /* Allows this container to take up remaining space */
 }
 
-
 /* User Details */
 .user-details {
   display: flex;
@@ -180,6 +179,50 @@
   font-size: 0.95rem;
 }
 
+/* Styles for Exercises Table */
+.session-exercises {
+  margin-top: 15px;
+}
+
+.session-exercises h5 {
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+  color: #1e3a8a; /* Dark blue */
+}
+
+.exercise-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.exercise-table th,
+.exercise-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.exercise-table th {
+  background-color: #4f46e5; /* Indigo */
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.exercise-table td {
+  background-color: #6b7280; /* Gray */
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.exercise-table tr:nth-child(even) td {
+  background-color: #4b5563; /* Darker gray */
+}
+
+.exercise-table tr:hover td {
+  background-color: #374151; /* Darkest gray */
+}
+
 /* Progression Metrics Styles */
 .progression-metrics {
   display: flex;
@@ -214,7 +257,9 @@
 }
 
 /* Buttons */
-.btn-edit, .btn-save, .btn-cancel {
+.btn-edit,
+.btn-save,
+.btn-cancel {
   padding: 10px 15px;
   border: none;
   border-radius: 4px;
@@ -270,7 +315,7 @@
   color: #374151; /* Gray */
 }
 
-.form-group input[type="file"] {
+.form-group input[type='file'] {
   padding: 5px;
   font-family: 'Montserrat', sans-serif;
 }
@@ -302,34 +347,38 @@
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
   .profile-section {
-      flex: 1 1 100%; /* Stack sections vertically on smaller screens */
+    flex: 1 1 100%; /* Stack sections vertically on smaller screens */
   }
 
   .tabs {
-      flex-direction: column;
-      align-items: center;
+    flex-direction: column;
+    align-items: center;
   }
 
   .tab-button {
-      width: 100%;
-      margin: 5px 0;
+    width: 100%;
+    margin: 5px 0;
   }
 
   .progression-metrics {
-      flex-direction: column;
-      align-items: center;
+    flex-direction: column;
+    align-items: center;
   }
 
   .metric {
-      width: 100%;
-      max-width: 300px;
+    width: 100%;
+    max-width: 300px;
   }
 
   .user-info-and-picture {
@@ -345,7 +394,7 @@
   }
 
   .user-details-and-upload {
-      width: 100%;
+    width: 100%;
   }
 
   .user-info-and-upload {
@@ -359,11 +408,10 @@
     align-items: center;
   }
 
-
   .upload-profile-picture {
-      width: 100%;
-      max-width: 300px; /* Prevent it from becoming too wide on larger mobile screens */
-      margin-top: 15px; /* Space above the upload component */
+    width: 100%;
+    max-width: 300px; /* Prevent it from becoming too wide on larger mobile screens */
+    margin-top: 15px; /* Space above the upload component */
   }
 
   .user-details {

@@ -4,26 +4,20 @@ import React, { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import ProgressionMetrics from '../components/ProgressionMetrics';
 import UploadProfilePicture from '../components/UploadProfilePicture';
-import VideoModal from '../components/VideoModal';
 import LogSessionForm from '../components/LogSessionForm';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
   const [profileData, setProfileData] = useState(null);
+  const [workoutPlans, setWorkoutPlans] = useState([]);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('trainingSessions'); // Default active tab
-  const [expandedSessions, setExpandedSessions] = useState({}); // Track expanded sessions
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [currentVideoId, setCurrentVideoId] = useState(null);
+  const [activeTab, setActiveTab] = useState('trainingSessions');
+  const [expandedSessions, setExpandedSessions] = useState({});
 
   // Function to fetch profile data from the backend
   const fetchProfileData = async () => {
     try {
-      const response = await axiosInstance.get('user/progression/', {
-        headers: {
-          // Authorization handled by axiosInstance interceptor
-        },
-      });
+      const response = await axiosInstance.get('user/progression/');
       setProfileData(response.data);
     } catch (err) {
       console.error('Error fetching profile data:', err);
@@ -31,9 +25,21 @@ const ProfilePage = () => {
     }
   };
 
-  // Fetch profile data on component mount
+  // Function to fetch workout plans from the backend
+  const fetchWorkoutPlans = async () => {
+    try {
+      const response = await axiosInstance.get('workout-plans/');
+      setWorkoutPlans(response.data);
+    } catch (err) {
+      console.error('Error fetching workout plans:', err);
+      setError('Failed to load workout plans.');
+    }
+  };
+
+  // Fetch profile data and workout plans on component mount
   useEffect(() => {
     fetchProfileData();
+    fetchWorkoutPlans();
   }, []);
 
   // Handle tab switching
@@ -49,18 +55,12 @@ const ProfilePage = () => {
     }));
   };
 
-  // Close video modal
-  const closeModal = () => {
-    setModalIsOpen(false);
-    setCurrentVideoId(null);
-  };
-
   // Refresh profile data after successful profile picture upload or session logging
   const handleUploadSuccess = () => {
     fetchProfileData();
   };
 
-  // Handle session logged from ProfileLogSessionForm
+  // Handle session logged from LogSessionForm
   const handleSessionLogged = (sessionData) => {
     console.log('Session logged:', sessionData);
     // Update profile data after a session is logged
@@ -105,10 +105,18 @@ const ProfilePage = () => {
                 )}
               </div>
               <div className="user-details">
-                <p><strong>Full Name:</strong> {user.first_name} {user.last_name}</p>
-                <p><strong>Age:</strong> {user.age || 'N/A'}</p>
-                <p><strong>Member Since:</strong> {user.member_since}</p>
-                <p><strong>Membership Number:</strong> {user.id}</p>
+                <p>
+                  <strong>Full Name:</strong> {user.first_name} {user.last_name}
+                </p>
+                <p>
+                  <strong>Age:</strong> {user.age || 'N/A'}
+                </p>
+                <p>
+                  <strong>Member Since:</strong> {user.member_since}
+                </p>
+                <p>
+                  <strong>Membership Number:</strong> {user.id}
+                </p>
               </div>
             </div>
           </div>
@@ -121,13 +129,17 @@ const ProfilePage = () => {
       {/* Tabs for Training Sessions and Progression Metrics */}
       <div className="tabs">
         <button
-          className={`tab-button ${activeTab === 'trainingSessions' ? 'active' : ''}`}
+          className={`tab-button ${
+            activeTab === 'trainingSessions' ? 'active' : ''
+          }`}
           onClick={() => handleTabClick('trainingSessions')}
         >
           Training Sessions
         </button>
         <button
-          className={`tab-button ${activeTab === 'progressionMetrics' ? 'active' : ''}`}
+          className={`tab-button ${
+            activeTab === 'progressionMetrics' ? 'active' : ''
+          }`}
           onClick={() => handleTabClick('progressionMetrics')}
         >
           Progression Metrics
@@ -144,10 +156,7 @@ const ProfilePage = () => {
             <LogSessionForm
               workoutPlans={workoutPlans}
               source="profile"
-              onSessionLogged={(data) => {
-                console.log('Session Logged:', data);
-                // Refresh data or update state as needed
-              }}
+              onSessionLogged={handleSessionLogged}
             />
 
             {training_sessions.length === 0 ? (
@@ -160,17 +169,96 @@ const ProfilePage = () => {
                     onClick={() => toggleSession(session.id)}
                   >
                     <h4>{session.session_name}</h4>
-                    <span>
-                      {expandedSessions[session.id] ? '-' : '+'}
-                    </span>
+                    <span>{expandedSessions[session.id] ? '-' : '+'}</span>
                   </div>
                   {expandedSessions[session.id] && (
                     <div className="session-details">
-                      <p><strong>Date:</strong> {new Date(session.date).toLocaleDateString()}</p>
-                      <p><strong>Feedback:</strong> {getEmoji(session.emoji_feedback)}</p>
+                      <p>
+                        <strong>Date:</strong>{' '}
+                        {new Date(session.date).toLocaleDateString()}
+                      </p>
+                      <p>
+                        <strong>Feedback:</strong>{' '}
+                        {getEmoji(session.emoji_feedback)}
+                      </p>
+
+                      {session.intensity_level !== null &&
+                        session.intensity_level !== undefined && (
+                          <p>
+                            <strong>Intensity Level:</strong>{' '}
+                            {session.intensity_level}
+                          </p>
+                        )}
+
+                      {session.duration !== null &&
+                        session.duration !== undefined && (
+                          <p>
+                            <strong>Duration:</strong> {session.duration}{' '}
+                            minutes
+                          </p>
+                        )}
+
+                      {session.calories_burned !== null &&
+                        session.calories_burned !== undefined && (
+                          <p>
+                            <strong>Calories Burned:</strong>{' '}
+                            {session.calories_burned} kcal
+                          </p>
+                        )}
+
+                      {session.heart_rate_pre !== null &&
+                        session.heart_rate_pre !== undefined && (
+                          <p>
+                            <strong>Heart Rate Before:</strong>{' '}
+                            {session.heart_rate_pre} bpm
+                          </p>
+                        )}
+
+                      {session.heart_rate_post !== null &&
+                        session.heart_rate_post !== undefined && (
+                          <p>
+                            <strong>Heart Rate After:</strong>{' '}
+                            {session.heart_rate_post} bpm
+                          </p>
+                        )}
+
                       {session.comments && (
-                        <p><strong>Comments:</strong> {session.comments}</p>
+                        <p>
+                          <strong>Comments:</strong> {session.comments}
+                        </p>
                       )}
+
+                      {/* Display Exercises in a Table */}
+                      {session.exercises &&
+                        session.exercises.length > 0 && (
+                          <div className="session-exercises">
+                            <h5>Exercises:</h5>
+                            <table className="exercise-table">
+                              <thead>
+                                <tr>
+                                  <th>Exercise Name</th>
+                                  <th>Sets</th>
+                                  <th>Reps</th>
+                                  <th>Weight (kg)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {session.exercises.map((exercise) => (
+                                  <tr key={exercise.id}>
+                                    <td>{exercise.exercise_name}</td>
+                                    <td>{exercise.sets}</td>
+                                    <td>{exercise.reps}</td>
+                                    <td>
+                                      {exercise.weight !== null
+                                        ? exercise.weight
+                                        : 'N/A'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>
@@ -187,13 +275,6 @@ const ProfilePage = () => {
           </div>
         )}
       </div>
-
-      {/* Video Modal */}
-      <VideoModal
-        isOpen={modalIsOpen}
-        onRequestClose={closeModal}
-        videoId={currentVideoId}
-      />
     </div>
   );
 };

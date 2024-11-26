@@ -125,6 +125,64 @@ function Dashboard() {
     }
   };
 
+  // Move fetchData outside of useEffect
+  const fetchData = async () => {
+    try {
+      axiosInstance.defaults.headers['Authorization'] = `Token ${authToken}`;
+  
+      const userResponse = await axiosInstance.get('user/');
+      setUserData(userResponse.data);
+  
+      const workoutPlansResponse = await axiosInstance.get('workout-plans/');
+
+      if (workoutPlansResponse.data && workoutPlansResponse.data.length > 0) {
+        // **Sort the workout plans by created_at date descending**
+        const sortedPlans = workoutPlansResponse.data.sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
+
+        // Process each workoutPlan to include dayName and dayNumber for each workoutDay
+        const updatedWorkoutPlans = sortedPlans.map((plan) => ({
+          ...plan,
+          workoutDays: plan.workoutDays.map((day, index) => ({
+            ...day,
+            dayNumber: index + 1, // Assign dayNumber based on array index (1-based)
+            dayName: day.dayName || day.day, // Ensure dayName is present
+            type:
+              day.type ||
+              (day.exercises && day.exercises.length > 0 ? 'workout' : 'rest'), // Ensure type is present
+          })),
+        }));
+
+        setWorkoutPlans(updatedWorkoutPlans);
+
+        console.log('Sorted and Updated Workout Plans:', updatedWorkoutPlans);
+      } else {
+        setError('No workout plans available.');
+      }
+
+      await fetchProgressData();
+      setupWebSocket(userResponse.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      if (error.response) {
+        if (error.response.status === 404) {
+          setError('No workout plans found. Please create one.');
+        } else if (error.response.status === 401) {
+          setError('Unauthorized access. Please log in again.');
+          navigate('/login');
+        } else {
+          setError('An error occurred while fetching data.');
+        }
+      } else {
+        setError('Network error. Please try again later.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Correct useEffect without nesting
   useEffect(() => {
     if (authLoading) return;
 
@@ -132,62 +190,6 @@ function Dashboard() {
       navigate('/login');
       return;
     }
-
-    const fetchData = async () => {
-      try {
-        axiosInstance.defaults.headers['Authorization'] = `Token ${authToken}`;
-
-        const userResponse = await axiosInstance.get('user/');
-        setUserData(userResponse.data);
-
-        const workoutPlansResponse = await axiosInstance.get('workout-plans/');
-        
-        // Inside the fetchData function in Dashboard.jsx
-
-        if (workoutPlansResponse.data && workoutPlansResponse.data.length > 0) {
-          // Process each workoutPlan to include dayName and dayNumber for each workoutDay
-          const updatedWorkoutPlans = workoutPlansResponse.data.map((plan) => ({
-            ...plan,
-            workoutDays: plan.workoutDays.map((day, index) => ({
-              ...day,
-              dayNumber: index + 1, // Assign dayNumber based on array index (1-based)
-              dayName: day.dayName || day.day, // Ensure dayName is present
-              type: day.type || (day.exercises && day.exercises.length > 0 ? 'workout' : 'rest'), // Ensure type is present
-            })),
-          }));
-
-          setWorkoutPlans(updatedWorkoutPlans);
-          console.log('workoutPlans:', updatedWorkoutPlans);
-          updatedWorkoutPlans.forEach((plan, planIdx) => {
-            console.log(`Workout Plan ${planIdx + 1}:`);
-            plan.workoutDays.forEach((day) => {
-              console.log(`  Day ${day.dayNumber}: ${day.dayName} - Type: ${day.type}`);
-            });
-          });
-        } else {
-          setError('No workout plans available.');
-        }
-
-        await fetchProgressData();
-        setupWebSocket(userResponse.data);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        if (error.response) {
-          if (error.response.status === 404) {
-            setError('No workout plans found. Please create one.');
-          } else if (error.response.status === 401) {
-            setError('Unauthorized access. Please log in again.');
-            navigate('/login');
-          } else {
-            setError('An error occurred while fetching data.');
-          }
-        } else {
-          setError('Network error. Please try again later.');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
 
     fetchData();
 
