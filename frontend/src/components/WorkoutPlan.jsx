@@ -99,6 +99,9 @@ function WorkoutPlan() {
       if (todayPlan.type === 'workout') {
         setTodayWorkout(todayPlan);
         setIsRestDay(false);
+      } else if (todayPlan.type === 'rest') {
+        setTodayWorkout(todayPlan); // Set to todayPlan to access notes
+        setIsRestDay(true);
       } else {
         setTodayWorkout(null);
         setIsRestDay(true);
@@ -110,6 +113,7 @@ function WorkoutPlan() {
       setError(null);
     }
   }, [fullWeeklyPlan]);
+
 
   /**
    * Opens the video modal with the selected video ID.
@@ -162,6 +166,11 @@ function WorkoutPlan() {
         <Typography variant="body1" align="center" paragraph>
           Today is a Rest Day! Take this time to recover and rejuvenate.
         </Typography>
+        {todayWorkout && todayWorkout.notes && (
+        <Typography variant="body2" align="center" color="textSecondary">
+          {todayWorkout.notes}
+        </Typography>
+      )}
 
         {/* Upcoming Workouts */}
         <Box mt={5}>
@@ -181,8 +190,13 @@ function WorkoutPlan() {
                 >
                   <Typography variant="h6">{dayPlan.dayName}</Typography>
                   <Typography variant="body2">
-                    {dayPlan.type === 'rest' ? 'Rest Day' : `${dayPlan.duration} minutes`}
+                    {dayPlan.type === 'rest' ? 'Rest Day' : `${dayPlan.duration}`}
                   </Typography>
+                  {dayPlan.type === 'rest' && dayPlan.notes && (
+                    <Typography variant="body2" color="textSecondary">
+                      {dayPlan.notes}
+                    </Typography>
+                  )}
                   {dayPlan.type === 'workout' && dayPlan.exercises && dayPlan.exercises.length > 0 && (
                     <ul>
                       {dayPlan.exercises.map((exercise, idx) => (
@@ -195,6 +209,7 @@ function WorkoutPlan() {
             ))}
           </Grid>
         </Box>
+
 
         {/* Additional Tips */}
         {workoutPlan && workoutPlan.additionalTips && workoutPlan.additionalTips.length > 0 && (

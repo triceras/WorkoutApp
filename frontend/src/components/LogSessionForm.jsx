@@ -73,7 +73,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
         setExercisesLoading(false);
       }
     };
-
+  
     fetchExercises();
   }, []);
 
@@ -84,11 +84,10 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
     if (workoutPlans.length > 0) {
       const plan = workoutPlans[0]; // Assuming the first plan is current
 
-      if (plan.created_at && plan.workoutDays && plan.workoutDays.length > 0) {
-        // Set default values for exercises in each workout day
+      if (plan.workoutDays && plan.workoutDays.length > 0) {
         const updatedWorkoutDays = plan.workoutDays.map((day) => ({
           ...day,
-          exercises: day.exercises.map((exercise) => ({
+          exercises: (day.exercises || []).map((exercise) => ({
             sets: exercise.sets !== undefined ? exercise.sets : 0,
             reps: exercise.reps !== undefined ? exercise.reps : 0,
             weight: exercise.weight !== undefined ? exercise.weight : 0,
@@ -96,16 +95,23 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
           })),
         }));
 
-        // Calculate the current day index
-        const startDate = DateTime.fromISO(plan.created_at);
-        const today = DateTime.local().startOf('day');
+        const todayWeekday = DateTime.local().weekday; // 1 (Monday) to 7 (Sunday)
+        const currentWorkoutDay = updatedWorkoutDays.find(
+          (day) => day.dayNumber === todayWeekday
+        );
 
-        const diffDays = Math.floor(today.diff(startDate.startOf('day'), 'days').days);
-        const currentDayIndex = diffDays % updatedWorkoutDays.length;
-        const safeIndex = currentDayIndex >= 0 ? currentDayIndex : 0;
-
-        const currentWorkoutDay = updatedWorkoutDays[safeIndex];
-        setCurrentSession(currentWorkoutDay);
+        if (currentWorkoutDay) {
+          if (currentWorkoutDay.type === 'rest') {
+            setCurrentSession(null);
+            setError('Today is a rest day. No session to log.');
+          } else {
+            setCurrentSession(currentWorkoutDay);
+            setError(null); // Clear any previous errors
+          }
+        } else {
+          setCurrentSession(null);
+          setError('No workout scheduled for today.');
+        }
       } else {
         setError('Workout plan data is incomplete.');
       }
@@ -114,29 +120,39 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
     }
   }, [workoutPlans]);
 
+
   /**
    * Fetches existing sessions for today to prevent duplicate logging.
    */
   useEffect(() => {
     const fetchExistingSessions = async () => {
-      if (!currentSession) return;
+      if (!currentSession || workoutPlans.length === 0) return;
 
       try {
         const today = DateTime.local().toISODate();
+
         const response = await axiosInstance.get('/training_sessions/', {
           params: {
             date: today,
-            session_name: currentSession.day, // Using 'day' field for session_name
+            workout_plan_id: workoutPlans[0].id,
           },
         });
-        setExistingSessions(response.data);
+
+        const sessions = response.data;
+
+        // Check if any of the sessions match the current session's dayNumber
+        const sessionLoggedToday = sessions.some(
+          (session) => session.day_number === currentSession.dayNumber
+        );
+
+        setExistingSessions(sessionLoggedToday ? [currentSession.dayNumber] : []);
       } catch (error) {
         console.error('Error fetching existing sessions:', error);
       }
     };
 
     fetchExistingSessions();
-  }, [currentSession]);
+  }, [currentSession, workoutPlans]);
 
   /**
    * Maps exercise names to their corresponding IDs.
@@ -356,8 +372,13 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
   useEffect(() => {
     if (existingSessions.length > 0) {
       setError('You have already logged this session for today.');
+    } else {
+      // Clear the error if no existing sessions
+      if (error === 'You have already logged this session for today.') {
+        setError(null);
+      }
     }
-  }, [existingSessions]);
+  }, [existingSessions, error]);
 
   /**
    * Handles emoji selection.
@@ -366,6 +387,12 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
     formik.setFieldValue('emoji_feedback', value);
   };
 
+  const getWorkoutDayForDayNumber = (dayNumber) => {
+    if (workoutPlans.length === 0) return null;
+    const plan = workoutPlans[0]; // Assuming the first plan is current
+    return plan.workoutDays.find((w) => w.dayNumber === dayNumber) || null;
+  };  
+
   /**
    * Handles date change to update session_name and exercises accordingly.
    */
@@ -373,14 +400,14 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
     formik.handleChange(e);
     const selectedDate = e.target.value;
     const dayNumber = getDayNumber(selectedDate);
-    const workoutName = getWorkoutNameForDay(dayNumber);
-    formik.setFieldValue('session_name', workoutName !== 'Rest Day' ? workoutName : 'Rest Day');
+    const workoutDay = getWorkoutDayForDayNumber(dayNumber);
 
-    // Update exercises based on the new selected date
-    if (workoutPlans.length > 0) {
-      const plan = workoutPlans[0];
-      const workoutDay = plan.workoutDays.find((w) => w.dayNumber === dayNumber);
-      if (workoutDay) {
+    if (workoutDay) {
+      formik.setFieldValue('session_name', workoutDay.day);
+      if (workoutDay.type === 'rest') {
+        formik.setFieldValue('exercises', []); // Clear exercises
+        setError('Selected day is a rest day. No session to log.');
+      } else {
         const mappedExercises = await mapExerciseNamesToIds(workoutDay.exercises);
         formik.setFieldValue(
           'exercises',
@@ -392,12 +419,15 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
             weight: ex.weight || '',
           }))
         );
-      } else {
-        // If it's a rest day or no exercises, reset the exercises
-        formik.setFieldValue('exercises', []);
+        setError(null);
       }
+    } else {
+      formik.setFieldValue('session_name', 'No Workout Scheduled');
+      formik.setFieldValue('exercises', []);
+      setError('No workout scheduled for the selected date.');
     }
   };
+
 
   /**
    * Helper function to get day number from date string.
@@ -454,6 +484,17 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
       </Typography>
     );
   }
+
+  /**
+  * If it's a rest day, prevent form submission.
+  */
+ if (currentSession.type === 'rest') {
+   return (
+     <Typography variant="body1" color="textSecondary" align="center">
+       Today is a rest day. No session to log.
+     </Typography>
+   );
+ }
 
   /**
    * If exercises are still loading, show a loading indicator.
@@ -925,11 +966,10 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
         <Divider />
         {/* Optional: Display existing sessions or additional information here */}
       </Card>
-    </FormikProvider>
+      </FormikProvider>
   );
 };
 
-// Define PropTypes for the component
 LogSessionForm.propTypes = {
   workoutPlans: PropTypes.arrayOf(
     PropTypes.shape({

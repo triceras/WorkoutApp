@@ -67,15 +67,6 @@ WORKOUT_PLAN_SCHEMA = {
 
 
 def validate_workout_plan(workout_plan):
-    """
-    Validates the entire workout plan against the JSON schema.
-
-    Args:
-        workout_plan (dict): The workout plan data to validate.
-
-    Returns:
-        bool: True if valid, False otherwise.
-    """
     WORKOUT_PLAN_SCHEMA = {
         "type": "object",
         "properties": {
@@ -85,6 +76,7 @@ def validate_workout_plan(workout_plan):
                     "type": "object",
                     "properties": {
                         "day": {"type": "string"},
+                        "type": {"type": "string", "enum": ["workout", "rest"]},
                         "duration": {"type": "string"},
                         "exercises": {
                             "type": "array",
@@ -97,12 +89,12 @@ def validate_workout_plan(workout_plan):
                                     "instructions": {"type": "string"},
                                     "videoId": {"type": ["string", "null"]},
                                 },
-                                # Remove 'videoId' from the required list
                                 "required": ["name", "setsReps", "equipment", "instructions"],
                             },
                         },
+                        "notes": {"type": "string"},
                     },
-                    "required": ["day", "duration", "exercises"],
+                    "required": ["day", "type"],
                 },
             },
             "additionalTips": {
@@ -122,6 +114,7 @@ def validate_workout_plan(workout_plan):
     except Exception as e:
         logger.error(f"Unexpected error during workout plan JSON validation: {e}")
         raise
+
 
 def validate_session(session):
     """
@@ -695,7 +688,7 @@ def generate_prompt(
     additional_goals_str = additional_goals or 'None'
 
     prompt = f"""
-You are a fitness expert. Create a personalized weekly workout plan for the following user in strict JSON format. Ensure the JSON adheres exactly to the provided schema without any additional text or explanations.
+You are a fitness expert. Create a personalized **weekly workout plan** for the following user in strict JSON format. Ensure the JSON adheres exactly to the provided schema without any additional text or explanations.
 
 **User Profile:**
 - Age: {age}
@@ -721,7 +714,9 @@ You are a fitness expert. Create a personalized weekly workout plan for the foll
 4. Tailor the **intensity and complexity** of exercises based on the user's fitness level, age, and sex.
 5. Vary the workout plan weekly based on user feedback and progression.
 6. Add some stretches at the end of each session to improve flexibility and reduce muscle soreness.
-6. **If the Feedback field is provided, change the workout plan accordingly.**
+7. **Include rest days explicitly in the workout plan:**
+   - If the total number of workout days is less than 7, assign the remaining days as rest days.
+   - Include rest days explicitly in the plan with the `day` field, set `type` to `"rest"`, and include any relevant `notes`.
 
 **Instructions for Each Exercise:**
 - Provide **detailed, step-by-step instructions** on how to perform each exercise correctly and safely.
@@ -732,6 +727,7 @@ You are a fitness expert. Create a personalized weekly workout plan for the foll
   "workoutDays": [
     {{
       "day": "Day 1: Chest and Triceps",
+      "type": "workout",
       "duration": "60 minutes",
       "exercises": [
         {{
@@ -743,6 +739,11 @@ You are a fitness expert. Create a personalized weekly workout plan for the foll
         }},
         // ... other exercises ...
       ]
+    }},
+    {{
+      "day": "Day 2: Rest Day",
+      "type": "rest",
+      "notes": "Take this day to rest and recover. Light stretching or walking is encouraged."
     }},
     // ... other days ...
   ],
@@ -757,8 +758,9 @@ You are a fitness expert. Create a personalized weekly workout plan for the foll
 2. **Ensure the JSON is properly formatted and adheres strictly to the provided schema.**
 3. **Do not include any text before or after the JSON.**
 4. **Do not include comments, markdown code blocks, or triple backticks.**
-5. **If you need to mention anything, include it within the JSON as 'additionalTips'.**
+5. **If you need to mention anything, include it within the JSON as 'additionalTips' or 'notes' in the relevant day.**
 
 """
     return prompt
+
 
