@@ -43,6 +43,12 @@ const EMOJIS = [
   { value: 5, icon: <SentimentSatisfiedAlt fontSize="large" />, label: 'Awesome' },
 ];
 
+// Helper function to extract day number from day string
+const extractDayNumber = (dayString) => {
+  const match = dayString.match(/Day (\d+)/i); // Case-insensitive match
+  return match ? parseInt(match[1], 10) : null;
+};
+
 const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
   const { user } = useContext(AuthContext);
   const username = user?.first_name || user?.username || 'User';
@@ -59,6 +65,13 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
   const [exercisesError, setExercisesError] = useState(null);
 
   /**
+   * Debugging: Log workoutPlans to verify data structure
+   */
+  useEffect(() => {
+    console.log('Received workoutPlans:', workoutPlans);
+  }, [workoutPlans]);
+
+  /**
    * Fetches the list of available exercises from the backend.
    */
   useEffect(() => {
@@ -73,13 +86,14 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
         setExercisesLoading(false);
       }
     };
-  
+
     fetchExercises();
   }, []);
 
   /**
    * Determines the current workout session based on workoutPlans.
    */
+  // After: Removed setWorkoutPlans
   useEffect(() => {
     if (workoutPlans.length > 0) {
       const plan = workoutPlans[0]; // Assuming the first plan is current
@@ -87,6 +101,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
       if (plan.workoutDays && plan.workoutDays.length > 0) {
         const updatedWorkoutDays = plan.workoutDays.map((day) => ({
           ...day,
+          dayNumber: extractDayNumber(day.day) || 0, // dayNumber is now derived here
           exercises: (day.exercises || []).map((exercise) => ({
             sets: exercise.sets !== undefined ? exercise.sets : 0,
             reps: exercise.reps !== undefined ? exercise.reps : 0,
@@ -112,6 +127,8 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
           setCurrentSession(null);
           setError('No workout scheduled for today.');
         }
+
+        // Removed setWorkoutPlans(updatedWorkoutPlans);
       } else {
         setError('Workout plan data is incomplete.');
       }
@@ -119,7 +136,6 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
       setError('No workout plans available.');
     }
   }, [workoutPlans]);
-
 
   /**
    * Fetches existing sessions for today to prevent duplicate logging.
@@ -391,7 +407,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
     if (workoutPlans.length === 0) return null;
     const plan = workoutPlans[0]; // Assuming the first plan is current
     return plan.workoutDays.find((w) => w.dayNumber === dayNumber) || null;
-  };  
+  };
 
   /**
    * Handles date change to update session_name and exercises accordingly.
@@ -968,6 +984,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
       </Card>
       </FormikProvider>
   );
+
 };
 
 LogSessionForm.propTypes = {
@@ -979,9 +996,8 @@ LogSessionForm.propTypes = {
       }).isRequired,
       workoutDays: PropTypes.arrayOf(
         PropTypes.shape({
-          day: PropTypes.string.isRequired, // Updated to use 'day' field
-          dayName: PropTypes.string.isRequired,
-          dayNumber: PropTypes.number.isRequired,
+          day: PropTypes.string.isRequired, // Existing field
+          dayNumber: PropTypes.number, // Made optional temporarily
           type: PropTypes.oneOf(['workout', 'rest']).isRequired,
           duration: PropTypes.string,
           exercises: PropTypes.arrayOf(

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext'; 
-import PropTypes from 'prop-types';
+//import PropTypes from 'prop-types';
 import { DateTime } from 'luxon';
 import axiosInstance from '../api/axiosInstance';
 import VideoModal from './VideoModal';
@@ -17,6 +17,7 @@ import {
   Paper,
 } from '@mui/material';
 import './WorkoutPlan.css';
+import { processWorkoutPlan } from '../utils/processWorkoutPlan';
 
 /**
  * Splits a text into sentences for better readability.
@@ -53,22 +54,23 @@ function WorkoutPlan() {
   /**
    * Fetches the workout plan from the backend.
    */
+
   useEffect(() => {
     const fetchWorkoutPlan = async () => {
       try {
-        const response = await axiosInstance.get('/workout_plans/');
+        const response = await axiosInstance.get('workout-plans/');
         if (response.data.length === 0) {
           console.error('No workout plans available:', response.data);
           setError('No workout plans found.');
           return;
         }
 
-        const currentPlan = response.data[0]; // Use the most recent plan
-        if (!Array.isArray(currentPlan.workoutDays)) {
-          console.error('Invalid workout plan data:', currentPlan);
-          setError('Invalid workout plan data.');
-          return;
-        }
+        let currentPlan = response.data[0]; // Use the most recent plan
+
+        // Process the workout plan to include rest days and align with weekdays
+        currentPlan = processWorkoutPlan(currentPlan);
+
+        console.log('Processed Workout Plan in WorkoutPlan:', currentPlan); // Debugging
 
         setWorkoutPlan(currentPlan);
         setFullWeeklyPlan(currentPlan.workoutDays);
@@ -93,6 +95,7 @@ function WorkoutPlan() {
     }
 
     const todayWeekday = DateTime.local().weekday; // 1 (Monday) to 7 (Sunday)
+
     const todayPlan = fullWeeklyPlan.find((day) => day.dayNumber === todayWeekday);
 
     if (todayPlan) {
@@ -113,7 +116,6 @@ function WorkoutPlan() {
       setError(null);
     }
   }, [fullWeeklyPlan]);
-
 
   /**
    * Opens the video modal with the selected video ID.

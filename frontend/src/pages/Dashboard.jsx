@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useContext, useCallback } from 'react';
 import axiosInstance from '../api/axiosInstance';
-import moment from 'moment';
+import { DateTime } from 'luxon';
 import { AuthContext } from '../context/AuthContext';
 import {
   Typography,
@@ -10,7 +10,6 @@ import {
   Box,
   Grid,
   Paper,
-  Container,
 } from '@mui/material';
 import { makeStyles } from '@mui/styles';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +19,7 @@ import ProgressChart from '../components/ProgressChart';
 import ErrorMessage from '../components/ErrorMessage';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import LogSessionForm from '../components/LogSessionForm';
+import { processWorkoutPlan } from '../utils/processWorkoutPlan';
 
 const useStyles = makeStyles((theme) => ({
   dashboardContainer: {
@@ -38,17 +38,12 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-/**
- * Define the days of the week, starting with Monday as Day 1.
- */
-const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
 function Dashboard() {
   const classes = useStyles();
-  
+
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
+
   const [userData, setUserData] = useState(null);
   const [workoutPlans, setWorkoutPlans] = useState([]);
   const [error, setError] = useState(null);
@@ -86,19 +81,18 @@ function Dashboard() {
 
         if (data.type === 'workout_plan_generated') {
           setWorkoutPlans((prevPlans) => {
-            const updatedPlan = {
+            let updatedPlan = {
               id: data.plan_id || prevPlans[0]?.id,
               user: user.id,
-              workoutDays: data.plan_data.map((day, index) => ({
-                ...day,
-                dayNumber: index + 1, // Assign dayNumber based on array index (1-based)
-                dayName: day.dayName || day.day, // Ensure dayName is present
-                type: day.type || (day.exercises && day.exercises.length > 0 ? 'workout' : 'rest'), // Ensure type is present
-              })),
-              additionalTips: data.additional_tips || prevPlans[0]?.additionalTips || [],
+              workoutDays: data.plan_data,
+              additionalTips:
+                data.additional_tips || prevPlans[0]?.additionalTips || [],
               created_at: data.created_at || new Date().toISOString(),
             };
-        
+
+            // Process the workout plan
+            updatedPlan = processWorkoutPlan(updatedPlan);
+
             return [updatedPlan];
           });
         }
@@ -115,7 +109,7 @@ function Dashboard() {
     [authToken]
   );
 
-  const fetchProgressData = async () => {
+  const fetchProgressData = useCallback(async () => {
     try {
       const response = await axiosInstance.get('user/progression/');
       setProgressData(response.data);
@@ -123,40 +117,34 @@ function Dashboard() {
       console.error('Error fetching progress data:', error);
       setError('Unable to fetch progress data.');
     }
-  };
+  }, []);
 
-  // Move fetchData outside of useEffect
-  const fetchData = async () => {
+  // Fetch data function
+  const fetchData = useCallback(async () => {
     try {
       axiosInstance.defaults.headers['Authorization'] = `Token ${authToken}`;
-  
+
       const userResponse = await axiosInstance.get('user/');
       setUserData(userResponse.data);
-  
+
       const workoutPlansResponse = await axiosInstance.get('workout-plans/');
 
-      if (workoutPlansResponse.data && workoutPlansResponse.data.length > 0) {
-        // **Sort the workout plans by created_at date descending**
+      if (
+        workoutPlansResponse.data &&
+        workoutPlansResponse.data.length > 0
+      ) {
+        // Sort the workout plans by created_at date descending
         const sortedPlans = workoutPlansResponse.data.sort(
           (a, b) => new Date(b.created_at) - new Date(a.created_at)
         );
 
-        // Process each workoutPlan to include dayName and dayNumber for each workoutDay
-        const updatedWorkoutPlans = sortedPlans.map((plan) => ({
-          ...plan,
-          workoutDays: plan.workoutDays.map((day, index) => ({
-            ...day,
-            dayNumber: index + 1, // Assign dayNumber based on array index (1-based)
-            dayName: day.dayName || day.day, // Ensure dayName is present
-            type:
-              day.type ||
-              (day.exercises && day.exercises.length > 0 ? 'workout' : 'rest'), // Ensure type is present
-          })),
-        }));
+        // Process the most recent workout plan
+        let currentPlan = sortedPlans[0];
+        currentPlan = processWorkoutPlan(currentPlan);
 
-        setWorkoutPlans(updatedWorkoutPlans);
+        setWorkoutPlans([currentPlan]);
 
-        console.log('Sorted and Updated Workout Plans:', updatedWorkoutPlans);
+        console.log('Processed Workout Plan:', currentPlan);
       } else {
         setError('No workout plans available.');
       }
@@ -180,9 +168,9 @@ function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authToken, navigate, fetchProgressData, setupWebSocket]);
 
-  // Correct useEffect without nesting
+  // useEffect for fetching data
   useEffect(() => {
     if (authLoading) return;
 
@@ -198,11 +186,16 @@ function Dashboard() {
         socketRef.current.close();
       }
     };
-  }, [navigate, authToken, authLoading, setupWebSocket]);
+  }, [authToken, authLoading, fetchData, navigate]);
 
   if (loading || authLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+      >
         <CircularProgress />
         <Typography variant="h6" style={{ marginLeft: '10px' }}>
           Loading dashboard...
@@ -216,31 +209,43 @@ function Dashboard() {
   }
 
   const getTodayWorkout = (workoutPlan) => {
-    if (!workoutPlan || !workoutPlan.workoutDays || workoutPlan.workoutDays.length === 0) {
+    if (
+      !workoutPlan ||
+      !workoutPlan.workoutDays ||
+      workoutPlan.workoutDays.length === 0
+    ) {
       return null;
     }
 
-    const createdAt = moment(workoutPlan.created_at);
-    const todayIndex = moment().diff(createdAt, 'days') % workoutPlan.workoutDays.length;
+    const todayWeekday = DateTime.local().weekday; // 1 (Monday) to 7 (Sunday)
+    const todayWorkoutDay = workoutPlan.workoutDays.find(
+      (day) => day.dayNumber === todayWeekday
+    );
 
-    return workoutPlan.workoutDays[todayIndex] || null;
+    if (todayWorkoutDay && todayWorkoutDay.type === 'workout') {
+      return todayWorkoutDay;
+    } else {
+      return null; // Rest day or no workout scheduled
+    }
   };
 
-  const todayWorkout = workoutPlans.length > 0 ? getTodayWorkout(workoutPlans[0]) : null;
-  const exercises = todayWorkout?.exercises || [];
+  const todayWorkout =
+    workoutPlans.length > 0 ? getTodayWorkout(workoutPlans[0]) : null;
 
   // Log the workoutPlans and progressData to ensure they contain the expected data
   console.log('workoutPlans:', workoutPlans);
   if (workoutPlans.length > 0) {
     console.log('workoutDays:', workoutPlans[0].workoutDays);
     console.log('todayWorkout:', todayWorkout);
-    console.log('exercises:', exercises);
   }
 
   return (
     <div className={classes.dashboardContainer}>
       {/* Sidebar */}
-      <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+      <Sidebar
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+      />
 
       {/* Main Content */}
       <main className={classes.content}>
@@ -250,19 +255,16 @@ function Dashboard() {
             <Typography variant="h5" className={classes.sectionTitle}>
               Today's Workout
             </Typography>
-            {workoutPlans.length > 0 ? (
-              (() => {
-                const todayWorkout = getTodayWorkout(workoutPlans[0]);
-                return (
-                  <WorkoutCard
-                    workouts={exercises}
-                    userName={userData?.first_name || userData?.username}
-                  />
-                );
-              })()
+            {todayWorkout ? (
+              <WorkoutCard
+                workouts={todayWorkout.exercises}
+                userName={userData?.first_name || userData?.username}
+              />
             ) : (
               <Typography variant="body1">
-                You have no workout scheduled for today. Generate a new plan!
+                {workoutPlans.length > 0
+                  ? 'Today is a rest day. Take some time to recover!'
+                  : 'You have no workout scheduled for today. Generate a new plan!'}
               </Typography>
             )}
           </Grid>

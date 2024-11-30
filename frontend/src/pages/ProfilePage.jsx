@@ -14,6 +14,12 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState('trainingSessions');
   const [expandedSessions, setExpandedSessions] = useState({});
 
+  // Helper function to extract day number from day string
+  const extractDayNumber = (dayString) => {
+    const match = dayString.match(/Day (\d+)/i); // Case-insensitive match
+    return match ? parseInt(match[1], 10) : null;
+  };
+
   // Function to fetch profile data from the backend
   const fetchProfileData = async () => {
     try {
@@ -29,7 +35,20 @@ const ProfilePage = () => {
   const fetchWorkoutPlans = async () => {
     try {
       const response = await axiosInstance.get('workout-plans/');
-      setWorkoutPlans(response.data);
+      const plans = response.data;
+
+      // Process each workoutPlan to include dayNumber and type in workoutDays
+      const processedPlans = plans.map((plan) => ({
+        ...plan,
+        workoutDays: plan.workoutDays.map((day) => ({
+          ...day,
+          dayNumber: extractDayNumber(day.day),
+          type: day.day.toLowerCase().includes('rest') ? 'rest' : 'workout',
+        })),
+      }));
+
+      setWorkoutPlans(processedPlans);
+      console.log('Processed workoutPlans:', processedPlans); // Debugging
     } catch (err) {
       console.error('Error fetching workout plans:', err);
       setError('Failed to load workout plans.');
