@@ -189,8 +189,10 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
             serialized_exercises = NestedExerciseSerializer(exercises, many=True).data
             serialized_day = {
                 'day': day.get('day', ''),
-                'duration': day.get('duration', ''),
-                'exercises': serialized_exercises
+                'type': day.get('type', 'workout'),  # Default to 'workout' if not specified
+                'duration': day.get('duration', '') if day.get('type', 'workout') == 'workout' else '',
+                'exercises': serialized_exercises if day.get('type', 'workout') == 'workout' else [],
+                'notes': day.get('notes', '') if day.get('type', 'workout') == 'rest' else '',
             }
             serialized_workout_days.append(serialized_day)
         return serialized_workout_days
@@ -201,7 +203,6 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
         Returns a list of tips.
         """
         return obj.plan_data.get('additionalTips', [])
-
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     class Meta:
@@ -266,34 +267,127 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class TrainingSessionExerciseSerializer(serializers.ModelSerializer):
+    """
+    Serializer for TrainingSessionExercise model.
+    Handles the intermediary relationship between TrainingSession and Exercise.
+    """
     exercise_id = serializers.PrimaryKeyRelatedField(
         queryset=Exercise.objects.all(),
-        source='exercise'
+        source='exercise',
+        write_only=True,
+        required=True,
+        help_text="Primary key of the Exercise."
     )
     exercise_name = serializers.CharField(source='exercise.name', read_only=True)
     weight = serializers.FloatField(allow_null=True, required=False)
+    
+    # Aerobic-specific fields
+    duration = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="Duration of the aerobic exercise in minutes."
+    )
+    calories_burned = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="Calories burned during the aerobic exercise."
+    )
+    average_heart_rate = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="Average heart rate during the aerobic exercise."
+    )
+    max_heart_rate = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="Maximum heart rate achieved during the aerobic exercise."
+    )
+    intensity = serializers.ChoiceField(
+        choices=[('Low', 'Low'), ('Moderate', 'Moderate'), ('High', 'High')],
+        required=False,
+        allow_null=True,
+        help_text="Intensity level of the aerobic exercise."
+    )
 
     class Meta:
         model = TrainingSessionExercise
-        fields = ['id', 'exercise_id', 'exercise_name', 'sets', 'reps', 'weight']
+        fields = [
+            'id', 'exercise_id', 'exercise_name', 'sets', 'reps', 'weight',
+            'duration', 'calories_burned', 'average_heart_rate', 'max_heart_rate', 'intensity'
+        ]
+
+    def validate(self, data):
+        exercise = data.get('exercise')
+        if exercise and exercise.exercise_type == 'aerobic':
+            required_fields = ['duration', 'calories_burned', 'average_heart_rate', 'max_heart_rate', 'intensity']
+            for field in required_fields:
+                if field not in data or data[field] in [None, '']:
+                    raise serializers.ValidationError({field: f"{field.replace('_', ' ').capitalize()} is required for aerobic exercises."})
+        return data
+
+    def validate_sets(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Sets must be at least 1.")
+        return value
+
+    def validate_reps(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Reps must be at least 1.")
+        return value
+
+    def validate_weight(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Weight cannot be negative.")
+        return value
 
 
 class TrainingSessionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for TrainingSession model.
+    Handles conditional fields based on workout_type.
+    """
     workout_plan = WorkoutPlanSerializer(read_only=True)
     workout_plan_id = serializers.PrimaryKeyRelatedField(
         queryset=WorkoutPlan.objects.none(),  # Initialized in __init__
         source='workout_plan',
         write_only=True,
-        required=True
+        required=True,
+        help_text="Primary key of the associated WorkoutPlan."
     )
     emoji_feedback = serializers.ChoiceField(
         choices=TrainingSession.EMOJI_FEEDBACK_CHOICES, 
         required=False
     )
-    exercises = TrainingSessionExerciseSerializer(many=True, required=False)
+    exercises = TrainingSessionExerciseSerializer(
+        many=True,
+        required=False,
+        help_text="List of exercises for this training session."
+    )
     calories_burned = NullableIntegerField(allow_null=True, required=False)
     heart_rate_pre = NullableIntegerField(allow_null=True, required=False)
     heart_rate_post = NullableIntegerField(allow_null=True, required=False)
+    intensity = serializers.CharField(
+        max_length=50, 
+        allow_blank=True, 
+        allow_null=True, 
+        required=False,
+        help_text="Intensity level of the workout (e.g., Low, Moderate, High). Required for aerobic workouts."
+    )
+    time = serializers.IntegerField(
+        required=False, 
+        allow_null=True, 
+        help_text="Duration of the aerobic workout in minutes."
+    )
+    average_heart_rate = serializers.IntegerField(
+        required=False, 
+        allow_null=True, 
+        help_text="Average heart rate during the aerobic workout."
+    )
+    max_heart_rate = serializers.IntegerField(
+        required=False, 
+        allow_null=True, 
+        help_text="Maximum heart rate reached during the aerobic workout."
+    )
     source = serializers.CharField(write_only=True, required=True)
 
     class Meta:
@@ -306,13 +400,17 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
             'workout_plan_id',
             'session_name',
             'week_number',
+            'workout_type',  # Added workout_type to fields
             'emoji_feedback',
             'comments',
             'duration',
             'calories_burned',
             'heart_rate_pre',
             'heart_rate_post',
-            'intensity_level',
+            'time',
+            'average_heart_rate',
+            'max_heart_rate',
+            'intensity',
             'exercises',
             'source',
         ]
@@ -324,51 +422,75 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         self.fields['workout_plan_id'].queryset = WorkoutPlan.objects.filter(user=user)
 
     def validate(self, data):
-        user = self.context['request'].user
-        session_name = data.get('session_name')
-        date = data.get('date')
+        """
+        Perform conditional validations based on workout_type.
+        """
+        workout_type = data.get('workout_type')
+        aerobic_workouts = ['Cardio', 'Endurance', 'Speed', 'Agility', 'Plyometric', 'Core']
 
         errors = {}
-        if not session_name:
-            errors['session_name'] = 'Session name is required.'
-        if not date:
-            errors['date'] = 'Date is required.'
+
+        if workout_type in aerobic_workouts:
+            # Aerobic workouts require specific fields
+            required_fields = ['time', 'average_heart_rate', 'max_heart_rate', 'intensity']
+            for field in required_fields:
+                if field not in data or data[field] in [None, '']:
+                    errors[field] = f"{field.replace('_', ' ').capitalize()} is required for aerobic workouts."
+
+            # Additional validations
+            average_hr = data.get('average_heart_rate')
+            max_hr = data.get('max_heart_rate')
+
+            if average_hr and max_hr and average_hr > max_hr:
+                errors['average_heart_rate'] = "Average heart rate cannot exceed max heart rate."
+
+            # Validate intensity choices if intensity has predefined choices
+            valid_intensities = ['Low', 'Moderate', 'High']
+            intensity = data.get('intensity')
+            if intensity and intensity not in valid_intensities:
+                errors['intensity'] = f"Intensity must be one of {valid_intensities}."
+
+        else:
+            # Non-aerobic workouts should not include aerobic-specific fields
+            forbidden_fields = ['time', 'average_heart_rate', 'max_heart_rate', 'intensity']
+            for field in forbidden_fields:
+                if field in data and data[field] not in [None, '']:
+                    errors[field] = f"{field.replace('_', ' ').capitalize()} should not be provided for non-aerobic workouts."
 
         if errors:
             raise serializers.ValidationError(errors)
 
-        # Check for existing session on the same day
-        if TrainingSession.objects.filter(user=user, session_name=session_name, date=date).exists():
-            raise serializers.ValidationError({
-                'session_name': 'You have already logged this session for today.'
-            })
-
-        # Check for existing session in the same week
-        start_of_week = date - timedelta(days=date.weekday())  # Monday
-        end_of_week = start_of_week + timedelta(days=6)  # Sunday
-
-        if TrainingSession.objects.filter(
-            user=user,
-            session_name=session_name,
-            date__range=(start_of_week, end_of_week)
-        ).exists():
-            raise serializers.ValidationError({
-                'session_name': 'You have already logged this session for this week.'
-            })
-
         return data
 
     def create(self, validated_data):
+        """
+        Create a TrainingSession instance along with related TrainingSessionExercise instances.
+        """
         exercises_data = validated_data.pop('exercises', [])
         source = validated_data.pop('source', None)  # Handle 'source' if needed
         user = self.context['request'].user
-        validated_data.pop('user', None)  # Remove 'user' if it exists
         training_session = TrainingSession.objects.create(user=user, **validated_data)
+
         for exercise_data in exercises_data:
-            TrainingSessionExercise.objects.create(training_session=training_session, **exercise_data)
+            TrainingSessionExercise.objects.create(
+                training_session=training_session,
+                exercise=exercise_data['exercise'],
+                sets=exercise_data['sets'],
+                reps=exercise_data['reps'],
+                weight=exercise_data.get('weight'),
+                duration=exercise_data.get('duration'),
+                calories_burned=exercise_data.get('calories_burned'),
+                average_heart_rate=exercise_data.get('average_heart_rate'),
+                max_heart_rate=exercise_data.get('max_heart_rate'),
+                intensity=exercise_data.get('intensity'),
+            )
+
         return training_session
 
     def update(self, instance, validated_data):
+        """
+        Update a TrainingSession instance and its related TrainingSessionExercise instances.
+        """
         exercises_data = validated_data.pop('exercises', None)
         source = validated_data.pop('source', None)  # Handle 'source' if needed
 
@@ -377,10 +499,25 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         instance.save()
 
         if exercises_data is not None:
-            instance.exercises.all().delete()
+            # Clear existing exercises
+            instance.training_session_exercises.all().delete()
+            # Add new exercises
             for exercise_data in exercises_data:
-                TrainingSessionExercise.objects.create(training_session=instance, **exercise_data)
+                TrainingSessionExercise.objects.create(
+                    training_session=instance,
+                    exercise=exercise_data['exercise'],
+                    sets=exercise_data['sets'],
+                    reps=exercise_data['reps'],
+                    weight=exercise_data.get('weight'),
+                    duration=exercise_data.get('duration'),
+                    calories_burned=exercise_data.get('calories_burned'),
+                    average_heart_rate=exercise_data.get('average_heart_rate'),
+                    max_heart_rate=exercise_data.get('max_heart_rate'),
+                    intensity=exercise_data.get('intensity'),
+                )
+
         return instance
+
 
 class YouTubeVideoSerializer(serializers.ModelSerializer):
     class Meta:

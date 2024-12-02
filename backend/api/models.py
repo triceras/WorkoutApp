@@ -81,10 +81,28 @@ class Equipment(models.Model):
         return self.name
 
 class Exercise(models.Model):
+    EXERCISE_TYPE_CHOICES = [
+        ('strength', 'Strength'),
+        ('flexibility', 'Flexibility'),
+        ('balance', 'Balance'),
+        ('endurance', 'Endurance'),
+        ('power', 'Power'),
+        ('speed', 'Speed'),
+        ('agility', 'Agility'),
+        ('plyometric', 'Plyometric'),
+        ('core', 'Core'),
+        ('cardio', 'Cardio'),
+    ]
+
     name = models.CharField(max_length=100)
     description = models.JSONField()
     video_url = models.URLField(null=True, blank=True)
     videoId = models.CharField(max_length=50, null=True, blank=True)
+    exercise_type = models.CharField(
+        max_length=20,
+        choices=EXERCISE_TYPE_CHOICES,
+        default='strength',  # Default type
+    )
 
     def extract_youtube_id(self, url):
         """Extract YouTube video ID from various URL formats."""
@@ -126,15 +144,11 @@ class Exercise(models.Model):
 
 class WorkoutPlan(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='workout_plans'  # Allows reverse lookup
-    )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='workout_plan')
     week_number = models.PositiveIntegerField(default=1)
     plan_data = models.JSONField()
-    dashboard_background = models.CharField(max_length=255, blank=True, null=True)
-    workoutplan_background = models.CharField(max_length=255, blank=True, null=True)
+    dashboard_background = models.URLField(max_length=500, blank=True, null=True)  # Updated to URLField
+    workoutplan_background = models.URLField(max_length=500, blank=True, null=True)  # Updated to URLField
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -167,12 +181,19 @@ class WorkoutSession(models.Model):
         return f"{self.user.username} - {self.date.strftime('%Y-%m-%d %H:%M')}"
 
 class TrainingSession(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    date = models.DateField(default=timezone.now)
-    workout_plan = models.ForeignKey(WorkoutPlan, on_delete=models.CASCADE)
-    comments = models.TextField(blank=True, null=True)
-    session_name = models.CharField(max_length=100, blank=True, null=True)
-    week_number = models.PositiveIntegerField(null=True, blank=True)
+    WORKOUT_TYPE_CHOICES = [
+        ('Cardio', 'Cardio'),
+        ('Strength', 'Strength'),
+        ('Flexibility', 'Flexibility'),
+        ('Balance', 'Balance'),
+        ('Endurance', 'Endurance'),
+        ('Power', 'Power'),
+        ('Speed', 'Speed'),
+        ('Agility', 'Agility'),
+        ('Plyometric', 'Plyometric'),
+        ('Core', 'Core'),
+    ]
+    
     EMOJI_FEEDBACK_CHOICES = [
         (0, '😞 Terrible'),
         (1, '😟 Very Bad'),
@@ -181,28 +202,73 @@ class TrainingSession(models.Model):
         (4, '😃 Good'),
         (5, '😄 Awesome'),
     ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date = models.DateField(default=timezone.now)
+    workout_plan = models.ForeignKey('WorkoutPlan', on_delete=models.CASCADE)
+    comments = models.TextField(blank=True, null=True)
+    session_name = models.CharField(max_length=100, blank=True, null=True)
+    week_number = models.PositiveIntegerField(null=True, blank=True)
     emoji_feedback = models.IntegerField(choices=EMOJI_FEEDBACK_CHOICES, null=True, blank=True)
     duration = models.PositiveIntegerField(null=True, blank=True)  # in minutes
     calories_burned = models.PositiveIntegerField(null=True, blank=True)
     heart_rate_pre = models.PositiveIntegerField(null=True, blank=True)
     heart_rate_post = models.PositiveIntegerField(null=True, blank=True)
-    intensity_level = models.PositiveIntegerField(null=True, blank=True)
+    
+    # Remove unique_together temporarily
+    # class Meta:
+    #     unique_together = ('user', 'date', 'workout_type')
+
+    # New Field
+    workout_type = models.CharField(max_length=20, choices=WORKOUT_TYPE_CHOICES)
+
+    # New Aerobic Fields
+    time = models.PositiveIntegerField(null=True, blank=True)  # in minutes
+    average_heart_rate = models.PositiveIntegerField(null=True, blank=True)
+    max_heart_rate = models.PositiveIntegerField(null=True, blank=True)
+    intensity = models.CharField(max_length=50, null=True, blank=True)
+    exercises = models.ManyToManyField('Exercise', through='TrainingSessionExercise')
+
+    def save(self, *args, **kwargs):
+        if self.workout_type != 'aerobic':
+            # Clear aerobic-specific fields if workout is not aerobic
+            self.time = None
+            self.average_heart_rate = None
+            self.max_heart_rate = None
+            self.intensity = None
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"TrainingSession({self.user.username}, {self.date})"
+        return f"TrainingSession({self.user.username}, {self.date}, {self.workout_type})"
 
     class Meta:
-        unique_together = ('user', 'date')
-        
+        unique_together = ('user', 'date', 'workout_type')
+
+# backend/api/models.py
+
 class TrainingSessionExercise(models.Model):
-    training_session = models.ForeignKey(TrainingSession, on_delete=models.CASCADE, related_name='exercises')
+    training_session = models.ForeignKey(
+        TrainingSession, 
+        on_delete=models.CASCADE, 
+        related_name='training_session_exercises'  # Unique related_name
+    )
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
     sets = models.PositiveIntegerField()
     reps = models.PositiveIntegerField()
     weight = models.FloatField(null=True, blank=True)
+    
+    # Aerobic-specific fields
+    duration = models.PositiveIntegerField(null=True, blank=True)  # in minutes
+    calories_burned = models.PositiveIntegerField(null=True, blank=True)
+    average_heart_rate = models.PositiveIntegerField(null=True, blank=True)
+    max_heart_rate = models.PositiveIntegerField(null=True, blank=True)
+    intensity = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.exercise.name} - {self.sets}x{self.reps} @ {self.weight}kg"
+        return f"{self.exercise.name} in {self.training_session}"
+
+    class Meta:
+        unique_together = ('training_session', 'exercise')
 
 class YouTubeVideo(models.Model):
     exercise_name = models.CharField(max_length=255, unique=True)

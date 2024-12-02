@@ -1,8 +1,9 @@
-# api/tasks.py
+# backend/api/tasks.py
 
 import json
 from celery import shared_task
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from .models import WorkoutPlan, TrainingSession
 from .services import (
     generate_workout_plan,
@@ -12,22 +13,38 @@ from .services import (
 )
 from .helpers import (
     send_workout_plan_to_group,
-    assign_video_ids_to_exercises
+    assign_video_ids_to_exercises,
+    assign_video_ids_to_exercise_list
 )
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
-
+import replicate  # Import the Replicate client
+from django.conf import settings
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
-@shared_task(bind=True, max_retries=1, default_retry_delay=60)
+TASK_LOCK_EXPIRE = 60 * 5  # 5 minutes
+
+@shared_task(bind=True, max_retries=3)
 def generate_workout_plan_task(self, user_id):
     """
-    Celery task to generate a workout plan for a user.
+    Celery task to generate a workout plan for a user with task locking.
     """
+    logger.info(f"Task started: generate_workout_plan_task for user_id {user_id}")
+    
+    lock_id = f'workout_plan_task_{user_id}'
+    lock_timeout = 60 * 10  # 10 minutes
+    
     try:
+        # Try to acquire lock
+        if not cache.add(lock_id, 'true', lock_timeout):
+            logger.info(f"Task already running for user_id {user_id}")
+            return None
+            
+        # Main task logic
         user = User.objects.get(id=user_id)
         logger.info(f"Generating workout plan for user ID: {user.id}, username: {user.username}")
 
@@ -36,33 +53,58 @@ def generate_workout_plan_task(self, user_id):
 
         if not plan:
             logger.error(f"No workout plan data returned for user {user.username}")
-            raise self.retry(exc=ValueError("No workout plan data returned"), countdown=60)
+            raise ValueError("No workout plan data returned")
 
-        logger.info(f"Workout plan generated and saved for user {user.username}: Plan ID {plan.id}")
+        with transaction.atomic():
+            workout_plan, created = WorkoutPlan.objects.get_or_create(
+                user=user,
+                defaults={'plan_data': plan.plan_data}
+            )
 
-        # Optionally, send the workout plan to the user's group via Channels
-        # send_workout_plan_to_group(user, plan.plan_data)
-
-    except ReplicateServiceUnavailable as e:
-        logger.error(f"Replicate service unavailable for user_id {user_id}: {e}")
-        try:
-            self.retry(exc=e, countdown=60)
-        except self.MaxRetriesExceededError:
-            logger.error(f"Max retries exceeded for user_id {user_id}")
-
-    except User.DoesNotExist:
-        logger.error(f"User with ID {user_id} does not exist.")
+            if not created:
+                workout_plan.plan_data = plan.plan_data
+                workout_plan.save()
+                logger.info(f"Workout plan updated for user {user.username}")
+            else:
+                logger.info(f"Workout plan created for user {user.username}")
+                
+            # Emit WebSocket event
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'workout_plan_{user.id}',
+                {
+                    'type': 'workout_plan_generated',
+                    'plan_id': str(workout_plan.id),
+                    'plan_data': workout_plan.plan_data.get('workoutDays', []),
+                    'additional_tips': workout_plan.plan_data.get('additionalTips', []),
+                    'created_at': workout_plan.created_at.isoformat(),
+                }
+            )
+            logger.info(f"WebSocket event sent for user {user.username}")
+            
+            # Return a serializable dictionary
+            return {
+                'plan_id': str(workout_plan.id),
+                'plan_data': workout_plan.plan_data.get('workoutDays', []),
+                'additional_tips': workout_plan.plan_data.get('additionalTips', []),
+                'created_at': workout_plan.created_at.isoformat(),
+            }
 
     except Exception as e:
-        logger.error(f"Unexpected error in generate_workout_plan_task: {e}", exc_info=True)
+        logger.error(f"Error in generate_workout_plan_task: {e}")
         try:
             self.retry(exc=e, countdown=60)
         except self.MaxRetriesExceededError:
             logger.error(f"Max retries exceeded for user_id {user_id}")
+        return None
+        
+    finally:
+        # Release lock
+        cache.delete(lock_id)
+        logger.info(f"Lock released for user_id {user_id}")
 
 
-
-@shared_task(bind=True, max_retries=1, time_limit=600, soft_time_limit=550)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=600, soft_time_limit=550)
 def process_feedback_submission_task(self, training_session_id):
     """
     Celery task to process user feedback and update the workout plan accordingly.
@@ -70,7 +112,7 @@ def process_feedback_submission_task(self, training_session_id):
     logger.info(f"Task {self.request.id} received for Training Session ID {training_session_id}")
     try:
         # Fetch the TrainingSession instance
-        training_session = TrainingSession.objects.get(id=training_session_id)
+        training_session = TrainingSession.objects.select_related('workout_plan').get(id=training_session_id)
         user = training_session.user
 
         logger.info(f"Processing feedback for user {user.username}, Session ID {training_session_id}")
@@ -133,7 +175,7 @@ def process_feedback_submission_task(self, training_session_id):
                 break
 
         if not session_found:
-            logger.error(f"Session '{training_session.session_name}' not found in workout plan.")
+            logger.error(f"Session '{training_session.session_name}' not found in workout plan for user {user.username}.")
             return
 
         # Save the updated workout plan
@@ -152,4 +194,70 @@ def process_feedback_submission_task(self, training_session_id):
     except TrainingSession.DoesNotExist:
         logger.error(f"TrainingSession with ID {training_session_id} does not exist.")
     except Exception as e:
-        logger.error(f"Unexpected error in processing feedback: {e}", exc_info=True)
+        logger.error(f"Unexpected error in processing feedback for Training Session ID {training_session_id}: {e}", exc_info=True)
+        try:
+            self.retry(exc=e, countdown=60)
+        except self.MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for processing feedback of Training Session ID {training_session_id}")
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def generate_backgrounds_task(self, user_id):
+    """
+    Celery task to generate background images for a user's workout plan using Replicate's Flux model.
+    """
+    try:
+        user = User.objects.get(id=user_id)
+        workout_plan = WorkoutPlan.objects.get(user=user)
+
+        logger.info(f"Generating background images for user {user.username} using Replicate's Flux model.")
+
+        # Initialize the Replicate client
+        replicate_client = replicate.Client(api_token=settings.REPLICATE_API_TOKEN)
+
+        # Define the correct model identifier with version
+        model_identifier = "black-forest-labs/flux-1.1-pro"  # Replace with the actual version
+
+        # Prepare prompts for dashboard and workout plan backgrounds
+        prompt_dashboard = "A modern and sleek fitness dashboard background with abstract shapes and vibrant colors."
+        prompt_workoutplan = "A dynamic workout plan background featuring gym equipment and motivational elements."
+
+        # Generate dashboard background using replicate.run()
+        logger.info(f"Generating dashboard background for user {user.username}.")
+        dashboard_output = replicate.run(
+            model_identifier,
+            input={"prompt": prompt_dashboard}
+        )
+        dashboard_background_url = dashboard_output  # Assuming the model returns a single URL
+
+        # Generate workout plan background using replicate.run()
+        logger.info(f"Generating workout plan background for user {user.username}.")
+        workoutplan_output = replicate.run(
+            model_identifier,
+            input={"prompt": prompt_workoutplan}
+        )
+        workoutplan_background_url = workoutplan_output  # Assuming the model returns a single URL
+
+        # Update the WorkoutPlan instance with the generated images
+        workout_plan.dashboard_background = dashboard_background_url
+        workout_plan.workoutplan_background = workoutplan_background_url
+        workout_plan.save()
+
+        logger.info(f"Background images generated and assigned for user {user.username}.")
+
+    except User.DoesNotExist:
+        logger.error(f"User with id {user_id} does not exist.")
+    except WorkoutPlan.DoesNotExist:
+        logger.error(f"WorkoutPlan for user id {user_id} does not exist.")
+    except replicate.exceptions.ReplicateException as e:
+        logger.error(f"Replicate API error: {e}", exc_info=True)
+        try:
+            self.retry(exc=e)
+        except self.MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for generating backgrounds for user id {user_id}")
+    except Exception as e:
+        logger.error(f"Unexpected error generating backgrounds for user id {user_id}: {e}", exc_info=True)
+        try:
+            self.retry(exc=e)
+        except self.MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for generating backgrounds for user id {user_id}")

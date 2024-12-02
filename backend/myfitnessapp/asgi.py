@@ -1,21 +1,20 @@
-# backend/myfitnessapp/asgi.py
+# myfitnessapp/asgi.py
 
 import os
-import django  # Add this import
+import django
+from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
+import myfitnessapp.routing
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'myfitnessapp.settings')
-django.setup()  # Initialize Django
-
-from api.middleware import TokenAuthMiddleware  # Import after django.setup()
-from api.routing import websocket_urlpatterns
+django.setup()
 
 application = ProtocolTypeRouter({
-    'http': get_asgi_application(),
-    'websocket': TokenAuthMiddleware(
+    "http": get_asgi_application(),
+    "websocket": AuthMiddlewareStack(
         URLRouter(
-            websocket_urlpatterns
+            myfitnessapp.routing.websocket_urlpatterns
         )
     ),
 })

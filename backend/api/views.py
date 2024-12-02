@@ -1,6 +1,6 @@
 # backend/api/views.py
 
-from rest_framework import viewsets, permissions, status, generics, filters, serializers
+from rest_framework import viewsets, permissions, status, generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes, action
@@ -12,7 +12,17 @@ from django.db import IntegrityError
 from django.db.models import Avg, Count
 from django.core.cache import cache
 from django.conf import settings
-from .models import Exercise, WorkoutPlan, WorkoutLog, ExerciseLog, WorkoutSession, User, TrainingSession, StrengthGoal, Equipment, YouTubeVideo
+from .models import (
+    Exercise,
+    WorkoutPlan,
+    WorkoutLog,
+    ExerciseLog,
+    WorkoutSession,
+    TrainingSession,
+    StrengthGoal,
+    Equipment,
+    YouTubeVideo
+)
 from .tasks import process_feedback_submission_task, generate_workout_plan_task
 from .helpers import get_video_data_by_id
 from .serializers import (
@@ -28,12 +38,9 @@ from .serializers import (
     EquipmentSerializer,
     YouTubeVideoSerializer,
 )
-
-import logging
 from django.utils import timezone
-
-
-
+from datetime import timedelta
+import logging
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -53,6 +60,7 @@ class ExerciseViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         else:
             return Response({'error': 'exercise_name parameter is required.'}, status=400)
+
 
 class YouTubeVideoViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -83,7 +91,7 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
         If no workout plan exists, initiate the generation of a new one.
         """
         try:
-            workout_plan = WorkoutPlan.objects.filter(user=request.user).latest('created_at')
+            workout_plan = WorkoutPlan.objects.get(user=request.user)
             serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
             logger.info(f"Retrieved workout plan for user: {request.user.username}")
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -117,37 +125,21 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
             serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
             status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
             return Response(serializer.data, status=status_code)
+        except IntegrityError as e:
+            logger.error(f'IntegrityError creating/updating workout plan for user {user.username}: {str(e)}', exc_info=True)
+            return Response(
+                {'detail': 'A workout plan already exists for this user.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as e:
-            logger.error(f'Error creating/updating workout plan: {str(e)}', exc_info=True)
+            logger.error(f'Error creating/updating workout plan for user {user.username}: {str(e)}', exc_info=True)
             return Response(
                 {'detail': 'An error occurred while creating/updating the workout plan.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def update(self, request, *args, **kwargs):
-        user = request.user
-        plan_data = request.data.get('plan_data', '')
-
-        if not plan_data:
-            return Response(
-                {'detail': 'No plan data provided.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            workout_plan, created = WorkoutPlan.objects.update_or_create(
-                user=user,
-                defaults={'plan_data': plan_data}
-            )
-            serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
-            status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
-            return Response(serializer.data, status=status_code)
-        except Exception as e:
-            logger.error(f'Error updating workout plan: {str(e)}', exc_info=True)
-            return Response(
-                {'detail': 'An error occurred while updating the workout plan.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        return self.create(request, *args, **kwargs)  # Reuse create logic for update
 
 
 class WorkoutLogViewSet(viewsets.ModelViewSet):
@@ -191,15 +183,14 @@ def current_user(request):
 class CustomAuthToken(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
         logger.info(f"Received login data: {request.data}")
-        serializer = self.serializer_class(data=request.data,
-                                           context={'request': request})
+        serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
             user = serializer.validated_data['user']
             token, created = Token.objects.get_or_create(user=user)
             logger.info(f"User {user.username} logged in. Token: {token.key}")
             return Response({'token': token.key})
         else:
-            logger.warning(f"Login failed. Errors: {serializer.errors}")
+            logger.warning(f"Login failed for data {request.data}. Errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -207,7 +198,7 @@ class CustomAuthToken(ObtainAuthToken):
 @permission_classes([IsAuthenticated])
 def check_workout_plan_status(request):
     try:
-        workout_plan = WorkoutPlan.objects.filter(user=request.user).latest('created_at')
+        workout_plan = WorkoutPlan.objects.get(user=request.user)
         return Response({
             'status': 'completed',
             'plan_data': workout_plan.plan_data
@@ -244,6 +235,7 @@ def logout_user(request):
         return Response({'detail': 'Error during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response(status=status.HTTP_200_OK)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_video_details(request):
@@ -257,7 +249,6 @@ def get_video_details(request):
         return Response({'source': source, 'data': video_data}, status=200)
     
     return Response({'error': 'Video not found or could not be fetched.'}, status=404)
-
 
 
 class RegisterView(generics.CreateAPIView):
@@ -283,14 +274,16 @@ class RegisterView(generics.CreateAPIView):
                     "message": "Registration successful. Your workout plan is being generated. Please wait."
                 }, status=status.HTTP_201_CREATED)
             except IntegrityError as e:
-                logger.error(f"IntegrityError during registration: {str(e)}", exc_info=True)
-                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        logger.warning(f"Registration failed. Errors: {serializer.errors}")
+                logger.error(f"IntegrityError during registration for user {request.data.get('username')}: {str(e)}", exc_info=True)
+                return Response({"error": "A user with this information already exists."}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error(f"Unexpected error during registration: {str(e)}", exc_info=True)
+                return Response({"error": "An unexpected error occurred during registration."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.warning(f"Registration failed for data {request.data}. Errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserDetailView(generics.RetrieveAPIView):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -299,7 +292,6 @@ class UserDetailView(generics.RetrieveAPIView):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -456,6 +448,7 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         comments_lower = comments.lower()
         return any(keyword in comments_lower for keyword in modification_keywords)
 
+
 class StrengthGoalViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StrengthGoal.objects.all()
     serializer_class = StrengthGoalSerializer
@@ -501,6 +494,7 @@ class UserProgressionView(APIView):
 
         return Response(progression_data, status=status.HTTP_200_OK)
 
+
 class CheckUsernameView(APIView):
     authentication_classes = []  # Allow unauthenticated access
     permission_classes = []
@@ -514,6 +508,7 @@ class CheckUsernameView(APIView):
                 return Response({'available': True}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'Username not provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CheckEmailView(APIView):
     authentication_classes = []  # Allow unauthenticated access

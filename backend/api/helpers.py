@@ -11,7 +11,9 @@ import logging
 from channels.layers import get_channel_layer
 import re
 import ssl
-
+from threading import Semaphore
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from asgiref.sync import async_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,9 @@ EXERCISE_NAME_MAPPING = {
     "situps": "sit-up",
     # Add more mappings as needed
 }
+
+MAX_CONCURRENT_CALLS = 5  # Adjust based on rate limits
+MAX_THREADS = getattr(settings, 'MAX_THREADS', 10)  # Default to 10 if not set
 
 def standardize_exercise_name(exercise_name):
     """
@@ -330,16 +335,34 @@ def assign_video_ids_to_exercise_list(exercise_list):
 
 def assign_video_ids_to_exercises(workout_plan_data):
     """
-    Assigns YouTube video IDs to all exercises in the workout plan.
+    Assigns YouTube video IDs to all exercises in the workout plan concurrently with rate limiting.
     """
-    # Collect all exercises across all days
     all_exercises = []
     for day in workout_plan_data.get('workoutDays', []):
         exercises = day.get('exercises', [])
         all_exercises.extend(exercises)
 
-    # Assign video IDs to all exercises
-    assign_video_ids_to_exercise_list(all_exercises)
+    semaphore = Semaphore(MAX_CONCURRENT_CALLS)
+
+    def fetch_and_assign(exercise):
+        with semaphore:
+            try:
+                if 'name' not in exercise:
+                    logger.warning("Exercise name is missing.")
+                    exercise['videoId'] = None
+                    return
+
+                standardized_name, video_id = get_video_id(exercise['name'])
+                exercise['videoId'] = video_id
+                logger.info(f"Assigned videoId '{video_id}' to exercise '{exercise['name']}'.")
+            except Exception as e:
+                logger.error(f"Error fetching videoId for exercise '{exercise.get('name', 'Unknown')}': {e}", exc_info=True)
+                exercise['videoId'] = None
+
+    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+        futures = [executor.submit(fetch_and_assign, exercise) for exercise in all_exercises]
+        for future in as_completed(futures):
+            future.result()
 
 
 def assign_video_ids_to_session(session_data):

@@ -201,6 +201,10 @@ LOGGING = {
             'formatter': 'simple',
         },
     },
+     'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+    },
     'loggers': {
         'django': {
             'handlers': ['file', 'console'],
@@ -210,6 +214,11 @@ LOGGING = {
         'api': {  # Your app's logger
             'handlers': ['file', 'console'],
             'level': 'INFO',
+            'propagate': False,
+        },
+        'api.middleware': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
             'propagate': False,
         },
         '': {

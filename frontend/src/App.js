@@ -39,7 +39,10 @@ function App() {
         const response = await axiosInstance.get('workout-plans/current/');
         console.log('Workout Plans Current Response:', response.data);
 
-        if (response.data.workoutDays && response.data.workoutDays.length > 0) {
+        if (response.data.message) {
+          // Handle the "workout plan is being generated" message
+          setError(response.data.message);
+        } else if (response.data.workoutDays && response.data.workoutDays.length > 0) {
           setInitialWorkoutData(response.data);
         } else {
           setError('No workout plans available.');
