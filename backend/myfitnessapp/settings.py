@@ -175,10 +175,17 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
+# Define BASE_DIR once
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Ensure the logs directory exists
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+
 # Logging Configuration
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False,  # Keep the default configurations
+    'disable_existing_loggers': False,  # Retain the default Django loggers
     'formatters': {
         'verbose': {
             'format': '{levelname} {asctime} {name} {message}',
@@ -191,46 +198,48 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level': 'WARNING',
+            'level': 'DEBUG',  # Capture all levels (DEBUG and above)
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'filename': os.path.join(LOG_DIR, 'django.log'),
             'formatter': 'verbose',
         },
         'console': {
+            'level': 'DEBUG',  # Capture all levels (DEBUG and above)
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
     },
-     'root': {
-        'handlers': ['console'],
-        'level': 'DEBUG',
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'DEBUG',  # Set to DEBUG to capture all messages
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'api': {  # Your app's logger
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'api.middleware': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'level': 'DEBUG',
-            'propagate': False,
-        },
-        '': {
-            'handlers': ['file', 'console'],  # Adjust as per your handlers
-            'level': 'INFO',          # Set to 'INFO' to capture info logs
             'propagate': True,
         },
+        'api': {  # Your app's main logger
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,  # Allow messages to bubble up to root
+        },
+        'api.middleware': {  # Middleware-specific logger
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,  # Allow messages to bubble up to 'api' and 'root'
+        },
+        'api.consumers': {  # Consumers-specific logger
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,  # Allow messages to bubble up to 'api' and 'root'
+        },
+        # Remove the logger with key '' to avoid ambiguity
     },
 }
 
-LOGGING['handlers']['file']['filename'] = os.path.join(BASE_DIR, 'logs', 'django.log')
-os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
+# LOGGING['handlers']['file']['filename'] = os.path.join(BASE_DIR, 'logs', 'django.log')
+# os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
 
 AUTH_USER_MODEL = 'api.User'
 

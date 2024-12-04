@@ -5,7 +5,6 @@ import { Button, Typography, List, ListItem, ListItemText, Divider } from '@mui/
 import PropTypes from 'prop-types';
 
 function ReviewSubmit({
-  prevStep,
   values,
   isSubmitting,
   equipmentOptions,
@@ -105,30 +104,12 @@ function ReviewSubmit({
           <ListItemText primary="Workout Days per Week" secondary={workoutDays} />
         </ListItem>
       </List>
-
-      {/* Navigation Buttons */}
-      <div
-        style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}
-      >
-        <Button variant="contained" onClick={() => prevStep(values)} size="large">
-          Back
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          type="submit" // Triggers Formik's handleSubmit
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit'}
-        </Button>
-      </div>
     </div>
   );
 }
 
 // Define PropTypes for better type checking
 ReviewSubmit.propTypes = {
-  prevStep: PropTypes.func.isRequired,
   values: PropTypes.object.isRequired,
   isSubmitting: PropTypes.bool.isRequired,
   equipmentOptions: PropTypes.array.isRequired,

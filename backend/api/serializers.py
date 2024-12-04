@@ -174,7 +174,13 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WorkoutPlan
-        fields = ['id', 'user', 'workoutDays', 'additionalTips', 'created_at']
+        fields = [
+            'id',
+            'user',
+            'workoutDays',
+            'additionalTips',
+            'created_at',
+        ]
         read_only_fields = ['id', 'user', 'created_at']
 
     def get_workoutDays(self, obj):
@@ -190,6 +196,7 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
             serialized_day = {
                 'day': day.get('day', ''),
                 'type': day.get('type', 'workout'),  # Default to 'workout' if not specified
+                'workout_type': day.get('workout_type', ''),  # Added this line
                 'duration': day.get('duration', '') if day.get('type', 'workout') == 'workout' else '',
                 'exercises': serialized_exercises if day.get('type', 'workout') == 'workout' else [],
                 'notes': day.get('notes', '') if day.get('type', 'workout') == 'rest' else '',
@@ -359,6 +366,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         required=False
     )
     exercises = TrainingSessionExerciseSerializer(
+        source='training_session_exercises',
         many=True,
         required=False,
         help_text="List of exercises for this training session."
@@ -462,13 +470,14 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
 
         return data
 
-    def create(self, validated_data):
-        """
-        Create a TrainingSession instance along with related TrainingSessionExercise instances.
-        """
+    def create(self, validated_data, **kwargs):
+        user = kwargs.get('user', self.context['request'].user)
         exercises_data = validated_data.pop('exercises', [])
         source = validated_data.pop('source', None)  # Handle 'source' if needed
-        user = self.context['request'].user
+
+        # Remove 'user' from validated_data if it exists
+        validated_data.pop('user', None)
+
         training_session = TrainingSession.objects.create(user=user, **validated_data)
 
         for exercise_data in exercises_data:
@@ -486,6 +495,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
             )
 
         return training_session
+
 
     def update(self, instance, validated_data):
         """

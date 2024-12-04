@@ -296,7 +296,10 @@ def send_workout_plan_to_group(user, workout_plan):
             group_name,
             {
                 'type': 'workout_plan_generated',
-                'plan_data': workout_plan, 
+                'plan_id': workout_plan.get('id'),
+                'plan_data': workout_plan.get('plan_data'),
+                'additional_tips': workout_plan.get('additional_tips'),
+                'created_at': workout_plan.get('created_at'),
             }
         )
         logger.info(f"Workout plan sent to group: {group_name}")

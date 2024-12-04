@@ -1,4 +1,6 @@
-import React, { createContext, useState, useEffect } from 'react';
+// src/context/AuthContext.jsx
+
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import axiosInstance from '../api/axiosInstance';
 
 export const AuthContext = createContext();
@@ -15,17 +17,19 @@ export const AuthProvider = ({ children }) => {
           axiosInstance.defaults.headers['Authorization'] = `Token ${authToken}`;
           const response = await axiosInstance.get('users/me/');
           setUser(response.data);
+          console.log('Authenticated user:', response.data); // Add this line
         } catch (error) {
           console.error('Error fetching user:', error);
           setAuthToken(null);
           localStorage.removeItem('authToken');
+          delete axiosInstance.defaults.headers['Authorization'];
         }
       } else {
         setUser(null);
       }
       setLoading(false);
     };
-
+  
     fetchUser();
   }, [authToken]);
 
@@ -46,4 +50,9 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+// Custom hook to use the AuthContext
+export const useAuth = () => {
+  return useContext(AuthContext);
 };

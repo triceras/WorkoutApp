@@ -1,5 +1,3 @@
-// src/utils/processWorkoutPlan.js
-
 export const processWorkoutPlan = (plan) => {
   console.log('Original Plan:', plan); // Debugging
 
@@ -34,17 +32,24 @@ export const processWorkoutPlan = (plan) => {
 
   // Go through each day in workoutDays
   processedPlan.workoutDays.forEach((day, index) => {
+    if (!day) {
+      console.warn(`Day at index ${index} is undefined or null`);
+      return;
+    }
+
+    const dayString = day.day || '';
     const dayRegex = /Day\s*(\d+):\s*(.*)/i;
-    const match = day.day.match(dayRegex);
+    const match = dayString.match(dayRegex);
     let dayNumber = index + 1; // Default day number (1-7)
-    let dayName = day.day;
+    let dayName = dayString;
 
     if (match) {
       const dayNum = parseInt(match[1], 10);
       const dayDescription = match[2];
 
       // Map plan day number to weekday number
-      const weekdayNumber = dayNumberToWeekdayNumber[dayNum] || ((dayNum - 1) % 7) + 1;
+      const weekdayNumber =
+        dayNumberToWeekdayNumber[dayNum] || ((dayNum - 1) % 7) + 1;
 
       // Get the weekday name
       const weekdayName = weekdayNumberToName[weekdayNumber];
@@ -53,13 +58,21 @@ export const processWorkoutPlan = (plan) => {
       dayName = `${weekdayName}: ${dayDescription}`;
     }
 
+    // Ensure exercises is an array
+    let exercises = Array.isArray(day.exercises) ? day.exercises : [];
+    if (!Array.isArray(exercises)) {
+      console.warn(`Exercises for day at index ${index} is not an array:`, exercises);
+      exercises = [];
+    }
+
     // Determine if it's a workout or rest day
-    const isRestDay = day.exercises.length === 0 || day.type === 'rest';
+    const isRestDay = exercises.length === 0 || day.type === 'rest';
 
     const processedDay = {
       ...day,
       dayNumber: dayNumber,
       dayName: dayName,
+      exercises: exercises,
       type: isRestDay ? 'rest' : 'workout',
     };
 
@@ -69,7 +82,9 @@ export const processWorkoutPlan = (plan) => {
   });
 
   // Sort the days by dayNumber to ensure correct order
-  processedPlan.workoutDays = processedWorkoutDays.sort((a, b) => a.dayNumber - b.dayNumber);
+  processedPlan.workoutDays = processedWorkoutDays.sort(
+    (a, b) => a.dayNumber - b.dayNumber
+  );
 
   console.log('Processed Plan:', processedPlan); // Debugging
 

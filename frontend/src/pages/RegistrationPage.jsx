@@ -1,42 +1,139 @@
-// src/pages/RegistrationPage.jsx
+// src/components/RegistrationSteps/Registration.jsx
 
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Formik, Form } from 'formik';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Typography,
+} from '@mui/material';
 import * as Yup from 'yup';
-import AccountDetailsForm from '../components/RegistrationSteps/AccountDetailsForm';
-import PersonalInfo from '../components/RegistrationSteps/PersonalInfo';
-import FitnessGoals from '../components/RegistrationSteps/FitnessGoals';
-import FitnessLevel from '../components/RegistrationSteps/FitnessLevel';
-import Equipment from '../components/RegistrationSteps/Equipment';
-import Availability from '../components/RegistrationSteps/Availability';
-import ReviewSubmit from '../components/RegistrationSteps/ReviewSubmit';
 import axiosInstance from '../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
-import { Typography, Box, CircularProgress, Button } from '@mui/material';
-import { AuthContext } from '../context/AuthContext';
+import '../components/RegistrationSteps/Registration.css';
 
-function RegistrationPage() {
-  const [step, setStep] = useState(1);
-  const [errors, setErrors] = useState({});
-  const navigate = useNavigate();
-  const { setAuthToken, setUser } = useContext(AuthContext);
-  const [equipmentOptions, setEquipmentOptions] = useState([]);
+// Import components
+import AccountDetailsForm from '../components/RegistrationSteps/AccountDetailsForm';
+import PersonalInfo from '../components/RegistrationSteps/PersonalInfo';
+import FitnessLevel from '../components/RegistrationSteps/FitnessLevel';
+import Availability from '../components/RegistrationSteps/Availability';
+import Equipment from '../components/RegistrationSteps/Equipment';
+import FitnessGoals from '../components/RegistrationSteps/FitnessGoals';
+import ReviewSubmit from '../components/RegistrationSteps/ReviewSubmit';
+
+// Define steps
+const steps = [
+  'Account Details',
+  'Personal Information',
+  'Fitness Level',
+  'Availability',
+  'Available Equipment',
+  'Fitness Goals',
+  'Review & Submit',
+];
+
+function Registration() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [formValues, setFormValues] = useState({
+    username: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    age: '',
+    sex: '',
+    weight: '',
+    height: '',
+    fitnessLevel: '',
+    workoutTime: 30,
+    workoutDays: '',
+    equipment: [],
+    strengthGoals: [],
+    additionalGoals: '',
+  });
+
   const [strengthGoalsOptions, setStrengthGoalsOptions] = useState([]);
+  const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+
+  const navigate = useNavigate();
+
+  // Validation schemas for each step
+  const validationSchemas = [
+    // Step 0: Account Details
+    Yup.object({
+      username: Yup.string()
+        .required('Username is required')
+        .min(3, 'Username must be at least 3 characters'),
+      password: Yup.string()
+        .required('Password is required')
+        .min(6, 'Password must be at least 6 characters'),
+      confirmPassword: Yup.string()
+        .oneOf([Yup.ref('password'), null], 'Passwords must match')
+        .required('Confirm Password is required'),
+    }),
+    // Step 1: Personal Information
+    Yup.object({
+      firstName: Yup.string().required('First Name is required'),
+      lastName: Yup.string().required('Last Name is required'),
+      email: Yup.string()
+        .email('Invalid email address')
+        .required('Email is required'),
+      age: Yup.number()
+        .required('Age is required')
+        .min(1, 'Age must be at least 1'),
+      sex: Yup.string()
+        .oneOf(['Male', 'Female', 'Other', 'Prefer not to say'], 'Invalid selection')
+        .required('Sex is required'),
+      weight: Yup.number()
+        .required('Weight is required')
+        .min(1, 'Weight must be at least 1 kg'),
+      height: Yup.number()
+        .required('Height is required')
+        .min(1, 'Height must be at least 1 cm'),
+    }),
+    // Step 2: Fitness Level
+    Yup.object({
+      fitnessLevel: Yup.string().required('Fitness Level is required'),
+    }),
+    // Step 3: Availability
+    Yup.object({
+      workoutTime: Yup.number()
+        .required('Workout Time is required')
+        .min(15, 'Minimum workout time is 15 minutes'),
+      workoutDays: Yup.number()
+        .required('Workout Days is required')
+        .min(1, 'At least 1 day per week')
+        .max(7, 'Maximum 7 days per week'),
+    }),
+    // Step 4: Available Equipment
+    Yup.object({
+      equipment: Yup.array()
+        .of(Yup.number())
+        .min(1, 'At least one equipment must be selected'),
+    }),
+    // Step 5: Fitness Goals
+    Yup.object({
+      strengthGoals: Yup.array()
+        .of(Yup.number())
+        .min(1, 'Select at least one goal'),
+    }),
+    // Step 6: Review & Submit
+    Yup.object(),
+  ];
 
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        console.log('Fetching equipment and strength goals...');
         const [equipmentRes, strengthGoalsRes] = await Promise.all([
           axiosInstance.get('/equipment/'),
           axiosInstance.get('/strength-goals/'),
         ]);
-        console.log('Fetched Equipment:', equipmentRes.data);
-        console.log('Fetched Strength Goals:', strengthGoalsRes.data);
-        setEquipmentOptions(equipmentRes.data);
-        setStrengthGoalsOptions(strengthGoalsRes.data);
+        setEquipmentOptions(equipmentRes.data.results || equipmentRes.data || []);
+        setStrengthGoalsOptions(strengthGoalsRes.data.results || strengthGoalsRes.data || []);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching options:', error);
@@ -44,119 +141,95 @@ function RegistrationPage() {
         setLoading(false);
       }
     };
-
     fetchOptions();
   }, []);
 
-  const initialValues = {
-    username: '',
-    password: '',
-    confirmPassword: '',
-    firstName: '',
-    lastName: '',
-    sex: '',
-    email: '',
-    age: '',
-    weight: '',
-    height: '',
-    fitnessLevel: '',
-    strengthGoals: [], // Array of IDs
-    additionalGoals: '',
-    equipment: [],    // Array of IDs
-    workoutTime: 45,
-    workoutDays: 4,
-  };
+  const handleSubmit = async (values, { setSubmitting, setFieldError }) => {
+    try {
+      if (activeStep === steps.length - 1) {
+        // Format the data for the backend
+        const formattedData = {
+          username: values.username,
+          password: values.password,
+          confirm_password: values.confirmPassword,
+          first_name: values.firstName,
+          last_name: values.lastName,
+          email: values.email,
+          age: parseInt(values.age),
+          weight: parseFloat(values.weight),
+          height: parseFloat(values.height),
+          fitness_level: values.fitnessLevel,
+          strength_goals: values.strengthGoals,
+          additional_goals: values.additionalGoals,
+          equipment: values.equipment,
+          workout_time: parseInt(values.workoutTime),
+          workout_days: parseInt(values.workoutDays),
+          sex: values.sex
+        };
 
-  const validationSchema = Yup.object().shape({
-    username: Yup.string().required('Username is required'),
-    password: Yup.string().required('Password is required'),
-    confirmPassword: Yup.string()
-      .oneOf([Yup.ref('password'), null], 'Passwords must match')
-      .required('Confirm Password is required'),
-    firstName: Yup.string().required('First Name is required'),
-    lastName: Yup.string().required('Last Name is required'),
-    email: Yup.string().email('Invalid email').required('Email is required'),
-    age: Yup.number().required('Age is required').positive().integer(),
-    sex: Yup.string().oneOf(['Male', 'Female', 'Other', 'Prefer not to say']).required('Sex is required'),
-    weight: Yup.number().required('Weight is required').positive(),
-    height: Yup.number().required('Height is required').positive(),
-    fitnessLevel: Yup.string().required('Fitness Level is required'),
-    strengthGoals: Yup.array().min(1, 'Select at least one goal').required('Strength goals are required'),
-    equipment: Yup.array().min(1, 'Select at least one equipment').required('Equipment selection is required'),
-    workoutTime: Yup.number()
-      .required('Workout time is required')
-      .min(15, 'Minimum workout time is 15 minutes')
-      .max(120, 'Maximum workout time is 120 minutes'),
-    workoutDays: Yup.number()
-      .required('Workout days per week is required')
-      .min(1, 'At least 1 workout day per week')
-      .max(7, 'Maximum 7 workout days per week'),
-    additionalGoals: Yup.string().notRequired(),
-  });
-
-  const handleSubmit = (values, actions) => {
-    console.log('handleSubmit called with values:', values); // Debugging log
-    const data = {
-      username: values.username,
-      password: values.password,
-      confirm_password: values.confirmPassword,
-      first_name: values.firstName,
-      last_name: values.lastName,
-      sex: values.sex,
-      email: values.email,
-      age: values.age,
-      weight: values.weight,
-      height: values.height,
-      fitness_level: values.fitnessLevel,
-      strength_goals: values.strengthGoals, // Send as array of IDs
-      additional_goals: values.additionalGoals,
-      equipment: values.equipment,           // Send as array of IDs
-      workout_time: values.workoutTime,
-      workout_days: values.workoutDays,
-    };
-
-    axiosInstance.post('register/', data)
-      .then((response) => {
-        // Registration successful
-        const { token, user } = response.data;
-
-        // Handle successful registration
-        localStorage.setItem('authToken', token);
-        setAuthToken(token); // Update AuthContext with the new token
-        setUser(user);       // Update AuthContext with the new user data
-
-        // Navigate to the "Generating Workout Plan" page
-        navigate('/generating-workout');
-      })
-      .catch((error) => {
-        if (error.response) {
-          // Handle specific field errors
-          setErrors(error.response.data);
-          // Set errors in Formik
-          actions.setErrors(error.response.data);
-        } else if (error.request) {
-          // Handle network errors
-          setErrors({ general: 'No response from server. Please try again later.' });
-          actions.setErrors({ general: 'No response from server. Please try again later.' });
-        } else {
-          // Handle other errors
-          setErrors({ general: 'An unexpected error occurred. Please try again.' });
-          actions.setErrors({ general: 'An unexpected error occurred. Please try again.' });
+        const response = await axiosInstance.post('register/', formattedData);
+        
+        if (response.data) {
+          // Registration successful
+          console.log('Registration successful:', response.data);
+          // Navigate to the generating workout page
+          navigate('/generating-workout');
         }
-      })
-      .finally(() => {
-        actions.setSubmitting(false);
-      });
+      } else {
+        // Move to next step
+        setFormValues(values);
+        setActiveStep((prevStep) => prevStep + 1);
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      
+      // Handle validation errors from the backend
+      if (error.response && error.response.data) {
+        const errors = error.response.data;
+        Object.keys(errors).forEach(field => {
+          // Convert snake_case to camelCase for frontend field names
+          const camelCaseField = field.replace(/_([a-z])/g, g => g[1].toUpperCase());
+          setFieldError(camelCaseField, errors[field][0]);
+        });
+      } else {
+        // Handle non-validation errors
+        setFieldError('general', 'An error occurred during registration. Please try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const nextStep = () => setStep(prev => prev + 1);
-  const prevStep = () => setStep(prev => prev - 1);
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+  };
+
+  const getStepContent = (step) => {
+    switch (step) {
+      case 0:
+        return <AccountDetailsForm />;
+      case 1:
+        return <PersonalInfo />;
+      case 2:
+        return <FitnessLevel />;
+      case 3:
+        return <Availability />;
+      case 4:
+        return <Equipment equipmentOptions={equipmentOptions} />;
+      case 5:
+        return <FitnessGoals strengthGoalsOptions={strengthGoalsOptions} />;
+      default:
+        return 'Unknown step';
+    }
+  };
 
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
         <CircularProgress />
-        <Typography variant="h6" style={{ marginLeft: '10px' }}>Loading registration form...</Typography>
+        <Typography variant="h6" style={{ marginLeft: '10px' }}>
+          Loading registration form...
+        </Typography>
       </Box>
     );
   }
@@ -164,8 +237,14 @@ function RegistrationPage() {
   if (fetchError) {
     return (
       <Box textAlign="center" mt={5}>
-        <Typography variant="h6" color="error">{fetchError}</Typography>
-        <Button variant="contained" onClick={() => window.location.reload()} style={{ marginTop: '20px' }}>
+        <Typography variant="h6" color="error">
+          {fetchError}
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => window.location.reload()}
+          style={{ marginTop: '20px' }}
+        >
           Retry
         </Button>
       </Box>
@@ -173,94 +252,62 @@ function RegistrationPage() {
   }
 
   return (
-    <Formik
-      initialValues={initialValues}
-      validationSchema={validationSchema}
-      onSubmit={handleSubmit}
-    >
-      {(formikProps) => (
-        <Form>
-          <Box width="100%" maxWidth="600px" margin="0 auto">
-            {/* Display General Errors */}
-            {errors.general && (
-              <Typography variant="body1" color="error" align="center" gutterBottom>
-                {errors.general}
-              </Typography>
-            )}
-            {Object.keys(errors).map((key) => {
-              if (key !== 'general') {
-                return (
-                  <Typography key={key} variant="body2" color="error" gutterBottom>
-                    {Array.isArray(errors[key]) ? errors[key].join(' ') : errors[key]}
-                  </Typography>
-                );
-              }
-              return null;
-            })}
+    <Box className="registration-container">
+      <Box className="registration-stepper">
+        <Box className="stepper">
+          {steps.map((label, index) => (
+            <Box
+              key={label}
+              className={`step ${activeStep === index ? 'active' : ''}`}
+            >
+              {label}
+            </Box>
+          ))}
+        </Box>
+      </Box>
 
-            {/* Display Formik Validation Errors */}
-            {Object.keys(formikProps.errors).length > 0 && formikProps.submitCount > 0 && (
-              <div style={{ color: 'red', marginBottom: '10px' }}>
-                <ul>
-                  {Object.entries(formikProps.errors).map(([field, error]) => (
-                    <li key={field}>{error}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Render Current Step */}
-            {step === 1 && (
-              <AccountDetailsForm
-                nextStep={nextStep}
-              />
-            )}
-            {step === 2 && (
-              <PersonalInfo
-                nextStep={nextStep}
-                prevStep={prevStep}
-              />
-            )}
-            {step === 3 && (
-              <FitnessGoals
-                nextStep={nextStep}
-                prevStep={prevStep}
-                strengthGoalsOptions={strengthGoalsOptions} // Pass strength goals
-              />
-            )}
-            {step === 4 && (
-              <FitnessLevel
-                nextStep={nextStep}
-                prevStep={prevStep}
-              />
-            )}
-            {step === 5 && (
-              <Equipment
-                nextStep={nextStep}
-                prevStep={prevStep}
-                equipmentOptions={equipmentOptions} // Pass equipment options
-              />
-            )}
-            {step === 6 && (
-              <Availability
-                nextStep={nextStep}
-                prevStep={prevStep}
-              />
-            )}
-            {step === 7 && (
+      <Formik
+        initialValues={formValues}
+        validationSchema={validationSchemas[activeStep]}
+        onSubmit={handleSubmit}
+        enableReinitialize
+      >
+        {({ isValid, isSubmitting, values }) => (
+          <Form>
+            {activeStep === steps.length - 1 ? (
               <ReviewSubmit
-                prevStep={prevStep}
-                values={formikProps.values}
-                isSubmitting={formikProps.isSubmitting}
+                values={values}
+                isSubmitting={isSubmitting}
                 equipmentOptions={equipmentOptions}
                 strengthGoalsOptions={strengthGoalsOptions}
               />
+            ) : (
+              getStepContent(activeStep)
             )}
-          </Box>
-        </Form>
-      )}
-    </Formik>
+
+            {/* Navigation Buttons */}
+            <Box display="flex" justifyContent="space-between" marginTop="20px">
+              <Button
+                variant="contained"
+                onClick={handleBack}
+                disabled={activeStep === 0 || isSubmitting}
+              >
+                Back
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                type="submit"
+                disabled={!isValid || isSubmitting}
+              >
+                {activeStep === steps.length - 1 ? 'Submit' : 'Next'}
+              </Button>
+            </Box>
+          </Form>
+        )}
+      </Formik>
+    </Box>
   );
 }
 
-export default RegistrationPage;
+export default Registration;

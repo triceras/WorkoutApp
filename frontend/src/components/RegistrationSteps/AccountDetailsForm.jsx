@@ -10,6 +10,7 @@ import {
   IconButton,
   Box,
   Typography,
+  CircularProgress,
 } from '@mui/material'; // Combined imports
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -18,7 +19,7 @@ import axiosInstance from '../../api/axiosInstance';
 import debounce from 'lodash.debounce';
 import PropTypes from 'prop-types';
 
-function AccountDetailsForm({ nextStep }) {
+function AccountDetailsForm() {
   const {
     values,
     errors,
@@ -60,118 +61,77 @@ function AccountDetailsForm({ nextStep }) {
         setFieldError('username', null);
       }
     }, 500)
-  ).current;
+  );
 
-  // Effect to check username availability when username changes
   useEffect(() => {
-    if (touched.username) {
-      debouncedCheckUsername(values.username);
-    }
-    // Cleanup function to cancel debounce on unmount
-    return () => {
-      debouncedCheckUsername.cancel();
-    };
-  }, [values.username, touched.username, debouncedCheckUsername]);
-
-  // Function to check if the current step's fields are valid
-  const isStepValid = () => {
-    const requiredFields = ['username', 'password', 'confirmPassword'];
-    return (
-      requiredFields.every(
-        (field) => touched[field] && !errors[field] && values[field] !== ''
-      ) && usernameAvailable === true
-    );
-  };
+    // Call the debounced function when username changes
+    debouncedCheckUsername.current(values.username);
+  }, [values.username]);
 
   return (
     <Box width="100%" maxWidth="600px" margin="0 auto">
       <Typography variant="h5" gutterBottom>
         Account Details
       </Typography>
-
       <TextField
-        name="username"
         label="Username"
-        fullWidth
-        margin="normal"
-        required
-        onChange={(e) => {
-          handleChange(e);
-          setFieldTouched('username', true, false);
-        }}
-        onBlur={handleBlur}
+        name="username"
         value={values.username}
+        onChange={handleChange}
+        onBlur={handleBlur}
         error={touched.username && Boolean(errors.username)}
         helperText={touched.username && errors.username}
+        fullWidth
+        margin="normal"
+        required
         InputProps={{
           endAdornment: (
             <InputAdornment position="end">
-              {checkingUsername ? null : usernameAvailable === true ? (
-                <CheckCircleIcon style={{ color: 'green' }} />
+              {checkingUsername ? (
+                <CircularProgress size={24} />
+              ) : usernameAvailable ? (
+                <CheckCircleIcon color="success" />
               ) : usernameAvailable === false ? (
-                <CancelIcon style={{ color: 'red' }} />
-              ) : null}
+                <CancelIcon color="error" />
+              ) : (
+                <Tooltip title="Enter a unique username">
+                  <IconButton>
+                    <InfoIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
             </InputAdornment>
           ),
         }}
       />
-
       <TextField
-        name="password"
         label="Password"
+        name="password"
         type="password"
-        fullWidth
-        margin="normal"
-        required
+        value={values.password}
         onChange={handleChange}
         onBlur={handleBlur}
-        value={values.password}
         error={touched.password && Boolean(errors.password)}
         helperText={touched.password && errors.password}
-        InputProps={{
-          endAdornment: (
-            <InputAdornment position="end">
-              <Tooltip title="Password must be at least 6 characters long.">
-                <IconButton>
-                  <InfoIcon />
-                </IconButton>
-              </Tooltip>
-            </InputAdornment>
-          ),
-        }}
-      />
-
-      <TextField
-        name="confirmPassword"
-        label="Confirm Password"
-        type="password"
         fullWidth
         margin="normal"
         required
+      />
+      <TextField
+        label="Confirm Password"
+        name="confirmPassword"
+        type="password"
+        value={values.confirmPassword}
         onChange={handleChange}
         onBlur={handleBlur}
-        value={values.confirmPassword}
         error={touched.confirmPassword && Boolean(errors.confirmPassword)}
         helperText={touched.confirmPassword && errors.confirmPassword}
+        fullWidth
+        margin="normal"
+        required
       />
-
-      {/* Navigation Buttons */}
-      <Box display="flex" justifyContent="flex-end" marginTop="20px">
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => nextStep(values)}
-          disabled={!isStepValid()}
-        >
-          Next
-        </Button>
-      </Box>
     </Box>
   );
 }
-
-AccountDetailsForm.propTypes = {
-  nextStep: PropTypes.func.isRequired,
-};
 
 export default AccountDetailsForm;

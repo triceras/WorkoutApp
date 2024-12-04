@@ -2,38 +2,14 @@
 
 /* Container for the entire workout plan */
 .workout-plan-container {
-  padding: 30px;
-  max-width: 900px;
-  margin: 0 auto;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #333;
+  padding: 30px 15px;
+  margin-top: 80px; /* Account for fixed navbar */
 }
 
-.workout-plan-container h4 {
-  text-align: center;
-  margin-bottom: 10px;
-  color: #333;
+.workout-day {
+  margin-top: 20px;
 }
 
-.workout-plan-container p {
-  text-align: center;
-  margin-bottom: 30px;
-  color: #555;
-  font-size: 1.1rem;
-  line-height: 1.6;
-}
-
-/* Today Workout Section */
-.today-workout-section {
-  margin-bottom: 40px;
-  border-radius: 10px;
-  overflow: hidden;
-  padding: 0;
-  background-color: #fff;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-/* Day Cell Styling */
 .day-cell {
   background-color: #4CAF50;
   padding: 20px;
@@ -54,87 +30,6 @@
   color: white;
 }
 
-/* Exercises Container */
-.exercises-container {
-  padding: 20px 40px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-/* Individual Exercise */
-.exercise-item {
-  cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.exercise-item:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-}
-
-/* Exercise Details */
-.exercise-details {
-  padding: 15px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.exercise-name {
-  color: #000;
-  font-size: 1.3rem;
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
-/* Exercise Detail Labels */
-.exercise-detail {
-  margin-bottom: 10px;
-  font-size: 0.95rem;
-}
-
-.exercise-detail .label {
-  font-weight: bold;
-  display: block;
-  margin-bottom: 5px;
-}
-
-.detail-text {
-  display: block;
-  margin-left: 10px;
-}
-
-.instruction-list {
-  list-style-type: disc;
-  padding-left: 20px;
-  margin: 5px 0;
-  color: #555;
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-.instruction-item {
-  margin-bottom: 8px;
-}
-
-/* YouTube Thumbnail */
-.youtube-thumbnail {
-  cursor: pointer;
-  transition: transform 0.3s ease;
-  width: 100%;
-  height: 150px;
-  object-fit: cover;
-}
-
-.youtube-thumbnail:hover {
-  transform: scale(1.05);
-}
-
-/* Additional Tips Section */
 .additional-tips {
   margin-top: 40px;
   padding: 20px;
@@ -161,16 +56,17 @@
   padding-left: 5px;
 }
 
-.additional-tips li .MuiTypography-body1 {
-  display: inline;
+.instruction-list {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin: 5px 0;
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
-/* Error Message Styling */
-.error-message {
-  text-align: center;
-  font-size: 1.2rem;
-  color: #dc3545;
-  margin-top: 50px;
+.instruction-item {
+  margin-bottom: 8px;
 }
 
 /* Responsive Design */
@@ -201,15 +97,5 @@
 
   .exercises-container {
     padding: 10px 20px;
-  }
-}
-
-@media (max-width: 600px) {
-  .workout-day {
-    padding: 0 20px;
-  }
-
-  .exercises-container {
-    padding: 10px 0;
   }
 }

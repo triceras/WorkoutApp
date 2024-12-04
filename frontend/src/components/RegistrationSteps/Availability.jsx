@@ -5,7 +5,7 @@ import { Button, Box, Typography, TextField, Slider, FormHelperText } from '@mui
 import { useFormikContext } from 'formik';
 import PropTypes from 'prop-types';
 
-function Availability({ nextStep, prevStep }) {
+function Availability() {
   const { values, errors, touched, setFieldValue, handleBlur } = useFormikContext();
 
   const marks = [
@@ -50,33 +50,8 @@ function Availability({ nextStep, prevStep }) {
         required
         InputProps={{ inputProps: { min: 1, max: 7 } }}
       />
-
-      {/* Navigation Buttons */}
-      <Box display="flex" justifyContent="space-between" marginTop="20px">
-        <Button variant="contained" onClick={prevStep}>
-          Back
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={nextStep}
-          disabled={
-            !values.workoutTime ||
-            !values.workoutDays ||
-            Boolean(errors.workoutTime) ||
-            Boolean(errors.workoutDays)
-          }
-        >
-          Next
-        </Button>
-      </Box>
     </Box>
   );
 }
-
-Availability.propTypes = {
-  nextStep: PropTypes.func.isRequired,
-  prevStep: PropTypes.func.isRequired,
-};
 
 export default Availability;

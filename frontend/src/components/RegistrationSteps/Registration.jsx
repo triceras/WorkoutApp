@@ -2,65 +2,54 @@
 
 import React, { useState, useEffect } from 'react';
 import { Formik, Form } from 'formik';
-import { FormikDevTools } from 'formik-devtools'; // Correctly import FormikDevTools
-import { CSSTransition, TransitionGroup } from 'react-transition-group';
+import {
+  Box,
+  Button,
+  Typography,
+} from '@mui/material';
+import { styled } from '@mui/material/styles';
 import * as Yup from 'yup';
-import PersonalInfo from './PersonalInfo';
+import axiosInstance from '../../api/axiosInstance';
+import './Registration.css';
+
+// Import components
 import AccountDetailsForm from './AccountDetailsForm';
+import PersonalInfo from './PersonalInfo';
 import FitnessLevel from './FitnessLevel';
 import Availability from './Availability';
 import Equipment from './Equipment';
 import FitnessGoals from './FitnessGoals';
 import ReviewSubmit from './ReviewSubmit';
-import './Registration.css';
-import axiosInstance from '../../api/axiosInstance'; // Ensure correct import path
-import {
-  Stepper,
-  Step,
-  StepLabel,
-  Box,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  CircularProgress,
-  Typography,
-} from '@mui/material';
 
+// Define steps
 const steps = [
-  'Account Details',       // Step 0
-  'Personal Information',  // Step 1
-  'Fitness Level',         // Step 2
-  'Availability',          // Step 3
-  'Equipment & Goals',     // Step 4
-  'Review & Submit',       // Step 5
+  'Account Details',
+  'Personal Information',
+  'Fitness Level',
+  'Availability',
+  'Equipment & Goals',
+  'Review & Submit',
 ];
 
 function Registration() {
-  const [activeStep, setActiveStep] = useState(0); // Start at step 0
+  const [activeStep, setActiveStep] = useState(0);
   const [formValues, setFormValues] = useState({
-    // Account Details
     username: '',
     password: '',
-    confirmPassword: '', // camelCase
-    // Personal Info
-    firstName: '',       
-    lastName: '',        
+    confirmPassword: '',
+    firstName: '',
+    lastName: '',
     email: '',
     age: '',
     sex: '',
-    // Fitness Level
-    fitnessLevel: '',    
-    // Availability
-    workoutTime: 30,     
-    workoutDays: '',     
-    // Equipment and Goals
+    weight: '',
+    height: '',
+    fitnessLevel: '',
+    workoutTime: 30,
+    workoutDays: '',
     equipment: [],
-    strength_goals: [],  // Use strength_goals to match backend
-    // Review
-    additionalGoals: '', 
+    strengthGoals: [],
+    additionalGoals: '',
   });
 
   const [strengthGoalsOptions, setStrengthGoalsOptions] = useState([]);
@@ -68,33 +57,7 @@ function Registration() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
 
-  // State for Cancel Confirmation Dialog
-  const [openCancelDialog, setOpenCancelDialog] = useState(false);
-
-  // Fetch strength goals and equipment options from the backend
-  useEffect(() => {
-    const fetchOptions = async () => {
-      try {
-        const [equipmentRes, strengthGoalsRes] = await Promise.all([
-          axiosInstance.get('/equipment/'),
-          axiosInstance.get('/strength-goals/'),
-        ]);
-
-        // Adjust based on actual API response structure
-        setEquipmentOptions(equipmentRes.data.results || equipmentRes.data || []);
-        setStrengthGoalsOptions(strengthGoalsRes.data.results || strengthGoalsRes.data || []);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching options:', error);
-        setFetchError('Failed to load registration options.');
-        setLoading(false);
-      }
-    };
-
-    fetchOptions();
-  }, []);
-
-  // Define validation schemas for each step using Yup
+  // Validation schemas for each step
   const validationSchemas = [
     // Step 0: Account Details
     Yup.object({
@@ -147,7 +110,7 @@ function Registration() {
       equipment: Yup.array()
         .of(Yup.number())
         .min(1, 'At least one equipment must be selected'),
-      strength_goals: Yup.array()
+      strengthGoals: Yup.array()
         .of(Yup.number())
         .min(1, 'Select at least one goal'),
     }),
@@ -155,92 +118,53 @@ function Registration() {
     Yup.object(),
   ];
 
-  // Function to proceed to the next step
-  const handleNext = (values) => {
-    console.log('Proceeding to next step with values:', values); // Debug log
-    setFormValues(values);  // Capture form values on every step
-    setActiveStep((prev) => prev + 1);
-  };
-
-  // Function to go back to the previous step
-  const handleBack = () => {
-    setActiveStep((prev) => prev - 1);
-  };
-
-  // Function to handle form submission
-  const handleSubmit = async (values, { setSubmitting, setErrors }) => {
-    console.log('Submitting form with values:', values); // Debug log
-    if (activeStep < steps.length - 1) {
-      // Intermediate step: Proceed to next step
-      handleNext(values);
-      setSubmitting(false);
-    } else {
-      // Final step: Submit the form
+  useEffect(() => {
+    const fetchOptions = async () => {
       try {
-        // Make API request to register the user using axiosInstance
-        const response = await axiosInstance.post('register/', values);
-
-        // Handle successful registration
-        alert(response.data.message);
-        // Optionally, redirect to login page
-        window.location.href = '/login/';
+        const [equipmentRes, strengthGoalsRes] = await Promise.all([
+          axiosInstance.get('/equipment/'),
+          axiosInstance.get('/strength-goals/'),
+        ]);
+        setEquipmentOptions(equipmentRes.data.results || equipmentRes.data || []);
+        setStrengthGoalsOptions(strengthGoalsRes.data.results || strengthGoalsRes.data || []);
+        setLoading(false);
       } catch (error) {
-        console.error('Registration error:', error); // Debug log
-        if (error.response && error.response.data) {
-          const backendErrors = error.response.data;
-
-          // Initialize an empty object to hold mapped errors
-          const mappedErrors = {};
-
-          // Map backend errors to Formik fields
-          if (backendErrors.username) {
-            mappedErrors.username = backendErrors.username;
-          }
-
-          if (backendErrors.email) {
-            mappedErrors.email = backendErrors.email;
-          }
-
-          if (backendErrors.firstName) {
-            mappedErrors.firstName = backendErrors.firstName;
-          }
-
-          if (backendErrors.lastName) {
-            mappedErrors.lastName = backendErrors.lastName;
-          }
-
-          if (backendErrors.password) {
-            mappedErrors.password = backendErrors.password;
-          }
-
-          if (backendErrors.confirmPassword) {
-            mappedErrors.confirmPassword = backendErrors.confirmPassword;
-          }
-
-          if (backendErrors.strength_goals) {
-            mappedErrors.strength_goals = backendErrors.strength_goals;
-          }
-
-          // Handle general or non-field-specific errors
-          if (backendErrors.detail) {
-            mappedErrors.general = backendErrors.detail;
-          }
-
-          if (backendErrors.error) {
-            mappedErrors.general = backendErrors.error;
-          }
-
-          // Additional specific error handling can be added here
-
-          setErrors(mappedErrors);
-        }
-      } finally {
-        setSubmitting(false);
+        console.error('Error fetching options:', error);
+        setFetchError('Failed to load registration options.');
+        setLoading(false);
       }
+    };
+    fetchOptions();
+  }, []);
+
+  const handleSubmit = async (values, { setSubmitting, setErrors }) => {
+    try {
+      if (activeStep === steps.length - 1) {
+        // Prepare data for submission
+        const data = {
+          ...values,
+          strength_goals: values.strengthGoals, // Convert to snake_case for backend
+        };
+        // Submit the form to the backend
+        const response = await axiosInstance.post('register/', data);
+        // Handle successful registration
+        alert('Registration successful!');
+        // Redirect or perform any other action
+      } else {
+        setFormValues(values);
+        setActiveStep((prevStep) => prevStep + 1);
+      }
+    } catch (error) {
+      // Handle errors
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Function to render the content of each step
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+  };
+
   const getStepContent = (step) => {
     switch (step) {
       case 0:
@@ -254,56 +178,23 @@ function Registration() {
       case 4:
         return (
           <>
-            <FitnessGoals strengthGoalsOptions={strengthGoalsOptions} />
             <Equipment equipmentOptions={equipmentOptions} />
+            <FitnessGoals strengthGoalsOptions={strengthGoalsOptions} />
           </>
         );
       case 5:
         return (
           <ReviewSubmit
-            values={formValues}  // Ensure the latest formValues are passed
+            values={formValues}
             equipmentOptions={equipmentOptions}
             strengthGoalsOptions={strengthGoalsOptions}
           />
         );
       default:
-        return 'Unknown Step';
+        return 'Unknown step';
     }
   };
 
-  // Functions to handle Cancel Confirmation Dialog
-  const handleOpenCancelDialog = () => {
-    setOpenCancelDialog(true);
-  };
-
-  const handleCloseCancelDialog = () => {
-    setOpenCancelDialog(false);
-  };
-
-  const handleConfirmCancel = () => {
-    // Reset form and navigate back to the first step
-    setActiveStep(0);
-    setFormValues({
-      // Reset all fields with camelCase
-      username: '',
-      password: '',
-      confirmPassword: '',
-      firstName: '',
-      lastName: '',
-      email: '',
-      age: '',
-      sex: '',
-      fitnessLevel: '',
-      workoutTime: 30,
-      workoutDays: '',
-      equipment: [],
-      strength_goals: [],
-      additionalGoals: '',
-    });
-    setOpenCancelDialog(false);
-  };
-
-  // Display loading state while fetching options
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
@@ -315,7 +206,6 @@ function Registration() {
     );
   }
 
-  // Display error if fetching options failed
   if (fetchError) {
     return (
       <Box textAlign="center" mt={5}>
@@ -334,104 +224,49 @@ function Registration() {
   }
 
   return (
-    <Box width="100%" maxWidth="800px" margin="0 auto" className="registration-container">
-      {/* Stepper to visualize the registration steps */}
-      <Stepper
-        activeStep={activeStep}
-        alternativeLabel
-        style={{ padding: '20px 0', backgroundColor: 'transparent' }}
-      >
-        {/* ... rest of the Stepper */}
-      </Stepper>
+    <Box className="registration-container">
+      <Box className="stepper">
+        {steps.map((label, index) => (
+          <Box
+            key={label}
+            className={`step ${activeStep === index ? 'active' : ''}`}
+          >
+            {label}
+          </Box>
+        ))}
+      </Box>
 
-      {/* Formik form management */}
       <Formik
-        initialValues={formValues}  // Use formValues here to ensure updates reflect
+        initialValues={formValues}
         validationSchema={validationSchemas[activeStep]}
         onSubmit={handleSubmit}
         enableReinitialize
-        validateOnBlur={true}
-        validateOnChange={false} // Validate only on blur or submit
       >
-        {(formikProps) => (
+        {({ isValid, isSubmitting }) => (
           <Form>
-            <TransitionGroup>
-              <CSSTransition
-                key={activeStep}
-                timeout={300}
-                classNames="step"
-              >
-            {/* Render the appropriate form step */}
             {getStepContent(activeStep)}
 
-            {/* FormikDevTools for debugging */}
-            <FormikDevTools />
-
-            {/* Display general errors if any */}
-            {formikProps.errors.general && (
-              <Box color="red" marginTop="10px">
-                {formikProps.errors.general}
-              </Box>
-            )}
-            </CSSTransition>
-            </TransitionGroup>
-
-
             {/* Navigation Buttons */}
-            <Box display="flex" justifyContent="space-between" alignItems="center" marginTop="20px">
-              {/* "Cancel" Button */}
-              <Button variant="outlined" color="error" onClick={handleOpenCancelDialog}>
-                Cancel
+            <Box display="flex" justifyContent="space-between" marginTop="20px">
+              <Button
+                variant="contained"
+                onClick={handleBack}
+                disabled={activeStep === 0 || isSubmitting}
+              >
+                Back
               </Button>
-
-              {/* "Back" and "Next" Buttons */}
-              <Box>
-                {activeStep > 0 && (
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleBack}
-                    style={{ marginRight: '10px' }}
-                  >
-                    Back
-                  </Button>
-                )}
-                <Button
-                  variant="contained"
-                  color="primary"
-                  type="submit"
-                  disabled={formikProps.isSubmitting}
-                >
-                  {activeStep === steps.length - 1 ? 'Submit' : 'Next'}
-                </Button>
-              </Box>
+              <Button
+                variant="contained"
+                color="primary"
+                type="submit"
+                disabled={!isValid || isSubmitting}
+              >
+                {activeStep === steps.length - 1 ? 'Submit' : 'Next'}
+              </Button>
             </Box>
           </Form>
         )}
       </Formik>
-
-      {/* Cancel Confirmation Dialog */}
-      <Dialog
-        open={openCancelDialog}
-        onClose={handleCloseCancelDialog}
-        aria-labelledby="cancel-dialog-title"
-        aria-describedby="cancel-dialog-description"
-      >
-        <DialogTitle id="cancel-dialog-title">Cancel Registration</DialogTitle>
-        <DialogContent>
-          <DialogContentText id="cancel-dialog-description">
-            Are you sure you want to cancel the registration? All your progress will be lost.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseCancelDialog} color="primary">
-            No
-          </Button>
-          <Button onClick={handleConfirmCancel} color="error" autoFocus>
-            Yes, Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import ProgressionMetrics from '../components/ProgressionMetrics';
 import UploadProfilePicture from '../components/UploadProfilePicture';
-import LogSessionForm from '../components/LogSessionForm';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
@@ -171,13 +170,6 @@ const ProfilePage = () => {
         {activeTab === 'trainingSessions' && (
           <div className="profile-section">
             <h3>Training Sessions</h3>
-            {/* Log a Past Workout Session */}
-            <LogSessionForm
-              workoutPlans={workoutPlans}
-              source="profile"
-              onSessionLogged={handleSessionLogged}
-            />
-
             {training_sessions.length === 0 ? (
               <p>No training sessions available.</p>
             ) : (

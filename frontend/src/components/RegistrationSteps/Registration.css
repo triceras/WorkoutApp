@@ -1,25 +1,156 @@
 /* src/components/RegistrationSteps/Registration.css */
 
 .registration-container {
-    background-color: #F5F5DC; /* Beige color */
-    padding: 20px;
-  }
+  padding: 2rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 800px;
+  margin: 10px auto;
+}
 
-  .step-enter {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  .step-enter-active {
-    opacity: 1;
-    transform: translateX(0);
-    transition: opacity 300ms, transform 300ms;
-  }
-  .step-exit {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  .step-exit-active {
-    opacity: 0;
-    transform: translateX(-100%);
-    transition: opacity 300ms, transform 300ms;
-  }
+.registration-stepper {
+  margin-bottom: 1rem; /* Decreased padding */
+  padding: 2rem;
+  background-color: white;
+}
+
+/* Stepper connector styles */
+.MuiStepConnector-root {
+  position: relative;
+}
+
+.MuiStepConnector-root .MuiStepConnector-line {
+  display: block;
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-color: #e0e0e0;
+}
+
+.MuiStepConnector-root .MuiStepConnector-line::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -8px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 8px 0 8px 8px;
+  border-color: transparent transparent transparent #e0e0e0;
+}
+
+.MuiStepConnector-root.Mui-active .MuiStepConnector-line,
+.MuiStepConnector-root.Mui-completed .MuiStepConnector-line {
+  border-color: #1976d2;
+}
+
+.MuiStepConnector-root.Mui-active .MuiStepConnector-line::after,
+.MuiStepConnector-root.Mui-completed .MuiStepConnector-line::after {
+  border-left-color: #1976d2;
+}
+
+.MuiStepLabel-root {
+  padding: 24px 0;
+}
+
+.MuiStepIcon-root {
+  color: #eaeaf0;
+}
+
+.MuiStepIcon-root.Mui-active {
+  color: #1976d2;
+}
+
+.MuiStepIcon-root.Mui-completed {
+  color: #2e7d32;
+}
+
+/* Step content and form styles */
+.step-content {
+  padding: 2rem;
+  background-color: white;
+  border-radius: 8px;
+}
+
+.form-field {
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+  gap: 1rem;
+}
+
+.button-group button {
+  min-width: 120px;
+}
+
+/* Form transitions */
+.step-enter {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.step-enter-active {
+  opacity: 1;
+  transform: translateX(0%);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.step-exit {
+  opacity: 1;
+  transform: translateX(0%);
+}
+
+.step-exit-active {
+  opacity: 0;
+  transform: translateX(-100%);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Arrow-shaped steps with labels inside */
+.stepper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+  padding: 10px 20px;
+  background-color: #e0e0e0;
+  position: relative;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+  margin: 0 -2px;
+  clip-path: polygon(0 0, 95% 0, 100% 50%, 95% 100%, 0 100%, 5% 50%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.step.active {
+  background-color: #3f51b5;
+  color: white;
+}
+
+.step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 15px solid transparent;
+  border-bottom: 15px solid transparent;
+  border-left: 15px solid #e0e0e0;
+}
+
+.step.active:not(:last-child)::after {
+  border-left-color: #3f51b5;
+}

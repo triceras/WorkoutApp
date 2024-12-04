@@ -1,73 +1,59 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import { Card, CardContent, CardMedia, Typography, ListItem } from '@mui/material';
-import { Link } from 'react-router-dom';
+// src/components/WorkoutCard.jsx
 
-const getYoutubeThumbnailUrl = (videoId) => {
-  return `https://img.youtube.com/vi/${videoId}/0.jpg`;
-};
+import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+import {
+  Typography,
+  Grid,
+} from '@mui/material';
+import VideoModal from './VideoModal'; // Import VideoModal component
+import ExerciseCard from './ExerciseCard'; // Import ExerciseCard component
 
 function WorkoutCard({ workouts, userName }) {
-  // Debugging: Log the workouts prop to ensure it's an array and contains expected data
-  console.log('WorkoutCard received workouts:', workouts);
+  // State hooks for modal control
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [currentVideoId, setCurrentVideoId] = useState(null);
+
+  // Functions to open and close the modal
+  const openVideoModal = (videoId) => {
+    setCurrentVideoId(videoId);
+    setModalIsOpen(true);
+  };
+
+  const closeVideoModal = () => {
+    setModalIsOpen(false);
+    setCurrentVideoId(null);
+  };
 
   if (!Array.isArray(workouts) || workouts.length === 0) {
     return (
       <Typography variant="body1">
-        You have no workout scheduled for today.{' '}
-        <Link to="/generate-plan">Generate a new plan!</Link>
+        You have no workout scheduled for today.
       </Typography>
     );
   }
 
   return (
-    <Card style={{ marginBottom: '16px' }}>
-      <CardContent>
-        {/* Greeting Message */}
-        <Typography variant="h6">{`Hello ${userName}, here is your workout for today:`}</Typography>
+    <div>
+      <Typography variant="h6">{`Hello ${userName}, here is your workout for today:`}</Typography>
 
-        {/* Exercises List */}
+      {/* Exercises List */}
+      <Grid container spacing={3} style={{ marginTop: '16px' }}>
         {workouts.map((exercise, index) => (
-          <div key={exercise.id || index} style={{ marginBottom: '20px' }}>
-            {/* YouTube Thumbnail */}
-            {exercise.videoId && (
-              <CardMedia
-                component="img"
-                height="140"
-                image={getYoutubeThumbnailUrl(exercise.videoId)}
-                alt={`${exercise.name} video`}
-                style={{ marginBottom: '10px', cursor: 'pointer' }}
-                onClick={() => window.open(`https://www.youtube.com/watch?v=${exercise.videoId}`, '_blank')}
-              />
-            )}
-
-            {/* Exercise Details */}
-            <Typography variant="h6">{exercise.name}</Typography>
-            <Typography variant="body2" color="textSecondary">
-              <strong>💪 Sets & Reps:</strong> {exercise.setsReps}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              <strong>🏋️ Equipment:</strong> {exercise.equipment}
-            </Typography>
-            <Typography variant="body2" color="textSecondary" gutterBottom>
-              <strong>📋 Instructions:</strong>
-            </Typography>
-            <ul style={{ marginLeft: '20px' }}>
-              {exercise.instructions
-                ?.split('.')
-                .filter((sentence) => sentence.trim().length > 0)
-                .map((sentence, idx) => (
-                  <li key={idx}>
-                    <Typography variant="body2" color="textSecondary">
-                      {sentence.trim()}.
-                    </Typography>
-                  </li>
-                ))}
-            </ul>
-          </div>
+          <Grid item xs={12} sm={6} md={4} key={exercise.id || index}>
+            <ExerciseCard exercise={exercise} openVideoModal={openVideoModal} />
+          </Grid>
         ))}
-      </CardContent>
-    </Card>
+      </Grid>
+
+      {/* Render the VideoModal */}
+      <VideoModal
+        isOpen={modalIsOpen}
+        onRequestClose={closeVideoModal}
+        contentLabel="Watch Video"
+        videoId={currentVideoId}
+      />
+    </div>
   );
 }
 

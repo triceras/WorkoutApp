@@ -24,11 +24,27 @@ class WorkoutPlanConsumer(AsyncJsonWebsocketConsumer):
             logger.info(f"WorkoutPlanConsumer: User {user.username} disconnected and left group '{self.group_name}'.")
 
     async def workout_plan_generated(self, event):
-        await self.send_json({
-            'type': event['type'],
-            'plan_id': event['plan_id'],
-            'plan_data': event['plan_data'],
-            'additional_tips': event['additional_tips'],
-            'created_at': event['created_at'],
-        })
-        logger.info(f"WorkoutPlanConsumer: Sent workout plan to user {self.scope['user'].username} via WebSocket.")
+        """
+        Handles the 'workout_plan_generated' event sent by the backend.
+        """
+        try:
+            # Send the workout plan data to the frontend
+            await self.send_json({
+                'type': event['type'],
+                'plan_id': event['plan_id'],
+                'plan_data': event['plan_data'],
+                'additional_tips': event['additional_tips'],
+                'created_at': event['created_at'],
+            })
+            logger.info(f"WorkoutPlanConsumer: Sent workout plan to user {self.scope['user'].username} via WebSocket.")
+        except KeyError as e:
+            logger.error(f"WorkoutPlanConsumer: Missing key {e} in event data.")
+        except Exception as e:
+            logger.error(f"WorkoutPlanConsumer: Error sending workout plan: {e}", exc_info=True)
+
+    async def receive_json(self, content, **kwargs):
+        """
+        Optionally handle messages received from the WebSocket client.
+        """
+        logger.info(f"WorkoutPlanConsumer: Received message from client: {content}")
+        # Process the received message if needed

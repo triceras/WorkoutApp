@@ -19,9 +19,13 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import axiosInstance from '../../api/axiosInstance';
 import debounce from 'lodash.debounce';
+import InfoIcon from '@mui/icons-material/Info';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import CircularProgress from '@mui/material/CircularProgress';
 
-function PersonalInfo({ nextStep, prevStep }) {
-  const { values, errors, touched, handleChange, handleBlur, setFieldError, setFieldTouched } = useFormikContext();
+function PersonalInfo() {
+  const { values, errors, touched, handleChange, handleBlur, setFieldError, setFieldTouched, setFieldValue } = useFormikContext();
   const [emailAvailable, setEmailAvailable] = useState(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
 
@@ -53,122 +57,102 @@ function PersonalInfo({ nextStep, prevStep }) {
         setFieldError('email', null);
       }
     }, 500)
-  ).current;
+  );
 
   useEffect(() => {
-    if (touched.email) {
-      debouncedCheckEmail(values.email);
-    }
-
-    return () => {
-      debouncedCheckEmail.cancel();
-    };
-  }, [values.email, touched.email, debouncedCheckEmail]);
-
-  // Function to check if the current step's fields are valid
-  const isStepValid = () => {
-    const requiredFields = ['firstName', 'lastName', 'email', 'age', 'sex', 'weight', 'height'];
-    return (
-      requiredFields.every(
-        (field) => touched[field] && !errors[field] && values[field] !== ''
-      ) && emailAvailable === true
-    );
-  };
+    // Call the debounced function when email changes
+    debouncedCheckEmail.current(values.email);
+  }, [values.email]);
 
   return (
     <Box width="100%" maxWidth="600px" margin="0 auto">
       <Typography variant="h5" gutterBottom>
         Personal Information
       </Typography>
+      <Box display="grid" gap={3}>
+        <TextField
+          fullWidth
+          name="firstName"
+          label="First Name"
+          value={values.firstName}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={touched.firstName && Boolean(errors.firstName)}
+          helperText={touched.firstName && errors.firstName}
+          required
+        />
 
-      <TextField
-        label="First Name"
-        name="firstName"
-        value={values.firstName}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        error={touched.firstName && Boolean(errors.firstName)}
-        helperText={touched.firstName && errors.firstName}
-        fullWidth
-        margin="normal"
-        required
-      />
+        <TextField
+          fullWidth
+          name="lastName"
+          label="Last Name"
+          value={values.lastName}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={touched.lastName && Boolean(errors.lastName)}
+          helperText={touched.lastName && errors.lastName}
+          required
+        />
 
-      <TextField
-        label="Last Name"
-        name="lastName"
-        value={values.lastName}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        error={touched.lastName && Boolean(errors.lastName)}
-        helperText={touched.lastName && errors.lastName}
-        fullWidth
-        margin="normal"
-        required
-      />
+        <TextField
+          fullWidth
+          name="email"
+          label="Email"
+          type="email"
+          value={values.email}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={touched.email && Boolean(errors.email)}
+          helperText={touched.email && errors.email}
+          required
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                {checkingEmail ? (
+                  <CircularProgress size={24} />
+                ) : emailAvailable ? (
+                  <CheckCircleIcon color="success" />
+                ) : emailAvailable === false ? (
+                  <CancelIcon color="error" />
+                ) : (
+                  <Tooltip title="Enter a valid email address">
+                    <IconButton>
+                      <InfoIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </InputAdornment>
+            ),
+          }}
+        />
 
-      <TextField
-        label="Email"
-        name="email"
-        type="email"
-        value={values.email}
-        onChange={(e) => {
-          handleChange(e);
-          setFieldTouched('email', true, false);
-        }}
-        onBlur={handleBlur}
-        error={touched.email && Boolean(errors.email)}
-        helperText={touched.email && errors.email}
-        fullWidth
-        margin="normal"
-        required
-        InputProps={{
-          endAdornment: (
-            <InputAdornment position="end">
-              {checkingEmail ? null : emailAvailable === true ? (
-                <CheckCircleIcon style={{ color: 'green' }} />
-              ) : emailAvailable === false ? (
-                <CancelIcon style={{ color: 'red' }} />
-              ) : null}
-            </InputAdornment>
-          ),
-        }}
-      />
+        <TextField
+          fullWidth
+          name="age"
+          label="Age"
+          type="number"
+          value={values.age}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={touched.age && Boolean(errors.age)}
+          helperText={touched.age && errors.age}
+          required
+          inputProps={{ min: 1 }}
+        />
 
-      <TextField
-        label="Age"
-        name="age"
-        type="number"
-        value={values.age}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        error={touched.age && Boolean(errors.age)}
-        helperText={touched.age && errors.age}
-        fullWidth
-        margin="normal"
-        required
-        InputProps={{ inputProps: { min: 1 } }}
-      />
-
-      {/* Sex Field */}
-      <Box mt={2}>
-        <FormControl
+        <FormControl 
           fullWidth
           error={touched.sex && Boolean(errors.sex)}
         >
-          <InputLabel id="sex-label">Sex</InputLabel>
+          <InputLabel id="sex-label" required>Sex</InputLabel>
           <Select
             labelId="sex-label"
-            id="sex"
             name="sex"
             value={values.sex}
             onChange={handleChange}
             onBlur={handleBlur}
             label="Sex"
           >
-            <MenuItem value="">
-              <em>Select your sex</em>
-            </MenuItem>
             <MenuItem value="Male">Male</MenuItem>
             <MenuItem value="Female">Female</MenuItem>
             <MenuItem value="Other">Other</MenuItem>
@@ -178,59 +162,37 @@ function PersonalInfo({ nextStep, prevStep }) {
             <FormHelperText>{errors.sex}</FormHelperText>
           )}
         </FormControl>
-      </Box>
 
-      <TextField
-        label="Weight (kg)"
-        name="weight"
-        type="number"
-        value={values.weight}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        error={touched.weight && Boolean(errors.weight)}
-        helperText={touched.weight && errors.weight}
-        fullWidth
-        margin="normal"
-        required
-        InputProps={{ inputProps: { min: 1 } }}
-      />
+        <TextField
+          fullWidth
+          name="weight"
+          label="Weight (kg)"
+          type="number"
+          value={values.weight}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={touched.weight && Boolean(errors.weight)}
+          helperText={touched.weight && errors.weight}
+          required
+          inputProps={{ min: 1 }}
+        />
 
-      <TextField
-        label="Height (cm)"
-        name="height"
-        type="number"
-        value={values.height}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        error={touched.height && Boolean(errors.height)}
-        helperText={touched.height && errors.height}
-        fullWidth
-        margin="normal"
-        required
-        InputProps={{ inputProps: { min: 1 } }}
-      />
-
-      {/* Navigation Buttons */}
-      <Box display="flex" justifyContent="space-between" marginTop="20px">
-        <Button variant="contained" color="secondary" onClick={prevStep}>
-          Back
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={nextStep}
-          disabled={!isStepValid()}
-        >
-          Next
-        </Button>
+        <TextField
+          fullWidth
+          name="height"
+          label="Height (cm)"
+          type="number"
+          value={values.height}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={touched.height && Boolean(errors.height)}
+          helperText={touched.height && errors.height}
+          required
+          inputProps={{ min: 1 }}
+        />
       </Box>
     </Box>
   );
 }
-
-PersonalInfo.propTypes = {
-  nextStep: PropTypes.func.isRequired,
-  prevStep: PropTypes.func.isRequired,
-};
 
 export default PersonalInfo;

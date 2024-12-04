@@ -41,6 +41,7 @@ WORKOUT_PLAN_SCHEMA = {
                 "properties": {
                     "day": {"type": "string"},
                     "type": {"type": "string", "enum": ["workout", "rest", "active_recovery"]},
+                    "workout_type": {"type": "string"},
                     "duration": {"type": "string"},
                     "exercises": {
                         "type": "array",
@@ -57,16 +58,40 @@ WORKOUT_PLAN_SCHEMA = {
                                 "calories_burned": {"type": ["integer", "null"]},
                                 "average_heart_rate": {"type": ["integer", "null"]},
                                 "max_heart_rate": {"type": ["integer", "null"]},
-                                "intensity": {"type": ["string", "null"], "enum": ["Low", "Moderate", "High", None]},
+                                "intensity": {
+                                    "type": ["string", "null"],
+                                    "enum": ["Low", "Moderate", "High", None],
+                                },
                             },
                             "required": ["name", "setsReps", "equipment", "instructions", "videoId"],
-                            "additionalProperties": False
+                            "additionalProperties": False,
                         },
                     },
                     "notes": {"type": "string"},
                 },
                 "required": ["day", "type"],
-                "additionalProperties": False
+                "additionalProperties": False,
+                "oneOf": [
+                    {
+                        "properties": {
+                            "type": {"const": "workout"},
+                            "workout_type": {"type": "string"},
+                            "duration": {"type": "string"},
+                            "exercises": {
+                                "type": "array",
+                                "minItems": 1,
+                            },
+                        },
+                        "required": ["workout_type", "duration", "exercises"],
+                    },
+                    {
+                        "properties": {
+                            "type": {"enum": ["rest", "active_recovery"]},
+                            "notes": {"type": "string"},
+                        },
+                        "required": ["notes"],
+                    },
+                ],
             },
         },
         "additionalTips": {
@@ -75,8 +100,15 @@ WORKOUT_PLAN_SCHEMA = {
         },
     },
     "required": ["workoutDays"],
-    "additionalProperties": False
+    "additionalProperties": False,
 }
+
+
+def is_json_complete(json_str):
+    """
+    Checks if the JSON string has matching opening and closing braces.
+    """
+    return json_str.count('{') == json_str.count('}')
 
 def validate_workout_plan(workout_plan):
     """
@@ -117,35 +149,33 @@ def get_latest_feedback(user):
 
 def extract_json_from_text(text):
     """
-    Extracts the first JSON object found in the text, handling code blocks.
-
-    Args:
-        text (str): The text containing JSON.
-
-    Returns:
-        str or None: The extracted JSON string, or None if not found.
+    Extracts the JSON content from text, handling code blocks and triple backticks.
     """
     try:
-        # Remove any backticks and language identifiers
-        text = re.sub(r'```(\w+)?\n', '', text).strip('`\n ')
+        # Remove any triple backticks and language identifiers
+        text = re.sub(r'^```[a-zA-Z]*\n?', '', text, flags=re.MULTILINE)
+        text = text.replace('```', '')  # Remove any remaining backticks
+        # Remove any leading/trailing whitespace
+        text = text.strip()
         # Find the first opening brace
         start_index = text.find('{')
         if start_index == -1:
             return None
-        # Initialize a counter for braces
-        brace_count = 0
-        for index in range(start_index, len(text)):
-            char = text[index]
-            if char == '{':
-                brace_count += 1
-            elif char == '}':
-                brace_count -= 1
-                if brace_count == 0:
-                    return text[start_index:index+1]
-        return None  # No matching closing brace found
+        # Find the last closing brace
+        end_index = text.rfind('}')
+        if end_index == -1:
+            return None
+        json_str = text[start_index:end_index+1]
+        # Verify that braces are balanced
+        if json_str.count('{') != json_str.count('}'):
+            logger.error("Braces are not balanced in JSON string.")
+            return None
+        return json_str
     except Exception as e:
         logger.error(f"Error extracting JSON: {e}")
         return None
+
+
 
 def remove_comments(json_str):
     """
@@ -162,10 +192,10 @@ def remove_comments(json_str):
 
 def generate_prompt(
     age, sex, weight, height, fitness_level, strength_goals, additional_goals,
-    equipment, workout_time, workout_days, feedback_note=None
+    equipment, workout_time, workout_days, feedback_note=None, user_comments=None
 ):
     """
-    Generates the prompt for the AI model to create a workout plan.
+    Generates the prompt for the AI model to create a customized workout plan.
 
     Args:
         age (int): User's age.
@@ -179,6 +209,7 @@ def generate_prompt(
         workout_time (int): Minutes available per workout session.
         workout_days (int): Number of workout days per week.
         feedback_note (str, optional): User's latest feedback.
+        user_comments (str, optional): Additional comments from the user.
 
     Returns:
         str: The formatted prompt for the AI model.
@@ -186,6 +217,7 @@ def generate_prompt(
     strength_goals_str = ', '.join(strength_goals) if isinstance(strength_goals, list) else strength_goals or 'None'
     available_equipment_str = ', '.join(equipment) if isinstance(equipment, list) else equipment or 'None'
     additional_goals_str = additional_goals or 'None'
+    user_comments_str = user_comments or 'No additional comments provided.'
 
     # Define the JSON schema example separately
     json_schema_example = '''
@@ -194,6 +226,7 @@ def generate_prompt(
     {
       "day": "Day 1: Chest and Triceps",
       "type": "workout",
+      "workout_type": "Strength",
       "duration": "60 minutes",
       "exercises": [
         {
@@ -204,12 +237,25 @@ def generate_prompt(
           "videoId": "VIDEO_ID_HERE"
         }
         // ... additional exercises ...
-      ]
+      ],
+      "notes": "Remember to warm up before starting."
     },
     {
-      "day": "Day 2: Rest Day",
-      "type": "rest",
-      "notes": "Use this day to recover. Light stretching or walking is encouraged."
+      "day": "Day 2: Back and Biceps",
+      "type": "workout",
+      "workout_type": "Strength",
+      "duration": "60 minutes",
+      "exercises": [
+        {
+          "name": "Deadlift",
+          "setsReps": "3 sets of 8-12 reps",
+          "equipment": "Barbell",
+          "instructions": "Stand with feet hip-width apart...",
+          "videoId": "VIDEO_ID_HERE"
+        }
+        // ... additional exercises ...
+      ],
+      "notes": "Focus on form to prevent injuries."
     }
     // ... additional days ...
   ],
@@ -221,7 +267,15 @@ def generate_prompt(
 '''
 
     prompt = f"""
-You are a professional fitness trainer specializing in creating personalized workout plans. Generate a comprehensive **weekly workout plan** for the user based on the following profile and feedback. The plan should strictly adhere to the provided JSON schema without any additional explanations or text.
+You are a professional fitness trainer specializing in creating personalized workout plans.
+
+**Instructions:**
+
+- Generate a comprehensive **weekly workout plan** for the user based on their profile and comments.
+- **Each workout day must include a `workout_type` field.**
+- **Include stretching movements at the end of training days.**
+- Provide the response in **JSON format only**, adhering strictly to the provided schema.
+- **Do not include any text before or after the JSON.**
 
 **User Profile:**
 - **Age:** {age}
@@ -236,56 +290,77 @@ You are a professional fitness trainer specializing in creating personalized wor
 
 **User Feedback:** {feedback_note or 'No feedback provided.'}
 
+**User Comments:** {user_comments_str}
+
 **Plan Requirements:**
-1. **Exercise Selection:**
+1. **Customization:**
+   - Personalize the workout plan based on the user's preferences, goals, and comments.
+   - Address any specific requests or concerns mentioned in the user's comments.
+
+2. **Exercise Selection:**
    - Ensure a balanced distribution of exercises targeting all major muscle groups (e.g., chest, back, legs, shoulders, arms, core).
    - Align exercise selection with the user's strength and additional goals.
 
-2. **Time-Based Exercise Count:**
+3. **Workout Type:**
+   - For each workout day, include a **`workout_type`** field that specifies the primary focus of the workout (e.g., "Strength", "Cardio", "Flexibility", "Endurance").
+   - The `workout_type` should reflect the main type of exercises included in that day's session.
+
+4. **Time-Based Exercise Count:**
    - For **30 minutes** per session: Include **4 to 5 exercises**.
    - For **60 minutes** per session: Include **7 to 8 exercises**.
    - For other durations: Adjust the number of exercises proportionally.
    - **Maximum:** Do not exceed **10 exercises** per session.
 
-3. **Sets and Reps Adjustment:**
+5. **Sets and Reps Adjustment:**
    - Modify the number of sets and reps based on the user's fitness level:
      - **Beginner:** Higher reps (12-15) with moderate sets (2-3).
      - **Intermediate:** Moderate reps (8-12) with higher sets (3-4).
      - **Advanced:** Lower reps (6-8) with intensive sets (4-5).
 
-4. **Intensity and Complexity:**
-   - Adjust exercise intensity and complexity considering the user's age and sex.
+6. **Intensity and Complexity:**
+   - Adjust exercise intensity and complexity considering the user's age, sex, and fitness level.
    - Incorporate progressive overload principles for continuous improvement.
 
-5. **Cardio Integration:**
+7. **Cardio Integration:**
    - Include cardio exercises appropriate to the available equipment.
    - If specific equipment isn't available, suggest alternative cardio methods (e.g., running in place, jumping jacks).
 
-6. **Recovery and Rest Days:**
-   - Allocate rest days based on workout days to ensure adequate recovery.
-   - For rest days, set `"type": "rest"` and include relevant `"notes"`.
-   - Suggest active recovery activities (e.g., stretching, light yoga) on rest days.
+8. **Active Recovery and Rest Days (STRICT RULES):**
+   - **For 5 or fewer workout days per week ({workout_days} specified):**
+     {'- All days MUST be workout days (`"type": "workout"`).\n     - Do NOT include any active recovery or rest days.' if workout_days <= 5 else '- Include one active recovery day (`"type": "active_recovery"`) with light exercises.\n     - All other days should be workout days.'}
+   - For active recovery days (when applicable):
+     - Include light exercises like stretching, yoga, or mobility work
+     - Set intensity lower than regular workout days
+     - Focus on recovery and flexibility
+   - Always include stretching at the end of each training day
 
-7. **Stretching and Flexibility:**
-   - Include stretching routines at the end of each workout to enhance flexibility and reduce muscle soreness.
+9. **Stretching and Flexibility:**
+   - Include stretching routines at the end of each training day to enhance flexibility and reduce muscle soreness.
+   - Provide specific stretches targeting the muscles worked that day.
+   - Ensure stretches are appropriate for the user's fitness level and any comments provided.
 
-8. **Equipment Constraints:**
-   - If certain equipment is unavailable, provide substitute exercises that use alternative equipment or body weight.
+10. **Equipment Constraints:**
+    - If certain equipment is unavailable, provide substitute exercises that use alternative equipment or body weight.
 
-9. **Weekly Variation:**
-   - Ensure each week's plan varies slightly to prevent monotony and promote balanced muscle development.
+11. **Weekly Variation:**
+    - Ensure each week's plan varies slightly to prevent monotony and promote balanced muscle development.
 
 **JSON Schema:**
 {json_schema_example}
 
 **Final Instructions:**
 1. **Provide only the JSON response without any additional explanations or text.**
-2. **Ensure the JSON is properly formatted and adheres strictly to the provided schema.**
+2. **Ensure the JSON is properly formatted and adheres strictly to the provided schema, including all required fields such as `workout_type`.**
 3. **Do not include any text before or after the JSON.**
 4. **Do not include comments, markdown code blocks, or triple backticks.**
 5. **If you need to mention anything, include it within the JSON as 'additionalTips' or 'notes' in the relevant day.**
+6. **Ensure `workout_type` is included in every workout day.**
+7. **IMPORTANT: For {workout_days} workout days per week:**
+   {'- All days MUST be workout days. Do NOT include any active recovery or rest days.' if workout_days <= 5 else '- Include exactly one active recovery day and make all other days workout days.'}
+8. **Include stretching exercises at the end of each training day in the `exercises` list.**
 """
     return prompt
+
 
 
 def generate_workout_plan(user_id, feedback_text=None):
@@ -333,7 +408,7 @@ def generate_workout_plan(user_id, feedback_text=None):
         workout_days=workout_days,
         workout_time=workout_time,
         additional_goals=additional_goals,
-        feedback_note=feedback_note
+        feedback_note=feedback_note,
     )
 
     # Log the prompt for debugging
@@ -347,7 +422,7 @@ def generate_workout_plan(user_id, feedback_text=None):
 
     # Prepare the payload for OpenRouter AI
     payload = {
-        "model": "google/gemini-flash-1.5",
+        "model": "openai/gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
@@ -397,6 +472,9 @@ def generate_workout_plan(user_id, feedback_text=None):
 
     # Clean the output
     output_str = output_str.strip()
+    
+    # Remove any triple backticks
+    output_str = output_str.replace('```', '')
 
     if not output_str:
         logger.error("AI model returned an empty response.")
@@ -410,7 +488,7 @@ def generate_workout_plan(user_id, feedback_text=None):
     except json.JSONDecodeError:
         # Try to extract the JSON from within the output
         json_content = extract_json_from_text(output_str)
-        if json_content:
+        if json_content and is_json_complete(json_content):
             try:
                 clean_json_content = remove_comments(json_content)
                 workout_plan_data = json.loads(clean_json_content)
@@ -513,7 +591,7 @@ Please analyze the current session and make necessary adjustments based on the u
             "average_heart_rate": 150,
             "max_heart_rate": 180,
             "intensity": "High"
-        }}
+        }},
         // ... additional exercises ...
     ],
     "additionalTips": [
@@ -544,8 +622,8 @@ Please analyze the entire workout plan and make necessary adjustments based on t
 
 **Workout Plan Requirements:**
 1. **Exercise Quantity:**
-   - **30 minutes/session:** Include **4 to 5 exercises** per day.
-   - **60 minutes/session:** Include **7 to 8 exercises** per day.
+   - **30 minutes/session:** Include **4 to 5 exercises**.
+   - **60 minutes/session:** Include **7 to 8 exercises**.
    - **Other durations:** Adjust the number of exercises proportionally.
    - **Maximum:** Do not exceed **10 exercises** per session.
 2. **Sets and Reps:** Tailor based on fitness level and available time.
@@ -614,7 +692,7 @@ Please analyze the entire workout plan and make necessary adjustments based on t
 
         # Prepare the payload for OpenRouter AI
         payload = {
-            "model": "google/gemini-flash-1.5",
+            "model": "openai/gpt-4o-mini",
             "messages": [
                 {
                     "role": "user",

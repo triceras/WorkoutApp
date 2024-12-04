@@ -9,7 +9,7 @@
 
 /* Navbar Container */
 .navbar {
-  background-color: transparent; /* Make background transparent */
+  background-color: #ffffff;
   position: fixed;
   top: 0;
   left: 0;
@@ -17,8 +17,7 @@
   height: 60px;
   display: flex;
   align-items: center;
-  /* Optional: remove shadow */
-  box-shadow: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Added shadow */
   z-index: 1000;
 }
 

@@ -147,8 +147,6 @@ class WorkoutPlan(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='workout_plan')
     week_number = models.PositiveIntegerField(default=1)
     plan_data = models.JSONField()
-    dashboard_background = models.URLField(max_length=500, blank=True, null=True)  # Updated to URLField
-    workoutplan_background = models.URLField(max_length=500, blank=True, null=True)  # Updated to URLField
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

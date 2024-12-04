@@ -1,11 +1,11 @@
 # backend/api/middleware.py
 
+import logging
+import urllib.parse
 from channels.middleware import BaseMiddleware
 from django.contrib.auth.models import AnonymousUser
 from channels.db import database_sync_to_async
 from rest_framework.authtoken.models import Token
-from urllib.parse import parse_qs
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -18,29 +18,19 @@ def get_user(token_key):
         return AnonymousUser()
 
 class TokenAuthMiddleware(BaseMiddleware):
-    """
-    Custom middleware that authenticates users via token provided in query parameters.
-    """
-
     async def __call__(self, scope, receive, send):
-        logger.debug("New WebSocket connection attempt.")
-        query_string = scope['query_string'].decode()
-        params = parse_qs(query_string)
-        token_key = params.get('token', [None])[0]
-        logger.debug(f"Received token: {token_key}")
+        query_string = scope.get('query_string', b'').decode()
+        query_params = urllib.parse.parse_qs(query_string)
+        token_key = query_params.get('token', [None])[0]
 
         if token_key:
             user = await get_user(token_key)
-            logger.debug(f"User fetched: {user.username if not user.is_anonymous else 'Anonymous'}")
-            scope['user'] = user
-            if user.is_anonymous:
-                logger.warning("WebSocket connection rejected: Invalid token.")
-                await self.close()
+            if user and not user.is_anonymous:
+                logger.info(f"TokenAuthMiddleware: Authenticated user {user.username} with token {token_key}")
             else:
-                logger.info(f"WebSocket connection accepted for user {user.username}.")
+                logger.warning(f"TokenAuthMiddleware: Invalid token {token_key}")
         else:
-            scope['user'] = AnonymousUser()
-            logger.warning("WebSocket connection rejected: No token provided.")
-            await self.close()
+            logger.warning("TokenAuthMiddleware: No token provided in WebSocket connection")
 
+        scope['user'] = await get_user(token_key)
         return await super().__call__(scope, receive, send)

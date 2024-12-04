@@ -5,28 +5,16 @@ from celery import shared_task
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from .models import WorkoutPlan, TrainingSession
-from .services import (
-    generate_workout_plan,
-    process_feedback_with_ai,
-    ReplicateServiceUnavailable,
-    get_latest_feedback
-)
-from .helpers import (
-    send_workout_plan_to_group,
-    assign_video_ids_to_exercises,
-    assign_video_ids_to_exercise_list
-)
+from .services import generate_workout_plan
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
-import replicate  # Import the Replicate client
-from django.conf import settings
 from django.core.cache import cache
+from django.utils import timezone
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-
-TASK_LOCK_EXPIRE = 60 * 5  # 5 minutes
 
 @shared_task(bind=True, max_retries=3)
 def generate_workout_plan_task(self, user_id):
@@ -45,8 +33,12 @@ def generate_workout_plan_task(self, user_id):
             return None
             
         # Main task logic
-        user = User.objects.get(id=user_id)
-        logger.info(f"Generating workout plan for user ID: {user.id}, username: {user.username}")
+        try:
+            user = User.objects.get(id=user_id)
+            logger.info(f"Generating workout plan for user ID: {user.id}, username: {user.username}")
+        except User.DoesNotExist:
+            logger.error(f"User with id {user_id} does not exist.")
+            return None
 
         # Generate the workout plan using the service function
         plan = generate_workout_plan(user.id)
@@ -68,12 +60,12 @@ def generate_workout_plan_task(self, user_id):
             else:
                 logger.info(f"Workout plan created for user {user.username}")
                 
-            # Emit WebSocket event
+            # Emit WebSocket event with the correct 'type'
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
                 f'workout_plan_{user.id}',
                 {
-                    'type': 'workout_plan_generated',
+                    'type': 'workout_plan_generated',  # Must match consumer handler
                     'plan_id': str(workout_plan.id),
                     'plan_data': workout_plan.plan_data.get('workoutDays', []),
                     'additional_tips': workout_plan.plan_data.get('additionalTips', []),
@@ -91,7 +83,7 @@ def generate_workout_plan_task(self, user_id):
             }
 
     except Exception as e:
-        logger.error(f"Error in generate_workout_plan_task: {e}")
+        logger.error(f"Error in generate_workout_plan_task: {e}", exc_info=True)
         try:
             self.retry(exc=e, countdown=60)
         except self.MaxRetriesExceededError:
@@ -201,63 +193,80 @@ def process_feedback_submission_task(self, training_session_id):
             logger.error(f"Max retries exceeded for processing feedback of Training Session ID {training_session_id}")
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def generate_backgrounds_task(self, user_id):
+# @shared_task(bind=True, max_retries=3, default_retry_delay=60)
+# def generate_backgrounds_task(self, user_id):
+#     """
+#     Celery task to generate background images for a user's workout plan using Replicate's Flux model.
+#     """
+#     try:
+#         user = User.objects.get(id=user_id)
+#         workout_plan = WorkoutPlan.objects.get(user=user)
+
+#         logger.info(f"Generating background images for user {user.username} using Replicate's Flux model.")
+
+#         # Initialize the Replicate client
+#         replicate_client = replicate.Client(api_token=settings.REPLICATE_API_TOKEN)
+
+#         # Define the correct model identifier with version
+#         model_identifier = "black-forest-labs/flux-1.1-pro"  # Replace with the actual version
+
+#         # Prepare prompts for dashboard and workout plan backgrounds
+#         prompt_dashboard = "A modern and sleek fitness dashboard background with abstract shapes and vibrant colors."
+#         prompt_workoutplan = "A dynamic workout plan background featuring gym equipment and motivational elements."
+
+#         # Generate dashboard background using replicate.run()
+#         logger.info(f"Generating dashboard background for user {user.username}.")
+#         dashboard_output = replicate.run(
+#             model_identifier,
+#             input={"prompt": prompt_dashboard}
+#         )
+#         dashboard_background_url = dashboard_output  # Assuming the model returns a single URL
+
+#         # Generate workout plan background using replicate.run()
+#         logger.info(f"Generating workout plan background for user {user.username}.")
+#         workoutplan_output = replicate.run(
+#             model_identifier,
+#             input={"prompt": prompt_workoutplan}
+#         )
+#         workoutplan_background_url = workoutplan_output  # Assuming the model returns a single URL
+
+#         # Update the WorkoutPlan instance with the generated images
+#         workout_plan.dashboard_background = dashboard_background_url
+#         workout_plan.workoutplan_background = workoutplan_background_url
+#         workout_plan.save()
+
+#         logger.info(f"Background images generated and assigned for user {user.username}.")
+
+#     except User.DoesNotExist:
+#         logger.error(f"User with id {user_id} does not exist.")
+#     except WorkoutPlan.DoesNotExist:
+#         logger.error(f"WorkoutPlan for user id {user_id} does not exist.")
+#     except replicate.exceptions.ReplicateException as e:
+#         logger.error(f"Replicate API error: {e}", exc_info=True)
+#         try:
+#             self.retry(exc=e)
+#         except self.MaxRetriesExceededError:
+#             logger.error(f"Max retries exceeded for generating backgrounds for user id {user_id}")
+#     except Exception as e:
+#         logger.error(f"Unexpected error generating backgrounds for user id {user_id}: {e}", exc_info=True)
+#         try:
+#             self.retry(exc=e)
+#         except self.MaxRetriesExceededError:
+#             logger.error(f"Max retries exceeded for generating backgrounds for user id {user_id}")
+
+
+def send_workout_plan_to_group(user, plan_data):
     """
-    Celery task to generate background images for a user's workout plan using Replicate's Flux model.
+    Utility function to send the workout plan to the user's WebSocket group.
     """
-    try:
-        user = User.objects.get(id=user_id)
-        workout_plan = WorkoutPlan.objects.get(user=user)
-
-        logger.info(f"Generating background images for user {user.username} using Replicate's Flux model.")
-
-        # Initialize the Replicate client
-        replicate_client = replicate.Client(api_token=settings.REPLICATE_API_TOKEN)
-
-        # Define the correct model identifier with version
-        model_identifier = "black-forest-labs/flux-1.1-pro"  # Replace with the actual version
-
-        # Prepare prompts for dashboard and workout plan backgrounds
-        prompt_dashboard = "A modern and sleek fitness dashboard background with abstract shapes and vibrant colors."
-        prompt_workoutplan = "A dynamic workout plan background featuring gym equipment and motivational elements."
-
-        # Generate dashboard background using replicate.run()
-        logger.info(f"Generating dashboard background for user {user.username}.")
-        dashboard_output = replicate.run(
-            model_identifier,
-            input={"prompt": prompt_dashboard}
-        )
-        dashboard_background_url = dashboard_output  # Assuming the model returns a single URL
-
-        # Generate workout plan background using replicate.run()
-        logger.info(f"Generating workout plan background for user {user.username}.")
-        workoutplan_output = replicate.run(
-            model_identifier,
-            input={"prompt": prompt_workoutplan}
-        )
-        workoutplan_background_url = workoutplan_output  # Assuming the model returns a single URL
-
-        # Update the WorkoutPlan instance with the generated images
-        workout_plan.dashboard_background = dashboard_background_url
-        workout_plan.workoutplan_background = workoutplan_background_url
-        workout_plan.save()
-
-        logger.info(f"Background images generated and assigned for user {user.username}.")
-
-    except User.DoesNotExist:
-        logger.error(f"User with id {user_id} does not exist.")
-    except WorkoutPlan.DoesNotExist:
-        logger.error(f"WorkoutPlan for user id {user_id} does not exist.")
-    except replicate.exceptions.ReplicateException as e:
-        logger.error(f"Replicate API error: {e}", exc_info=True)
-        try:
-            self.retry(exc=e)
-        except self.MaxRetriesExceededError:
-            logger.error(f"Max retries exceeded for generating backgrounds for user id {user_id}")
-    except Exception as e:
-        logger.error(f"Unexpected error generating backgrounds for user id {user_id}: {e}", exc_info=True)
-        try:
-            self.retry(exc=e)
-        except self.MaxRetriesExceededError:
-            logger.error(f"Max retries exceeded for generating backgrounds for user id {user_id}")
+    channel_layer = get_channel_layer()
+    group_name = f'workout_plan_{user.id}'
+    message = {
+        'type': 'workout_plan_generated',  # Must match consumer handler
+        'plan_id': str(user.workoutplan.id),  # Assuming user has a related workoutplan
+        'plan_data': plan_data.get('workoutDays', []),
+        'additional_tips': plan_data.get('additionalTips', []),
+        'created_at': user.workoutplan.created_at.isoformat(),
+    }
+    async_to_sync(channel_layer.group_send)(group_name, message)
+    logger.info(f"WebSocket event sent for user {user.username}: {message}")

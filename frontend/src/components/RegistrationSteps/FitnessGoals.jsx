@@ -8,14 +8,13 @@ import {
   FormGroup,
   FormControl,
   FormLabel,
-  Button,
   Box,
   Typography,
   TextField,
 } from '@mui/material';
 import PropTypes from 'prop-types';
 
-function FitnessGoals({ nextStep, prevStep, strengthGoalsOptions }) {
+function FitnessGoals({ strengthGoalsOptions }) {
   const {
     values,
     errors,
@@ -34,14 +33,6 @@ function FitnessGoals({ nextStep, prevStep, strengthGoalsOptions }) {
         values.strengthGoals.filter((item) => item !== id)
       );
     }
-  };
-
-  const isStepValid = () => {
-    return (
-      Array.isArray(values.strengthGoals) &&
-      values.strengthGoals.length > 0 &&
-      !errors.strengthGoals
-    );
   };
 
   return (
@@ -91,28 +82,11 @@ function FitnessGoals({ nextStep, prevStep, strengthGoalsOptions }) {
         multiline
         rows={4}
       />
-
-      {/* Navigation Buttons */}
-      <Box display="flex" justifyContent="space-between" marginTop="20px">
-        <Button variant="contained" onClick={() => prevStep()}>
-          Back
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => nextStep()}
-          disabled={!isStepValid()}
-        >
-          Next
-        </Button>
-      </Box>
     </Box>
   );
 }
 
 FitnessGoals.propTypes = {
-  nextStep: PropTypes.func.isRequired,
-  prevStep: PropTypes.func.isRequired,
   strengthGoalsOptions: PropTypes.array.isRequired,
 };
 

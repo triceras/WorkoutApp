@@ -21,15 +21,19 @@ function ProgressionMetrics() {
           // Authorization is handled by axiosInstance interceptor
         },
       });
-      
+
       // Extract metrics from the response
       const { training_sessions } = response.data;
 
       const total_sessions = training_sessions.length;
-      const average_rating = training_sessions.length > 0
-        ? training_sessions.reduce((acc, session) => acc + session.emoji_feedback, 0) / training_sessions.length
-        : null;
-      const feedback_count = training_sessions.filter(session => session.comments).length;
+      const average_rating =
+        training_sessions.length > 0
+          ? training_sessions.reduce((acc, session) => acc + session.emoji_feedback, 0) /
+            training_sessions.length
+          : null;
+      const feedback_count = training_sessions.filter(
+        (session) => session.comments
+      ).length;
 
       setMetrics({
         total_sessions,

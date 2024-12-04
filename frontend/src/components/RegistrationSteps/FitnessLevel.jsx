@@ -14,15 +14,12 @@ import {
 } from '@mui/material';
 import PropTypes from 'prop-types';
 
-function FitnessLevel({ nextStep, prevStep }) {
+function FitnessLevel() {
   const { values, errors, touched, setFieldValue } = useFormikContext();
   const fitnessLevelOptions = ['Beginner', 'Intermediate', 'Advanced'];
 
   return (
     <Box width="100%" maxWidth="600px" margin="0 auto">
-      <Typography variant="h5" gutterBottom>
-        Fitness Level
-      </Typography>
       <FormControl
         component="fieldset"
         error={touched.fitnessLevel && Boolean(errors.fitnessLevel)}
@@ -44,28 +41,10 @@ function FitnessLevel({ nextStep, prevStep }) {
           </Typography>
         )}
       </FormControl>
-
-      {/* Navigation Buttons */}
-      <Box display="flex" justifyContent="space-between" marginTop="20px">
-        <Button variant="contained" onClick={prevStep}>
-          Back
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={nextStep}
-          disabled={!values.fitnessLevel}
-        >
-          Next
-        </Button>
-      </Box>
     </Box>
   );
 }
 
-FitnessLevel.propTypes = {
-  nextStep: PropTypes.func.isRequired,
-  prevStep: PropTypes.func.isRequired,
-};
+FitnessLevel.propTypes = {};
 
 export default FitnessLevel;

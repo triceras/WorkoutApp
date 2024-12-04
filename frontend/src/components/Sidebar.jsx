@@ -30,7 +30,7 @@ function Sidebar() {
       };
 
   return (
-    <div className="sidebar static">
+    <div className="sidebar">
       {/* Removed Sidebar Header and Toggle Button */}
 
       <ul className="sidebar-menu">
