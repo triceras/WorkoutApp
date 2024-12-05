@@ -187,8 +187,18 @@ class CustomAuthToken(ObtainAuthToken):
         if serializer.is_valid():
             user = serializer.validated_data['user']
             token, created = Token.objects.get_or_create(user=user)
+            user_data = {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            }
             logger.info(f"User {user.username} logged in. Token: {token.key}")
-            return Response({'token': token.key})
+            return Response({
+                'token': token.key,
+                'user': user_data
+            })
         else:
             logger.warning(f"Login failed for data {request.data}. Errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

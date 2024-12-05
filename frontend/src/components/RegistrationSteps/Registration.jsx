@@ -1,13 +1,15 @@
 // src/components/RegistrationSteps/Registration.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
 import { Formik, Form } from 'formik';
 import {
   Box,
   Button,
+  CircularProgress,
   Typography,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import * as Yup from 'yup';
 import axiosInstance from '../../api/axiosInstance';
 import './Registration.css';
@@ -27,7 +29,8 @@ const steps = [
   'Personal Information',
   'Fitness Level',
   'Availability',
-  'Equipment & Goals',
+  'Available Equipment',
+  'Fitness Goals',
   'Review & Submit',
 ];
 
@@ -56,66 +59,12 @@ function Registration() {
   const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const navigate = useNavigate();
+  const { login } = useContext(AuthContext); // Import login function
 
   // Validation schemas for each step
   const validationSchemas = [
-    // Step 0: Account Details
-    Yup.object({
-      username: Yup.string()
-        .required('Username is required')
-        .min(3, 'Username must be at least 3 characters'),
-      password: Yup.string()
-        .required('Password is required')
-        .min(6, 'Password must be at least 6 characters'),
-      confirmPassword: Yup.string()
-        .oneOf([Yup.ref('password'), null], 'Passwords must match')
-        .required('Confirm Password is required'),
-    }),
-    // Step 1: Personal Information
-    Yup.object({
-      firstName: Yup.string().required('First Name is required'),
-      lastName: Yup.string().required('Last Name is required'),
-      email: Yup.string()
-        .email('Invalid email address')
-        .required('Email is required'),
-      age: Yup.number()
-        .required('Age is required')
-        .min(1, 'Age must be at least 1'),
-      sex: Yup.string()
-        .oneOf(['Male', 'Female', 'Other', 'Prefer not to say'], 'Invalid selection')
-        .required('Sex is required'),
-      weight: Yup.number()
-        .required('Weight is required')
-        .min(1, 'Weight must be at least 1 kg'),
-      height: Yup.number()
-        .required('Height is required')
-        .min(1, 'Height must be at least 1 cm'),
-    }),
-    // Step 2: Fitness Level
-    Yup.object({
-      fitnessLevel: Yup.string().required('Fitness Level is required'),
-    }),
-    // Step 3: Availability
-    Yup.object({
-      workoutTime: Yup.number()
-        .required('Workout Time is required')
-        .min(15, 'Minimum workout time is 15 minutes'),
-      workoutDays: Yup.number()
-        .required('Workout Days is required')
-        .min(1, 'At least 1 day per week')
-        .max(7, 'Maximum 7 days per week'),
-    }),
-    // Step 4: Equipment & Goals
-    Yup.object({
-      equipment: Yup.array()
-        .of(Yup.number())
-        .min(1, 'At least one equipment must be selected'),
-      strengthGoals: Yup.array()
-        .of(Yup.number())
-        .min(1, 'Select at least one goal'),
-    }),
-    // Step 5: Review & Submit
-    Yup.object(),
+    // ... (your validation schemas)
   ];
 
   useEffect(() => {
@@ -137,91 +86,67 @@ function Registration() {
     fetchOptions();
   }, []);
 
-  const handleSubmit = async (values, { setSubmitting, setErrors }) => {
+  const handleSubmit = async (values, { setSubmitting, setFieldError }) => {
     try {
       if (activeStep === steps.length - 1) {
-        // Prepare data for submission
-        const data = {
-          ...values,
-          strength_goals: values.strengthGoals, // Convert to snake_case for backend
+        // Format the data for the backend
+        const formattedData = {
+          username: values.username,
+          password: values.password,
+          confirm_password: values.confirmPassword,
+          first_name: values.firstName,
+          last_name: values.lastName,
+          email: values.email,
+          age: parseInt(values.age),
+          weight: parseFloat(values.weight),
+          height: parseFloat(values.height),
+          fitness_level: values.fitnessLevel,
+          strength_goals: values.strengthGoals,
+          additional_goals: values.additionalGoals,
+          equipment: values.equipment,
+          workout_time: parseInt(values.workoutTime),
+          workout_days: parseInt(values.workoutDays),
+          sex: values.sex,
         };
-        // Submit the form to the backend
-        const response = await axiosInstance.post('register/', data);
-        // Handle successful registration
-        alert('Registration successful!');
-        // Redirect or perform any other action
+
+        console.log('Submitting registration data...');
+        const response = await axiosInstance.post('register/', formattedData);
+        console.log('Registration response:', response.data);
+
+        if (response.data && response.data.token && response.data.user) {
+          // Login with the received token and user data
+          await login(response.data.token, response.data.user);
+          console.log('Successfully logged in after registration');
+
+          // Navigate to the generating workout page
+          navigate('/generating-workout', { replace: true });
+        } else {
+          throw new Error('Invalid response from server: missing token or user data');
+        }
       } else {
+        // Move to next step
         setFormValues(values);
         setActiveStep((prevStep) => prevStep + 1);
       }
     } catch (error) {
-      // Handle errors
+      console.error('Registration/Login error:', error);
+
+      // Handle validation errors from the backend
+      if (error.response && error.response.data) {
+        const errors = error.response.data;
+        Object.keys(errors).forEach((field) => {
+          // Convert snake_case to camelCase for frontend field names
+          const camelCaseField = field.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+          setFieldError(camelCaseField, errors[field][0]);
+        });
+      } else {
+        // Handle non-validation errors
+        setFieldError('general', 'An error occurred during registration. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
   };
-
-  const handleBack = () => {
-    setActiveStep((prevStep) => prevStep - 1);
-  };
-
-  const getStepContent = (step) => {
-    switch (step) {
-      case 0:
-        return <AccountDetailsForm />;
-      case 1:
-        return <PersonalInfo />;
-      case 2:
-        return <FitnessLevel />;
-      case 3:
-        return <Availability />;
-      case 4:
-        return (
-          <>
-            <Equipment equipmentOptions={equipmentOptions} />
-            <FitnessGoals strengthGoalsOptions={strengthGoalsOptions} />
-          </>
-        );
-      case 5:
-        return (
-          <ReviewSubmit
-            values={formValues}
-            equipmentOptions={equipmentOptions}
-            strengthGoalsOptions={strengthGoalsOptions}
-          />
-        );
-      default:
-        return 'Unknown step';
-    }
-  };
-
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-        <CircularProgress />
-        <Typography variant="h6" style={{ marginLeft: '10px' }}>
-          Loading registration form...
-        </Typography>
-      </Box>
-    );
-  }
-
-  if (fetchError) {
-    return (
-      <Box textAlign="center" mt={5}>
-        <Typography variant="h6" color="error">
-          {fetchError}
-        </Typography>
-        <Button
-          variant="contained"
-          onClick={() => window.location.reload()}
-          style={{ marginTop: '20px' }}
-        >
-          Retry
-        </Button>
-      </Box>
-    );
-  }
 
   return (
     <Box className="registration-container">

@@ -11,6 +11,7 @@ import {
 import * as Yup from 'yup';
 import axiosInstance from '../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';  
 import '../components/RegistrationSteps/Registration.css';
 
 // Import components
@@ -60,6 +61,7 @@ function Registration() {
   const [fetchError, setFetchError] = useState(null);
 
   const navigate = useNavigate();
+  const { login } = useAuth();  
 
   // Validation schemas for each step
   const validationSchemas = [
@@ -167,11 +169,19 @@ function Registration() {
           sex: values.sex
         };
 
+        console.log('Sending registration data:', formattedData);
         const response = await axiosInstance.post('register/', formattedData);
         
         if (response.data) {
-          // Registration successful
           console.log('Registration successful:', response.data);
+          
+          if (!response.data.token || !response.data.user) {
+            throw new Error('Invalid response from server: missing token or user data');
+          }
+          
+          // Login with the received token and user data
+          await login(response.data.token, response.data.user);
+          
           // Navigate to the generating workout page
           navigate('/generating-workout');
         }
@@ -186,11 +196,25 @@ function Registration() {
       // Handle validation errors from the backend
       if (error.response && error.response.data) {
         const errors = error.response.data;
-        Object.keys(errors).forEach(field => {
-          // Convert snake_case to camelCase for frontend field names
-          const camelCaseField = field.replace(/_([a-z])/g, g => g[1].toUpperCase());
-          setFieldError(camelCaseField, errors[field][0]);
-        });
+        console.log('Backend validation errors:', errors);
+        
+        if (typeof errors === 'object') {
+          Object.keys(errors).forEach(field => {
+            let errorMessage = errors[field];
+            if (Array.isArray(errorMessage)) {
+              errorMessage = errorMessage[0];
+            }
+            
+            // Convert snake_case to camelCase for frontend field names
+            const camelCaseField = field.replace(/_([a-z])/g, g => g[1].toUpperCase());
+            setFieldError(camelCaseField, errorMessage);
+          });
+        } else {
+          // If errors is not an object, it might be a string message
+          setFieldError('general', typeof errors === 'string' ? errors : 'Registration failed. Please check your information.');
+        }
+      } else if (error.message) {
+        setFieldError('general', error.message);
       } else {
         // Handle non-validation errors
         setFieldError('general', 'An error occurred during registration. Please try again.');

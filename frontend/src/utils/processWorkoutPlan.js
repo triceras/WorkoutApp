@@ -1,7 +1,17 @@
 export const processWorkoutPlan = (plan) => {
-  console.log('Original Plan:', plan); // Debugging
+  console.group('Processing Workout Plan');
+  console.log('Original Plan:', JSON.stringify(plan, null, 2)); // Detailed logging
 
-  if (!plan || !plan.workoutDays || plan.workoutDays.length === 0) {
+  // Validate plan input
+  if (!plan) {
+    console.warn('Plan is undefined or null');
+    console.groupEnd();
+    return null;
+  }
+
+  if (!plan.workoutDays || plan.workoutDays.length === 0) {
+    console.warn('No workout days in the plan');
+    console.groupEnd();
     return plan;
   }
 
@@ -30,8 +40,10 @@ export const processWorkoutPlan = (plan) => {
     7: 'Sunday',
   };
 
-  // Go through each day in workoutDays
-  processedPlan.workoutDays.forEach((day, index) => {
+  // Detailed logging for each day
+  plan.workoutDays.forEach((day, index) => {
+    console.log(`Processing Day ${index + 1}:`, day);
+    
     if (!day) {
       console.warn(`Day at index ${index} is undefined or null`);
       return;
@@ -54,6 +66,10 @@ export const processWorkoutPlan = (plan) => {
       // Get the weekday name
       const weekdayName = weekdayNumberToName[weekdayNumber];
 
+      // Detailed logging for day parsing
+      console.log(`Parsed Day: Number=${dayNum}, Description=${dayDescription}`);
+      console.log(`Mapped Day: Number=${weekdayNumber}, Name=${weekdayName}`);
+
       dayNumber = weekdayNumber;
       dayName = `${weekdayName}: ${dayDescription}`;
     }
@@ -64,6 +80,9 @@ export const processWorkoutPlan = (plan) => {
       console.warn(`Exercises for day at index ${index} is not an array:`, exercises);
       exercises = [];
     }
+
+    // Detailed logging for exercises
+    console.log(`Exercises for Day ${index + 1}:`, exercises);
 
     // Determine if it's a workout or rest day
     const isRestDay = exercises.length === 0 || day.type === 'rest';
@@ -76,7 +95,7 @@ export const processWorkoutPlan = (plan) => {
       type: isRestDay ? 'rest' : 'workout',
     };
 
-    console.log('Processed Day:', processedDay); // Debugging
+    console.log('Processed Day:', JSON.stringify(processedDay, null, 2)); // Detailed logging
 
     processedWorkoutDays.push(processedDay);
   });
@@ -86,7 +105,8 @@ export const processWorkoutPlan = (plan) => {
     (a, b) => a.dayNumber - b.dayNumber
   );
 
-  console.log('Processed Plan:', processedPlan); // Debugging
+  console.log('Processed Plan:', JSON.stringify(processedPlan, null, 2));
+  console.groupEnd();
 
   return processedPlan;
 };

@@ -1,13 +1,13 @@
 // src/pages/LogoutPage.jsx
 
-import React, { useEffect, useContext } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
-import { AuthContext } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 function Logout() {
   const navigate = useNavigate();
-  const { setAuthToken } = useContext(AuthContext);
+  const { logout } = useAuth();
 
   useEffect(() => {
     const performLogout = async () => {
@@ -16,16 +16,14 @@ function Logout() {
       } catch (error) {
         console.error('Error during logout:', error);
       } finally {
-        localStorage.removeItem('authToken');
-        setAuthToken(null); // Update context
-        // Optionally, remove Authorization header from axiosInstance
-        delete axiosInstance.defaults.headers['Authorization'];
+        // Use the logout function from AuthContext
+        logout();
         navigate('/login'); // Redirect to login page
       }
     };
 
     performLogout();
-  }, [navigate, setAuthToken]);
+  }, [navigate, logout]);
 
   return <div>Logging out...</div>;
 }

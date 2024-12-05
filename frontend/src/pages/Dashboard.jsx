@@ -186,23 +186,28 @@ function Dashboard() {
 
   // Effect to handle latestWorkoutPlan from WebSocket
   useEffect(() => {
-    if (latestWorkoutPlan && userData) {
-      console.log('Received latestWorkoutPlan in Dashboard:', latestWorkoutPlan);
-      console.log('Plan Data:', latestWorkoutPlan.plan_data);
-      const updatedPlan = {
-        id: latestWorkoutPlan.plan_id,
-        user: userData.id,
-        workoutDays: latestWorkoutPlan.plan_data || [],
-        additionalTips: latestWorkoutPlan.additional_tips || [],
-        created_at: latestWorkoutPlan.created_at || new Date().toISOString(),
-      };
-      const processedPlan = processWorkoutPlan(updatedPlan);
-      console.log('Processed Plan:', processedPlan);
-
-      setWorkoutPlans([processedPlan]);
-      setIsLoadingWorkoutPlan(false); // Hide spinner after receiving new plan
+    if (latestWorkoutPlan) {
+      console.log('Dashboard: Received latest workout plan:', latestWorkoutPlan);
+      setWorkoutPlans(prevPlans => {
+        // If it's an array, use it directly, otherwise wrap it in an array
+        const newPlan = Array.isArray(latestWorkoutPlan) ? latestWorkoutPlan : [latestWorkoutPlan];
+        return [...newPlan, ...prevPlans];
+      });
+      setIsLoadingWorkoutPlan(false);
     }
-  }, [latestWorkoutPlan, userData]);
+  }, [latestWorkoutPlan]);
+
+  // Effect to handle initial data load
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!authToken) {
+      navigate('/login');
+      return;
+    }
+
+    fetchData();
+  }, [authToken, authLoading, fetchData, navigate]);
 
   // Session logging
   const handleSessionLoggedCallback = useCallback(

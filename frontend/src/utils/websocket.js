@@ -11,22 +11,35 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
  */
 export const connectWebSocket = (userId, token, onMessage) => {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const host = window.location.host;
+  const port = process.env.NODE_ENV === 'development' ? '8000' : window.location.port;
+  const host = process.env.NODE_ENV === 'development' ? `localhost:${port}` : window.location.host;
   const wsUrl = `${protocol}://${host}/ws/workout-plan/${userId}/?token=${token}`;
 
-  const socket = new ReconnectingWebSocket(wsUrl);
+  console.log('Connecting WebSocket to:', wsUrl);
+
+  const socket = new ReconnectingWebSocket(wsUrl, [], {
+    maxRetries: 10,
+    reconnectionDelayGrowFactor: 1.3,
+    maxReconnectionDelay: 10000,
+    minReconnectionDelay: 1000,
+  });
 
   socket.onopen = () => {
-    console.log('WebSocket connection established.');
+    console.log('WebSocket connection established');
   };
 
   socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    onMessage(data);
+    try {
+      const data = JSON.parse(event.data);
+      console.log('WebSocket message received:', data);
+      onMessage(data);
+    } catch (error) {
+      console.error('Error processing WebSocket message:', error);
+    }
   };
 
   socket.onclose = () => {
-    console.log('WebSocket connection closed.');
+    console.log('WebSocket connection closed');
   };
 
   socket.onerror = (error) => {

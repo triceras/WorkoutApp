@@ -1,22 +1,21 @@
 // src/pages/LoginPage.jsx
 
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { Link, useNavigate } from 'react-router-dom';
-import './LoginPage.css'; // Import the corresponding CSS
-import { AuthContext } from '../context/AuthContext';
+import './LoginPage.css';
+import { useAuth } from '../context/AuthContext';
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { setAuthToken } = useContext(AuthContext);
-  const [error, setError] = useState(null); // For handling error messages
-  const [loading, setLoading] = useState(false); // For handling the loading state
+  const { login } = useAuth();
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Define the handleSubmit function
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError(null); // Reset previous errors
-    setLoading(true); // Start loading
+    setError(null);
+    setLoading(true);
 
     const { username, password } = event.target.elements;
     const usernameValue = username.value.trim();
@@ -30,36 +29,45 @@ function LoginPage() {
     }
 
     try {
+      // Make the login request
       const response = await axiosInstance.post('auth/login/', {
         username: usernameValue,
         password: passwordValue,
       });
 
-      const { token } = response.data;
-      // Store the token
-      localStorage.setItem('authToken', token);
-      setAuthToken(token); // Update context
-      console.log('Token stored:', token); // For debugging
-      // Redirect to the dashboard
-      navigate('/dashboard'); // Ensure this route exists
+      console.log('Login response:', response.data);
+
+      // Check if we have both token and user data
+      const { token, user } = response.data;
+      if (!token || !user) {
+        throw new Error('Server response was incomplete: missing token or user data');
+      }
+
+      // Use the login function from AuthContext
+      await login(token, user);
+
+      // Navigate to the dashboard
+      navigate('/dashboard');
     } catch (error) {
-      if (error.response && error.response.status === 400) {
+      console.error('Login error:', error);
+      
+      if (error.response?.status === 400) {
         setError('Invalid username or password.');
+      } else if (error.response?.status === 401) {
+        setError('Authentication failed. Please check your credentials.');
+      } else if (error.message.includes('Server response was incomplete')) {
+        setError('Server response was incomplete. Please try again.');
       } else {
         setError('An unexpected error occurred. Please try again later.');
       }
-      console.error('Login error:', error);
     } finally {
-      setLoading(false); // End loading
+      setLoading(false);
     }
   };
 
   return (
     <div className="login-page">
       <div className="login-container">
-        {/* Optional: Add a logo or branding */}
-        {/* <img src="/path-to-logo.png" alt="App Logo" className="login-logo" /> */}
-        
         <h2 className="login-title">Login</h2>
         {error && <div className="error-message">{error}</div>}
         <form className="login-form" onSubmit={handleSubmit}>
@@ -72,6 +80,7 @@ function LoginPage() {
               placeholder="Enter your username"
               required
               disabled={loading}
+              autoComplete="username"
             />
           </div>
           <div className="form-group">
@@ -83,19 +92,16 @@ function LoginPage() {
               placeholder="Enter your password"
               required
               disabled={loading}
+              autoComplete="current-password"
             />
           </div>
           <button type="submit" className="login-button" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
+          <p className="register-link">
+            Don't have an account? <Link to="/register">Register here</Link>
+          </p>
         </form>
-        {/* Optional: Forgot Password Link */}
-        {/* <div className="forgot-password">
-          <Link to="/forgot-password">Forgot your password?</Link>
-        </div> */}
-        <p className="register-link">
-          Don't have an account? <Link to="/register">Register here</Link>.
-        </p>
       </div>
     </div>
   );

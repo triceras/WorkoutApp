@@ -62,8 +62,10 @@ def generate_workout_plan_task(self, user_id):
                 
             # Emit WebSocket event with the correct 'type'
             channel_layer = get_channel_layer()
+            
+            
             async_to_sync(channel_layer.group_send)(
-                f'workout_plan_{user.id}',
+                f'workout_plan_group_{user.id}',
                 {
                     'type': 'workout_plan_generated',  # Must match consumer handler
                     'plan_id': str(workout_plan.id),
@@ -260,7 +262,7 @@ def send_workout_plan_to_group(user, plan_data):
     Utility function to send the workout plan to the user's WebSocket group.
     """
     channel_layer = get_channel_layer()
-    group_name = f'workout_plan_{user.id}'
+    group_name = f'workout_plan_group_{user.id}'
     message = {
         'type': 'workout_plan_generated',  # Must match consumer handler
         'plan_id': str(user.workoutplan.id),  # Assuming user has a related workoutplan

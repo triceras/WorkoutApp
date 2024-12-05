@@ -6,6 +6,7 @@ from celery import Celery
 from django.conf import settings
 from dotenv import load_dotenv
 from pathlib import Path
+import django  # Add this line
 
 # Define BASE_DIR
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,6 +16,8 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'myfitnessapp.settings')
+
+django.setup()  # Add this line to ensure Django settings are loaded
 
 app = Celery('myfitnessapp')
 
