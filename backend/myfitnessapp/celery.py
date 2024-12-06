@@ -17,8 +17,6 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'myfitnessapp.settings')
 
-django.setup()  # Add this line to ensure Django settings are loaded
-
 app = Celery('myfitnessapp')
 
 # Using a string here means the worker doesn't have to serialize

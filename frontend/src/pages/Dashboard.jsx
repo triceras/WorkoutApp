@@ -24,6 +24,7 @@ import { processWorkoutPlan } from '../utils/processWorkoutPlan';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { toast } from 'react-toastify';
 
 const useStyles = makeStyles((theme) => ({
   dashboardContainer: {
@@ -65,13 +66,15 @@ function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { authToken, user, loading: authLoading } = useContext(AuthContext);
-  const { latestWorkoutPlan, wsConnected, wsReconnecting } = useWebSocket();
+  const { connected: wsConnected, reconnecting: wsReconnecting, latestWorkoutPlan } = useWebSocket();
 
   // State
   const [userData, setUserData] = useState(null);
   const [workoutPlans, setWorkoutPlans] = useState([]);
-  const [error, setError] = useState(null);
+  const [currentWorkout, setCurrentWorkout] = useState(null);
+  const [userProgress, setUserProgress] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [progressData, setProgressData] = useState(null);
   const [isLoadingWorkoutPlan, setIsLoadingWorkoutPlan] = useState(true);
 
@@ -101,113 +104,134 @@ function Dashboard() {
     }
   }, []);
 
-  const fetchData = useCallback(async () => {
-    if (!authToken) return;
-
+  const fetchUserData = useCallback(async () => {
     try {
-      console.log('Fetching user data...');
-      axiosInstance.defaults.headers['Authorization'] = `Token ${authToken}`;
-      const userResponse = await axiosInstance.get('users/me/');
-      console.log('User data fetched:', userResponse.data);
-      setUserData(userResponse.data);
-
-      console.log('Fetching workout plans...');
-      const workoutPlansResponse = await axiosInstance.get('workout-plans/');
-      console.log('Workout plans fetched:', workoutPlansResponse.data);
-
-      if (workoutPlansResponse.data?.length > 0) {
-        const sortedPlans = workoutPlansResponse.data.sort(
-          (a, b) => new Date(b.created_at) - new Date(a.created_at)
-        );
-        const currentPlan = processWorkoutPlan(sortedPlans[0]);
-        console.log('Current Plan after processing:', currentPlan);
-        setWorkoutPlans([currentPlan]);
-      } else {
-        console.log('No workout plans found.');
-      }
-
-      setIsLoadingWorkoutPlan(false); // Hide spinner after fetching
-      console.log('Fetching progress data...');
-      await fetchProgressData();
-      setError(null);
+      const response = await axiosInstance.get('users/me/');
+      return response.data;
     } catch (error) {
-      console.error('Error fetching data:', error);
-      handleFetchError(error);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching user data:', error);
+      setError('Unable to fetch user data.');
     }
-  }, [authToken, fetchProgressData, handleFetchError]);
+  }, []);
 
-  useEffect(() => {
-    const fetchWorkoutPlan = async () => {
-      try {
-        // If we have a workout plan from navigation state, use it
-        if (location.state?.workoutPlan) {
-          setWorkoutPlans([location.state.workoutPlan]);
-          setIsLoadingWorkoutPlan(false);
-          setLoading(false);
-          return;
-        }
-
-        // Otherwise fetch from the API
-        if (!authToken) return;
-
-        const response = await axiosInstance.get('workout-plans/');
-        if (response.data?.length > 0) {
-          const sortedPlans = response.data.sort(
-            (a, b) => new Date(b.created_at) - new Date(a.created_at)
-          );
-          const currentPlan = processWorkoutPlan(sortedPlans[0]);
-          setWorkoutPlans([currentPlan]);
-        }
-        setIsLoadingWorkoutPlan(false); // Hide spinner after fetching
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching workout plan:', err);
-        setError('Failed to load workout plan. Please try again later.');
-        setLoading(false);
+  const fetchWorkoutPlan = useCallback(async () => {
+    try {
+      console.log('Dashboard: Fetching workout plan from API');
+      const response = await axiosInstance.get('workout-plans/');
+      
+      if (response.data && response.data.length > 0) {
+        console.log('Dashboard: Workout plans fetched successfully:', response.data);
+        setWorkoutPlans(response.data);
+        setIsLoadingWorkoutPlan(false);
+      } else {
+        console.log('Dashboard: No workout plans found, waiting for WebSocket update...');
+        // Don't navigate away immediately, wait for WebSocket updates
+        setWorkoutPlans([]);
       }
-    };
-
-    fetchWorkoutPlan();
-  }, [location.state, authToken]);
-
-  // Effect to fetch data on component mount and when authToken changes
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!authToken) {
-      navigate('/login');
-      return;
+    } catch (error) {
+      console.error('Error fetching workout plans:', error);
+      if (error.response?.status === 404) {
+        console.log('Dashboard: No workout plans found (404)');
+        // Don't navigate away immediately, wait for WebSocket updates
+        setWorkoutPlans([]);
+      } else {
+        setError('Failed to fetch workout plans');
+        setIsLoadingWorkoutPlan(false);
+      }
     }
+  }, []);
 
-    fetchData();
-  }, [authToken, authLoading, fetchData, navigate]);
-
-  // Effect to handle latestWorkoutPlan from WebSocket
+  // Listen for WebSocket updates with workout plan
   useEffect(() => {
+    console.log('Dashboard: WebSocket update received:', { latestWorkoutPlan });
     if (latestWorkoutPlan) {
-      console.log('Dashboard: Received latest workout plan:', latestWorkoutPlan);
+      console.log('Dashboard: New workout plan received via WebSocket');
       setWorkoutPlans(prevPlans => {
-        // If it's an array, use it directly, otherwise wrap it in an array
-        const newPlan = Array.isArray(latestWorkoutPlan) ? latestWorkoutPlan : [latestWorkoutPlan];
-        return [...newPlan, ...prevPlans];
+        // Check if plan already exists
+        const exists = prevPlans.some(plan => plan.id === latestWorkoutPlan.id);
+        if (!exists) {
+          return [latestWorkoutPlan, ...prevPlans];
+        }
+        return prevPlans;
       });
       setIsLoadingWorkoutPlan(false);
     }
   }, [latestWorkoutPlan]);
 
-  // Effect to handle initial data load
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!authToken) {
-      navigate('/login');
-      return;
+  // Workout helpers
+  const getTodayWorkout = useCallback((workoutPlan) => {
+    if (!workoutPlan || !workoutPlan.workoutDays) {
+      console.log('No workout plan or workoutDays available');
+      return null;
     }
 
+    try {
+      // Get today and set to start of day
+      const today = DateTime.now().startOf('day');
+      
+      // Get the current day of the week (1-7, Monday is 1)
+      const currentDayOfWeek = today.weekday;
+
+      // Adjust index to 0-based (Monday = 0, Sunday = 6)
+      const currentDayIndex = currentDayOfWeek - 1;
+      
+      console.log('Workout calculation:', {
+        today: today.toISO(),
+        currentDayOfWeek,
+        currentDayIndex,
+        weekday: today.weekdayLong,
+        totalDays: workoutPlan.workoutDays.length,
+        workoutPlan: {
+          workoutDaysCount: workoutPlan.workoutDays?.length
+        }
+      });
+
+      // Return the workout for today
+      return workoutPlan.workoutDays[currentDayIndex];
+    } catch (error) {
+      console.error('Error calculating today\'s workout:', error);
+      return null;
+    }
+  }, []);
+
+  // Effect to update current workout whenever workout plans change
+  useEffect(() => {
+    if (workoutPlans.length > 0) {
+      const todayWorkout = getTodayWorkout(workoutPlans[0]);
+      setCurrentWorkout(todayWorkout);
+      console.log('Updated current workout:', todayWorkout);
+    }
+  }, [workoutPlans, getTodayWorkout]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (authLoading || !authToken || !user) {
+        return;
+      }
+
+      console.log('Dashboard: Fetching initial data');
+      try {
+        console.log('Fetching user data...');
+        const userResponse = await fetchUserData();
+        console.log('User data fetched:', userResponse);
+        setUserData(userResponse);
+
+        console.log('Fetching workout plans...');
+        await fetchWorkoutPlan();
+
+        console.log('Fetching progress data...');
+        const progressResponse = await fetchProgressData();
+        setProgressData(progressResponse);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('Failed to fetch data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchData();
-  }, [authToken, authLoading, fetchData, navigate]);
+  }, [authToken, user, authLoading, fetchUserData, fetchWorkoutPlan, fetchProgressData]);
 
   // Session logging
   const handleSessionLoggedCallback = useCallback(
@@ -218,20 +242,8 @@ function Dashboard() {
     [fetchProgressData]
   );
 
-  // Workout helpers
-  const getTodayWorkout = useCallback((workoutPlan) => {
-    if (!workoutPlan?.workoutDays?.length) return null;
-
-    const todayWeekday = DateTime.local().weekday;
-    return (
-      workoutPlan.workoutDays.find(
-        (day) => day.dayNumber === todayWeekday && day.type === 'workout'
-      ) || null
-    );
-  }, []);
-
-  // Loading and error states
-  if (loading || authLoading) {
+  // Handle loading and error states
+  if (loading) {
     return (
       <Box
         display="flex"
@@ -251,9 +263,30 @@ function Dashboard() {
     return <ErrorMessage message={error} />;
   }
 
-  // Get today's workout
-  const todayWorkout =
-    workoutPlans.length > 0 ? getTodayWorkout(workoutPlans[0]) : null;
+  // If no workout plans and not loading, show a message
+  if (workoutPlans.length === 0 && !isLoadingWorkoutPlan) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+      >
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-4">Generating Your Workout Plan</h2>
+          <CircularProgress />
+          <p className="mt-4">
+            Your personalized workout plan is being created. Please wait...
+          </p>
+          {!wsConnected && (
+            <p className="mt-2 text-sm text-red-500">
+              Reconnecting to server...
+            </p>
+          )}
+        </div>
+      </Box>
+    );
+  }
 
   // Render
   return (
@@ -278,7 +311,9 @@ function Dashboard() {
             <Box className={classes.spinnerContainer}>
               <CircularProgress />
               <Typography variant="h6" className={classes.loadingMessage}>
-                Generating your workout plan...
+                {workoutPlans.length === 0 
+                  ? "Generating your personalized workout plan..."
+                  : "Loading workout plan..."}
               </Typography>
             </Box>
           ) : (
@@ -288,13 +323,13 @@ function Dashboard() {
                   Welcome {userData?.first_name || userData?.username}!
                 </Typography>
 
-                {todayWorkout && Array.isArray(todayWorkout.exercises) ? (
+                {currentWorkout && Array.isArray(currentWorkout.exercises) ? (
                   <>
                     <Typography variant="h5" className={classes.sectionTitle}>
                       Today's Workout
                     </Typography>
                     <WorkoutCard
-                      workouts={todayWorkout.exercises}
+                      workouts={currentWorkout.exercises}
                       userName={userData?.first_name || userData?.username}
                     />
 

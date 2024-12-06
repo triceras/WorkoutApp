@@ -27,7 +27,7 @@ REPLICATE_API_TOKEN = os.getenv('REPLICATE_API_TOKEN')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     'corsheaders',
     'django.contrib.sites',
+    'django_extensions',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -47,8 +48,7 @@ INSTALLED_APPS = [
     'api',
     'rest_framework',
     'rest_framework.authtoken',
-    'channels',
-    'django_extensions',
+    'channels',  # Add this line
     'csp',
 ]
 
@@ -87,13 +87,29 @@ ASGI_APPLICATION = "myfitnessapp.asgi.application"  # For Channels
 
 # Channels configuration
 CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],  # Adjust host and port if necessary
         },
     },
 }
+
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# WebSocket specific settings
+CHANNEL_LAYERS_MAX_RETRIES = 30
+CHANNEL_LAYERS_RETRY_DELAY = 1
+
+# WebSocket Configuration
+WEBSOCKET_URL = "/ws/"
+WEBSOCKET_ACCEPT_ALL = True  # For development only
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -150,22 +166,25 @@ DEBUG = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:3000$",
 ]
 
-CORS_ALLOW_CREDENTIALS = True
-
-# Allow WebSocket connections from React development server
-CSRF_TRUSTED_ORIGINS = ['http://localhost:3000']
-CORS_ALLOW_ALL_ORIGINS = True  # Only in development
-CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
+# Add CORS headers for WebSocket connections
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'sec-websocket-protocol',
+    'sec-websocket-key',
+    'sec-websocket-version',
+    'sec-websocket-extensions',
 ]
 
 # REST Framework Configuration
@@ -282,26 +301,8 @@ CELERY_TIMEZONE = 'UTC'
 #     },
 # }
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
-        },
-    },
-}
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-
-
-urlpatterns = [
-    # ... your URL patterns
-]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
 env = environ.Env(
@@ -313,8 +314,6 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 REPLICATE_API_TOKEN = env('REPLICATE_API_TOKEN')
 
-if DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 

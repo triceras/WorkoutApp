@@ -22,6 +22,7 @@ from .views import (
     CheckEmailView,
     get_video_details,
     YouTubeVideoViewSet,
+    RegistrationOptionsView,
 )
 
 router = routers.DefaultRouter()
@@ -39,6 +40,7 @@ urlpatterns = [
     path('user/', current_user),
     path('auth/login/', CustomAuthToken.as_view()),
     path('register/', RegisterView.as_view(), name='register'),
+    path('registration-options/', RegistrationOptionsView.as_view(), name='registration-options'),
     path('logout/', logout_user, name='logout'),
     path('check-workout-plan/', check_workout_plan_status, name='check-workout-plan'),
     path('check_username/', CheckUsernameView.as_view(), name='check_username'),
@@ -46,7 +48,6 @@ urlpatterns = [
     path('user/progression/', UserProgressionView.as_view(), name='user-progression'),
     path('get-video-details/', get_video_details, name='get-video-details'),
     path('api-token-auth/', obtain_auth_token, name='api_token_auth'),  # Endpoint to obtain auth tokens
-
 
     path('', include(router.urls)),
 ]

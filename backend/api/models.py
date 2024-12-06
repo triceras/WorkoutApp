@@ -9,6 +9,7 @@ from django.dispatch import receiver
 import uuid
 import re
 from django.core.cache import cache
+
 class User(AbstractUser):
     username = models.CharField(max_length=150, unique=True)
     first_name = models.CharField(max_length=30, blank=True)

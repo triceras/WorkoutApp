@@ -60,6 +60,12 @@ class ExerciseViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         else:
             return Response({'error': 'exercise_name parameter is required.'}, status=400)
+        
+    def perform_create(self, serializer):
+        # Set default exercise type if not provided
+        if not serializer.validated_data.get('exercise_type'):
+            serializer.validated_data['exercise_type'] = 'strength'
+        serializer.save()
 
 
 class YouTubeVideoViewSet(viewsets.ReadOnlyModelViewSet):
@@ -527,9 +533,45 @@ class CheckEmailView(APIView):
     def get(self, request):
         email = request.query_params.get('email', None)
         if email:
-            if User.objects.filter(email=email).exists():
-                return Response({'available': False}, status=status.HTTP_200_OK)
-            else:
-                return Response({'available': True}, status=status.HTTP_200_OK)
-        else:
-            return Response({'error': 'Email not provided.'}, status=status.HTTP_400_BAD_REQUEST)
+            exists = User.objects.filter(email=email).exists()
+            return Response({"exists": exists})
+        return Response({"error": "Email parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RegistrationOptionsView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        try:
+            strength_goals = StrengthGoal.objects.all()
+            equipment = Equipment.objects.all()
+            
+            return Response({
+                "strength_goals": StrengthGoalSerializer(strength_goals, many=True).data,
+                "equipment": EquipmentSerializer(equipment, many=True).data,
+                "sex_choices": [{"value": choice[0], "label": choice[1]} for choice in User.SEX_CHOICES],
+                "fitness_levels": [
+                    {"value": "beginner", "label": "Beginner"},
+                    {"value": "intermediate", "label": "Intermediate"},
+                    {"value": "advanced", "label": "Advanced"}
+                ],
+                "workout_time_options": [
+                    {"value": "30", "label": "30 minutes"},
+                    {"value": "45", "label": "45 minutes"},
+                    {"value": "60", "label": "60 minutes"},
+                    {"value": "90", "label": "90 minutes"}
+                ],
+                "workout_days_options": [
+                    {"value": "2", "label": "2 days per week"},
+                    {"value": "3", "label": "3 days per week"},
+                    {"value": "4", "label": "4 days per week"},
+                    {"value": "5", "label": "5 days per week"}
+                ]
+            })
+        except Exception as e:
+            logger.error(f"Error fetching registration options: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "Failed to fetch registration options"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

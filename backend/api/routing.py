@@ -4,5 +4,5 @@ from django.urls import re_path
 from .consumers import WorkoutPlanConsumer
 
 websocket_urlpatterns = [
-    re_path(r'^ws/workout-plan/(?P<user_id>\d+)/?$', WorkoutPlanConsumer.as_asgi()),
+    re_path(r'^workout-plan/(?P<user_id>\d+)/?$', WorkoutPlanConsumer.as_asgi()),
 ]

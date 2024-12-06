@@ -276,13 +276,13 @@ def get_youtube_video_id(url):
             return match.group('id')
     return None
 
-def send_workout_plan_to_group(user, workout_plan):
+def send_workout_plan_to_group(user, plan_data):
     """
     Sends the workout plan to the user's group via Channels.
 
     Args:
         user: A User object.
-        workout_plan (dict): The workout plan data.
+        plan_data: The workout plan data dictionary.
     """
     try:
         channel_layer = get_channel_layer()
@@ -292,16 +292,19 @@ def send_workout_plan_to_group(user, workout_plan):
 
         group_name = f'workout_plan_{user.id}'
 
-        async_to_sync(channel_layer.group_send)(
-            group_name,
-            {
-                'type': 'workout_plan_generated',
-                'plan_id': workout_plan.get('id'),
-                'plan_data': workout_plan.get('plan_data'),
-                'additional_tips': workout_plan.get('additional_tips'),
-                'created_at': workout_plan.get('created_at'),
-            }
-        )
+        # Ensure we're sending the complete plan data
+        message = {
+            'type': 'workout_message',
+            'message_type': 'workout_plan_completed',
+            'plan_data': plan_data,
+            'user_id': str(user.id)
+        }
+
+        logger.info(f"Sending workout plan to group {group_name}")
+        logger.debug(f"Message content: {message}")
+
+        async_to_sync(channel_layer.group_send)(group_name, message)
+        
         logger.info(f"Workout plan sent to group: {group_name}")
     except Exception as e:
         logger.error(f"Error sending workout plan to group: {e}", exc_info=True)

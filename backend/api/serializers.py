@@ -145,11 +145,12 @@ class ExerciseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Exercise
-        fields = ['id', 'name', 'description', 'video_url', 'videoId', 'video_id']
+        fields = ['id', 'name', 'description', 'video_url', 'videoId', 'video_id', 'exercise_type']
         extra_kwargs = {
             'description': {'required': False, 'allow_null': True},
             'video_url': {'required': False, 'allow_null': True},
             'videoId': {'required': False, 'allow_null': True},
+            'exercise_type': {'required': False},
         }
 
     def get_video_id(self, obj):
@@ -210,6 +211,13 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
         Returns a list of tips.
         """
         return obj.plan_data.get('additionalTips', [])
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Capitalize 'workout_type' if necessary
+        if 'workout_type' in representation and representation['workout_type']:
+            representation['workout_type'] = representation['workout_type'].capitalize()
+        return representation
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     class Meta:
@@ -236,6 +244,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     )
     equipment = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Equipment.objects.all()
+    )
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True,
+        validators=[UniqueValidator(queryset=UserModel.objects.all())]
     )
     confirm_password = serializers.CharField(write_only=True)
     sex = serializers.ChoiceField(choices=UserModel.SEX_CHOICES, required=True)
@@ -271,6 +284,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.equipment.set(equipment)
 
         return user
+
+    def validate_email(self, value):
+        # Allow email to be optional
+        if value == '':
+            return None
+        return value
 
 
 class TrainingSessionExerciseSerializer(serializers.ModelSerializer):

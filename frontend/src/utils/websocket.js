@@ -13,7 +13,7 @@ export const connectWebSocket = (userId, token, onMessage) => {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
   const port = process.env.NODE_ENV === 'development' ? '8000' : window.location.port;
   const host = process.env.NODE_ENV === 'development' ? `localhost:${port}` : window.location.host;
-  const wsUrl = `${protocol}://${host}/ws/workout-plan/${userId}/?token=${token}`;
+  const wsUrl = `${protocol}://${host}/api/ws/workout-plan/${userId}/?token=${token}`;
 
   console.log('Connecting WebSocket to:', wsUrl);
 

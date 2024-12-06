@@ -1,9 +1,8 @@
-// src/context/WebSocketContext.js
-
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-toastify';
 import ReconnectingWebSocket from 'reconnecting-websocket';
+import { useNavigate } from 'react-router-dom';
 
 const WebSocketContext = createContext();
 
@@ -17,163 +16,163 @@ export const useWebSocket = () => {
 
 export const WebSocketProvider = ({ children }) => {
   const { authToken, user, loading: authLoading } = useAuth();
-  const socketRef = useRef(null);
+  const wsInstance = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [wsReconnecting, setWsReconnecting] = useState(false);
   const [latestWorkoutPlan, setLatestWorkoutPlan] = useState(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+  const navigate = useNavigate();
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    console.log('WebSocketProvider - Authentication State:', {
-      authToken: authToken ? 'Token present' : 'No token',
-      user: user ? user.id : 'No user',
-      loading: authLoading
-    });
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
-    const cleanupSocket = () => {
-      if (socketRef.current) {
-        console.log('Cleaning up WebSocket connection');
-        socketRef.current.close();
-        socketRef.current = null;
-        setWsConnected(false);
-        setWsReconnecting(false);
-        reconnectAttempts.current = 0;
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      // Only cleanup WebSocket if we're really unmounting the app
+      if (window.isUnloading) {
+        if (wsInstance.current) {
+          console.log('WebSocketProvider: Cleaning up WebSocket due to app unload');
+          wsInstance.current.close(1000, 'Application unloading');
+          wsInstance.current = null;
+        }
       }
     };
+  }, []);
 
-    if (authLoading) {
-      console.log('WebSocketProvider: Authentication is still loading');
-      return cleanupSocket;
-    }
+  useEffect(() => {
+    const connectWebSocket = () => {
+      if (!authToken || !user || !user.id || wsInstance.current) {
+        return;
+      }
 
-    if (!authToken || !user?.id) {
-      console.log('WebSocketProvider: No auth token or user available');
-      setWsConnected(false);
-      return cleanupSocket;
-    }
+      console.log('WebSocketProvider - Authentication State:', {
+        authToken: authToken ? 'Token present' : 'No token',
+        user: user?.id,
+        loading: authLoading
+      });
 
-    // Clean up any existing connection before creating a new one
-    cleanupSocket();
-
-    try {
-      // Always use port 8000 for WebSocket connections in development
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const host = process.env.NODE_ENV === 'development' ? 'localhost:8000' : window.location.host;
-      // Remove any existing 'Token ' prefix and spaces
-      const cleanToken = authToken.replace(/^Token\s+/i, '').trim();
-      const wsUrl = `${protocol}://${host}/ws/workout-plan/${user.id}/?token=${cleanToken}`;
+      const wsUrl = process.env.NODE_ENV === 'development'
+        ? `ws://localhost:8001/ws/workout-plan/${user.id}/?token=${authToken}`
+        : `${protocol}://${window.location.host}/ws/workout-plan/${user.id}/?token=${authToken}`;
+      console.log('WebSocketProvider: Creating new connection with URL:', wsUrl.replace(authToken, '[REDACTED]'));
 
-      console.log(
-        'WebSocketProvider: Attempting connection with URL:',
-        wsUrl.replace(cleanToken, '[REDACTED]')
-      );
-
-      socketRef.current = new ReconnectingWebSocket(wsUrl, [], {
-        maxRetries: maxReconnectAttempts,
+      wsInstance.current = new ReconnectingWebSocket(wsUrl, [], {
+        maxRetries: 5,
         reconnectionDelayGrowFactor: 1.3,
         maxReconnectionDelay: 5000,
         minReconnectionDelay: 1000,
-        connectionTimeout: 4000,
+        connectionTimeout: 10000,
       });
 
-      socketRef.current.onopen = () => {
+      wsInstance.current.onopen = () => {
         console.log('WebSocket connection established');
         setWsConnected(true);
         setWsReconnecting(false);
-        reconnectAttempts.current = 0;
-        toast.success('Connected to workout plan service');
-
-        // Send a test message
-        socketRef.current.send(JSON.stringify({ 
-          type: 'test',
-          message: 'Hello server!',
-          user_id: user.id
-        }));
       };
 
-      socketRef.current.onmessage = (event) => {
-        console.log('Received WebSocket message:', event.data);
+      wsInstance.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Parsed WebSocket message:', data);
-          
+          console.log('WebSocket message received:', data);
           switch (data.type) {
-            case 'workout_plan':
+            case 'connection_established':
+              console.log('WebSocket: Connection established');
+              setWsConnected(true);
+              toast.success('Connected to workout plan service');
+              break;
+
             case 'workout_plan_completed':
-              const planData = data.plan_data || data.workout_plan;
-              console.log('Setting latest workout plan:', planData);
+              console.log('WebSocket: Workout plan completed message received', data);
+              const planData = data.plan_data;
               if (planData) {
+                console.log('WebSocket: Setting latest workout plan:', planData);
                 setLatestWorkoutPlan(planData);
                 toast.success('Your workout plan is ready!');
+                // Only navigate if we're not already on dashboard
+                if (window.location.pathname !== '/dashboard') {
+                  navigate('/dashboard', { 
+                    replace: true,
+                    state: { 
+                      workoutPlan: planData,
+                      timestamp: new Date().getTime()
+                    }
+                  });
+                }
               } else {
-                console.error('No workout plan data in message:', data);
+                console.error('WebSocket: No plan data in message:', data);
+                toast.error('Error loading workout plan');
               }
               break;
+
+            case 'workout_plan_progress':
+              console.log('WebSocket: Progress update received:', data.message);
+              toast.info(data.message);
+              break;
+
             case 'error':
-              console.error('Server error:', data.message);
-              toast.error(data.message);
+              console.error('WebSocket: Server error:', data.message);
+              toast.error(data.message || 'An error occurred');
               break;
-            case 'connection_established':
-              console.log('Server confirmed connection:', data.message);
-              break;
+
             default:
-              console.log('Received message of type:', data.type);
+              console.log('WebSocket: Unhandled message type:', data.type);
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
       };
 
-      socketRef.current.onclose = (event) => {
+      wsInstance.current.onclose = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason);
         setWsConnected(false);
         
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          setWsReconnecting(true);
-          reconnectAttempts.current += 1;
-          console.log(`Reconnection attempt ${reconnectAttempts.current} of ${maxReconnectAttempts}`);
-        } else {
-          setWsReconnecting(false);
-          toast.error('Failed to connect to workout plan service');
+        if (event.code === 1000 || event.code === 1001) {
+          // Normal closure or going away
+          console.log('WebSocket: Normal closure');
+          return;
         }
+        
+        // Attempt to reconnect after a delay
+        setTimeout(() => {
+          if (!wsInstance.current) {
+            console.log('Attempting to reconnect WebSocket...');
+            setWsReconnecting(true);
+            connectWebSocket();
+          }
+        }, 3000);
       };
 
-      socketRef.current.onerror = (error) => {
+      wsInstance.current.onerror = (error) => {
         console.error('WebSocket error:', error);
         setWsConnected(false);
-        
-        if (reconnectAttempts.current >= maxReconnectAttempts) {
-          setWsReconnecting(false);
-          toast.error('Connection error occurred');
-        }
       };
-    } catch (error) {
-      console.error('Error setting up WebSocket:', error);
-      toast.error('Failed to setup WebSocket connection');
-    }
+    };
 
-    return cleanupSocket;
+    connectWebSocket();
+
+    return () => {
+      if (wsInstance.current) {
+        wsInstance.current.close();
+        wsInstance.current = null;
+      }
+    };
   }, [authToken, user, authLoading]);
 
-  const sendMessage = (message) => {
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      console.log('Sending message:', message);
-      socketRef.current.send(JSON.stringify(message));
-    } else {
-      console.error('Cannot send message - socket is not open');
-      toast.error('Socket is not connected');
-    }
+  const value = {
+    connected: wsConnected,
+    reconnecting: wsReconnecting,
+    latestWorkoutPlan,
+    socket: wsInstance.current,
+    clearLatestWorkoutPlan: () => setLatestWorkoutPlan(null)
   };
 
   return (
-    <WebSocketContext.Provider value={{ 
-      wsConnected, 
-      wsReconnecting, 
-      latestWorkoutPlan, 
-      sendMessage,
-      reconnectAttempts: reconnectAttempts.current 
-    }}>
+    <WebSocketContext.Provider value={value}>
       {children}
     </WebSocketContext.Provider>
   );

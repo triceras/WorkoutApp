@@ -1,97 +1,131 @@
 # backend/api/consumers.py
 
-import logging
 import json
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.exceptions import DenyConnection
 
 logger = logging.getLogger(__name__)
 
 class WorkoutPlanConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        """
+        Called when the websocket is handshaking as part of initial connection.
+        """
+        logger.info("Attempting WebSocket connection...")
+
+        user = self.scope['user']
+        if user.is_anonymous:
+            logger.error("Anonymous user attempted to connect. Connection rejected.")
+            await self.close(code=4001)  # Custom close code for unauthenticated users
+            return
+
         try:
-            # Get user from scope (set by TokenAuthMiddleware)
-            self.user = self.scope["user"]
+            # Extract user_id from URL route
             self.user_id = self.scope['url_route']['kwargs']['user_id']
+            logger.info(f"Connection attempt for user_id: {self.user_id}, authenticated user_id: {user.id}")
 
-            # Verify authentication
-            if self.user.is_anonymous:
-                raise DenyConnection("Authentication required")
+            # Verify that the user_id in the URL matches the authenticated user's ID
+            if str(user.id) != str(self.user_id):
+                logger.error(f"User ID mismatch: token user {user.id} != requested user {self.user_id}")
+                await self.close(code=4003)  # Custom close code for mismatched user IDs
+                return
 
-            # Verify user_id matches authenticated user
-            if str(self.user.id) != str(self.user_id):
-                raise DenyConnection("User ID mismatch")
+            # Define the group name based on user ID
+            self.group_name = f"user_{self.user_id}"
 
-            # Set up room name and group name
-            self.room_name = f"workout_plan_{self.user_id}"
-            self.room_group_name = f"workout_plan_group_{self.user_id}"
-
-            # Join room group
+            # Add the WebSocket connection to the group
             await self.channel_layer.group_add(
-                self.room_group_name,
+                self.group_name,
                 self.channel_name
             )
 
-            # Accept the connection
+            # Accept the WebSocket connection
             await self.accept()
+            logger.info(f"WebSocket connection accepted for user {self.user_id}")
 
-            # Send welcome message
+            # Optionally, send a welcome message or confirmation
             await self.send(text_data=json.dumps({
-                "type": "connection_established",
-                "message": "Connected to workout plan socket",
-                "user_id": self.user_id
+                'type': 'connection_established',
+                'message': 'Successfully connected to workout plan service',
+                'user_id': self.user_id
             }))
 
-            logger.info(f"WorkoutPlanConsumer: User {self.user.username} connected to room {self.room_group_name}")
-
-        except DenyConnection as e:
-            logger.warning(f"WorkoutPlanConsumer: Connection denied - {str(e)}")
-            await self.close()
         except Exception as e:
-            logger.error(f"WorkoutPlanConsumer: Error during connection - {str(e)}")
-            await self.close()
+            logger.error(f"Error during WebSocket connection: {str(e)}", exc_info=True)
+            await self.close(code=4000)  # Custom close code for general errors
 
     async def disconnect(self, close_code):
-        # Leave room group
-        if hasattr(self, 'room_group_name'):
-            await self.channel_layer.group_discard(
-                self.room_group_name,
-                self.channel_name
-            )
-            logger.info(f"WorkoutPlanConsumer: User {self.user.username} disconnected from room {self.room_group_name} with code {close_code}")
+        """
+        Called when the WebSocket connection is closed.
+        """
+        try:
+            if hasattr(self, 'group_name'):
+                await self.channel_layer.group_discard(
+                    self.group_name,
+                    self.channel_name
+                )
+                logger.info(f"WebSocket connection closed and removed from group {self.group_name} for user {self.user_id}")
+        except Exception as e:
+            logger.error(f"Error during WebSocket disconnection: {str(e)}", exc_info=True)
 
     async def receive(self, text_data):
+        """
+        Called when a message is received from the WebSocket.
+        """
         try:
             data = json.loads(text_data)
-            logger.info(f"WorkoutPlanConsumer: Received message from user {self.user_id}: {data}")
+            message_type = data.get('type')
 
-            # Handle different message types if necessary
-            # For now, just echo the message back
-            await self.send(text_data=json.dumps({
-                "type": "echo",
-                "message": data,
-                "user_id": self.user_id
-            }))
+            logger.debug(f"Received message of type: {message_type} from user {self.user_id}")
 
+            if message_type == 'ping':
+                await self.send(text_data=json.dumps({
+                    'type': 'pong',
+                    'message': 'Server is alive'
+                }))
+            else:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': f'Unknown message type: {message_type}'
+                }))
         except json.JSONDecodeError:
+            logger.error(f"Invalid JSON received from user {self.user_id}")
             await self.send(text_data=json.dumps({
-                "type": "error",
-                "message": "Invalid JSON format"
+                'type': 'error',
+                'message': 'Invalid JSON format'
             }))
         except Exception as e:
-            logger.error(f"WorkoutPlanConsumer: Error processing message - {str(e)}")
+            logger.error(f"Error processing message from user {self.user_id}: {str(e)}", exc_info=True)
             await self.send(text_data=json.dumps({
-                "type": "error",
-                "message": "Internal server error"
+                'type': 'error',
+                'message': 'Internal server error'
             }))
 
-    async def workout_plan_generated(self, event):
+    async def workout_message(self, event):
         """
-        Handler for workout plan generated messages.
+        Handles messages sent to the WebSocket group.
         """
-        logger.info(f"WorkoutPlanConsumer: Sending workout plan to user {self.user.username}")
-        await self.send(text_data=json.dumps({
-            "type": "workout_plan_completed",
-            "plan_data": event["plan_data"],
-            "created_at": event["created_at"]
-        }))
+        message_type = event.get('message_type')
+        message = event.get('message')
+        plan_data = event.get('plan_data')
+        plan_id = event.get('plan_id')
+        user_id = event.get('user_id')
+
+        logger.debug(f"Handling {message_type} message for user {user_id}")
+
+        if message_type == 'workout_plan_completed':
+            await self.send(text_data=json.dumps({
+                'type': 'workout_plan_completed',
+                'plan_id': plan_id,
+                'plan_data': plan_data
+            }))
+        elif message_type == 'error':
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': message
+            }))
+        else:
+            await self.send(text_data=json.dumps({
+                'type': message_type,
+                'message': message
+            }))
