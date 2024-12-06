@@ -334,11 +334,15 @@ Additional Comments: {user_comments}
 
 CRITICAL REQUIREMENTS - YOUR RESPONSE WILL BE REJECTED IF ANY OF THESE ARE NOT MET:
 
-1. Weekly Schedule (MUST FOLLOW EXACTLY):
-   - Create EXACTLY {workout_days} workout days (no more, no less)
-   - The remaining {7 - workout_days} days MUST be {"rest" if workout_days <= 5 else "active_recovery"} days
-   - Total days MUST equal 7 (no more, no less)
-   - Schedule MUST follow this pattern:
+1. Schedule Requirements (MANDATORY):
+   * Total of 7 days per week
+   * If workout_days <= 5:
+     - Exactly {workout_days} workout days
+     - Remaining days must be REST days (not active recovery)
+   * If workout_days > 5:
+     - Exactly {workout_days} workout days
+     - Remaining days must be ACTIVE RECOVERY days (not rest)
+   * Fixed weekly schedule:
      * Monday: Workout (Day 1)
      * Tuesday: Workout (Day 2)
      * Wednesday: Workout (Day 3)
@@ -650,7 +654,7 @@ def generate_workout_plan(user_id, feedback_text=None):
                 raise ValueError(f"Expected exactly {expected_rest_days} rest days, but got {actual_rest_days}.")
             
             if actual_active_recovery_days > 0:
-                logger.error(f"Expected no active recovery days, but got {actual_active_recovery_days}.")
+                logger.error(f"Expected no active recovery days when workout_days <= 5, but got {actual_active_recovery_days}.")
                 raise ValueError(f"No active recovery days should be present when workout_days <= 5.")
         
         # For workout_days > 5, expect active recovery days
@@ -665,7 +669,7 @@ def generate_workout_plan(user_id, feedback_text=None):
                 raise ValueError(f"Expected exactly {expected_active_recovery} active recovery days, but got {actual_active_recovery_days}.")
             
             if actual_rest_days > 0:
-                logger.error(f"Expected no rest days, but got {actual_rest_days}.")
+                logger.error(f"Expected no rest days when workout_days > 5, but got {actual_rest_days}.")
                 raise ValueError(f"No rest days should be present when workout_days > 5.")
 
         # Log the final breakdown
