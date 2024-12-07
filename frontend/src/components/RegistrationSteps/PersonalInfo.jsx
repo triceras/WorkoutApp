@@ -38,30 +38,47 @@ function PersonalInfo() {
           const response = await axiosInstance.get('check_email/', {
             params: { email },
           });
-          if (response.data.available) {
+          setCheckingEmail(false);
+          if (!response.data.exists) {
             setEmailAvailable(true);
-            setFieldError('email', null);
+            setFieldError('email', undefined);
           } else {
             setEmailAvailable(false);
-            setFieldError('email', 'Email address has already been in use.');
+            setFieldError('email', 'This email is already registered. Please use a different email or login to your existing account.');
           }
         } catch (error) {
           console.error('Error checking email availability:', error);
-          setEmailAvailable(null);
-          setFieldError('email', 'Error checking email availability.');
-        } finally {
           setCheckingEmail(false);
+          setEmailAvailable(null);
+          setFieldError('email', 'Unable to verify email availability. Please try again.');
         }
       } else {
         setEmailAvailable(null);
-        setFieldError('email', null);
+        setCheckingEmail(false);
       }
     }, 500)
-  );
+  ).current;
+
+  // Handle email change
+  const handleEmailChange = (e) => {
+    const email = e.target.value;
+    handleChange(e);
+    if (email) {
+      debouncedCheckEmail(email);
+    } else {
+      setEmailAvailable(null);
+      setCheckingEmail(false);
+    }
+  };
 
   useEffect(() => {
     // Call the debounced function when email changes
-    debouncedCheckEmail.current(values.email);
+    if (values.email) {
+      debouncedCheckEmail(values.email);
+    } else {
+      setEmailAvailable(null);
+      setCheckingEmail(false);
+    }
   }, [values.email]);
 
   return (
@@ -96,31 +113,35 @@ function PersonalInfo() {
 
         <TextField
           fullWidth
+          id="email"
           name="email"
           label="Email"
-          type="email"
           value={values.email}
-          onChange={handleChange}
+          onChange={handleEmailChange}
           onBlur={handleBlur}
-          error={touched.email && Boolean(errors.email)}
-          helperText={touched.email && errors.email}
-          required
+          error={touched.email && (!!errors.email || emailAvailable === false)}
+          helperText={
+            touched.email && errors.email ? errors.email : 
+            checkingEmail ? "Checking email availability..." :
+            emailAvailable === false ? "This email is already registered" :
+            emailAvailable === true ? "Email is available" : ""
+          }
+          margin="normal"
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
                 {checkingEmail ? (
-                  <CircularProgress size={24} />
-                ) : emailAvailable ? (
+                  <CircularProgress size={20} />
+                ) : emailAvailable === true ? (
                   <CheckCircleIcon color="success" />
                 ) : emailAvailable === false ? (
                   <CancelIcon color="error" />
-                ) : (
-                  <Tooltip title="Enter a valid email address">
-                    <IconButton>
-                      <InfoIcon />
-                    </IconButton>
-                  </Tooltip>
-                )}
+                ) : null}
+                <Tooltip title="Please use a valid email address that hasn't been registered before">
+                  <IconButton size="small" style={{ marginLeft: 8 }}>
+                    <InfoIcon />
+                  </IconButton>
+                </Tooltip>
               </InputAdornment>
             ),
           }}
