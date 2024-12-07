@@ -213,7 +213,7 @@ def generate_prompt(
         examples = """
 Here's a complete example of a workout day:
 {
-  "day": "Monday: Upper Body Strength",
+  "day": "Day 1: Upper Body Strength",
   "type": "workout",
   "workout_type": "Strength",
   "duration": "45 minutes",
@@ -240,7 +240,7 @@ Here's a complete example of a workout day:
 
 And here's a complete example of a rest day:
 {
-  "day": "Sunday: Rest Day",
+  "day": "Day 7: Rest Day",
   "type": "rest",
   "exercises": [],
   "notes": "Take this day to recover and prepare for the next week's workouts."
@@ -264,7 +264,7 @@ And here's a complete example of a rest day:
         examples = """
 Here's a complete example of a workout day:
 {
-  "day": "Monday: Lower Body Strength",
+  "day": "Day 1: Lower Body Strength",
   "type": "workout",
   "workout_type": "Strength",
   "duration": "60 minutes",
@@ -291,7 +291,7 @@ Here's a complete example of a workout day:
 
 And here's a complete example of an active recovery day:
 {
-  "day": "Thursday: Active Recovery",
+  "day": "Day 7: Active Recovery Day",
   "type": "active_recovery",
   "exercises": [
     {
@@ -331,6 +331,30 @@ Workout Days per Week: {workout_days}
 
 Latest Feedback: {feedback_note}
 Additional Comments: {user_comments}
+
+RESPONSE FORMAT (MANDATORY):
+The response MUST be a JSON object with the following structure:
+{{
+  "workoutDays": [
+    {{
+      "day": "string (e.g., 'Day 1: Upper Body')",
+      "type": "workout | rest | active_recovery",
+      "workout_type": "string (required if type is workout)",
+      "duration": "string (required if type is workout)",
+      "exercises": [
+        {{
+          "name": "string",
+          "setsReps": "string",
+          "equipment": "string",
+          "instructions": "string",
+          "videoId": "string | null",
+          "exercise_type": "string"
+        }}
+      ],
+      "notes": "string"
+    }}
+  ]
+}}
 
 CRITICAL REQUIREMENTS - YOUR RESPONSE WILL BE REJECTED IF ANY OF THESE ARE NOT MET:
 
@@ -377,6 +401,8 @@ FINAL VERIFICATION CHECKLIST - VERIFY BEFORE SUBMITTING:
 6. Only workout days have workout_type and duration fields
 7. Total number of days equals 7
 8. Days follow the specified Monday-Sunday pattern
+
+IMPORTANT: Do NOT use any other root keys like "week", "schedule", "weekly_schedule", or "workout_plan". The root key must be "workoutDays".
 
 Return ONLY the JSON. No text before or after. No comments or backticks.
 """
@@ -442,7 +468,7 @@ def generate_workout_plan(user_id, feedback_text=None):
 
     # Prepare the payload for OpenRouter AI
     payload = {
-        "model": "openai/gpt-4o-mini",
+        "model": "meta-llama/llama-3.3-70b-instruct",
         "messages": [
             {
                 "role": "user",
@@ -492,57 +518,11 @@ def generate_workout_plan(user_id, feedback_text=None):
     logger.debug(f"AI Model Output:\n{output_str}")
 
     try:
-        # Try to parse the response as JSON
-        try:
-            workout_plan_data = json.loads(output_str)
-            logger.info("Successfully parsed workout plan data from JSON response")
+        # Parse the workout plan data
+        workout_plan_data = json.loads(output_str)
+        logger.info("Successfully parsed workout plan data from JSON response")
 
-            # Handle alternative keys by renaming them to 'workoutDays'
-            if 'workout_plan' in workout_plan_data and 'workoutDays' not in workout_plan_data:
-                workout_plan_data['workoutDays'] = workout_plan_data.pop('workout_plan')
-                logger.info("Renamed 'workout_plan' key to 'workoutDays'")
-
-            elif 'weekly_schedule' in workout_plan_data and 'workoutDays' not in workout_plan_data:
-                workout_plan_data['workoutDays'] = workout_plan_data.pop('weekly_schedule')
-                logger.info("Renamed 'weekly_schedule' key to 'workoutDays'")
-
-            elif 'schedule' in workout_plan_data and 'workoutDays' not in workout_plan_data:
-                workout_plan_data['workoutDays'] = workout_plan_data.pop('schedule')
-                logger.info("Renamed 'schedule' key to 'workoutDays'")
-            else:
-                logger.debug("No alternative keys found; expecting 'workoutDays'")
-        except json.JSONDecodeError as e1:
-            # Try to extract JSON from within markdown-style response
-            logger.warning(f"Failed to parse direct JSON response: {e1}")
-            try:
-                json_match = re.search(r'```json\n(.*?)\n```', output_str, re.DOTALL)
-                if json_match:
-                    workout_plan_data = json.loads(json_match.group(1))
-                    logger.info("Successfully extracted and parsed JSON from markdown response")
-
-                    # Handle alternative keys by renaming them to 'workoutDays'
-                    if 'workout_plan' in workout_plan_data and 'workoutDays' not in workout_plan_data:
-                        workout_plan_data['workoutDays'] = workout_plan_data.pop('workout_plan')
-                        logger.info("Renamed 'workout_plan' key to 'workoutDays' from markdown")
-
-                    elif 'weekly_schedule' in workout_plan_data and 'workoutDays' not in workout_plan_data:
-                        workout_plan_data['workoutDays'] = workout_plan_data.pop('weekly_schedule')
-                        logger.info("Renamed 'weekly_schedule' key to 'workoutDays' from markdown")
-
-                    elif 'schedule' in workout_plan_data and 'workoutDays' not in workout_plan_data:
-                        workout_plan_data['workoutDays'] = workout_plan_data.pop('schedule')
-                        logger.info("Renamed 'schedule' key to 'workoutDays' from markdown")
-                else:
-                    raise ValueError("No JSON content found in markdown blocks")
-            except (json.JSONDecodeError, ValueError) as e2:
-                logger.error(f"Failed to extract valid JSON from response: {e2}")
-                raise WorkoutPlanCreationError(f"Failed to parse workout plan data: {e2}") from e2
-
-        # Validate and process the workout plan data
-        if not isinstance(workout_plan_data, dict):
-            logger.error("Workout plan data is not a dictionary")
-            raise ValueError("Invalid workout plan format: expected dictionary")
-
+        # Verify the required workoutDays field is present
         if 'workoutDays' not in workout_plan_data:
             logger.error("No 'workoutDays' field in workout plan data")
             raise ValueError("Invalid workout plan format: missing 'workoutDays' field")
