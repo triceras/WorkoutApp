@@ -66,6 +66,78 @@
   color: #2e7d32;
 }
 
+/* Arrow-shaped steps with labels inside */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 0;
+  position: relative;
+  background-color: white; /* Ensure white background for gaps */
+  gap: 3px; /* Add small gap between steps */
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+  padding: 15px 25px;
+  background-color: #e0e0e0;
+  position: relative;
+  font-weight: bold;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  margin: 0;
+  min-width: 120px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Adjust clip-path to create small gaps */
+  clip-path: polygon(0 0, 85% 0, 100% 50%, 85% 100%, 0 100%, 15% 50%);
+}
+
+.step:last-child {
+  border-right: none; /* Remove border from last step */
+}
+
+.step:not(:first-child) {
+  margin-left: -15px; /* Reduced overlap to show white gap */
+}
+
+.step.active {
+  background-color: #1976d2;
+  color: white;
+  z-index: 2;
+  border-right-color: rgba(255, 255, 255, 0.4); /* Lighter border for active step */
+}
+
+.step.completed {
+  background-color: #2e7d32;
+  color: white;
+  z-index: 1;
+  border-right-color: rgba(255, 255, 255, 0.4); /* Lighter border for completed step */
+}
+
+/* Adjust separator color for active and completed states */
+.step.active::before,
+.step.completed::before {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Add separator lines */
+.step:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: rgba(0, 0, 0, 0.2);
+  z-index: 3;
+}
+
 /* Step content and form styles */
 .step-content {
   padding: 2rem;
@@ -110,47 +182,4 @@
   opacity: 0;
   transform: translateX(-100%);
   transition: opacity 300ms, transform 300ms;
-}
-
-/* Arrow-shaped steps with labels inside */
-.stepper {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  margin-bottom: 20px;
-}
-
-.step {
-  flex: 1;
-  text-align: center;
-  padding: 10px 20px;
-  background-color: #e0e0e0;
-  position: relative;
-  font-weight: bold;
-  transition: background-color 0.3s ease;
-  margin: 0 -2px;
-  clip-path: polygon(0 0, 95% 0, 100% 50%, 95% 100%, 0 100%, 5% 50%);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.step.active {
-  background-color: #3f51b5;
-  color: white;
-}
-
-.step:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  right: -5px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-top: 15px solid transparent;
-  border-bottom: 15px solid transparent;
-  border-left: 15px solid #e0e0e0;
-}
-
-.step.active:not(:last-child)::after {
-  border-left-color: #3f51b5;
 }

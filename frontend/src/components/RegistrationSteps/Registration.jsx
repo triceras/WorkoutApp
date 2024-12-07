@@ -154,7 +154,7 @@ function Registration() {
         {steps.map((label, index) => (
           <Box
             key={label}
-            className={`step ${activeStep === index ? 'active' : ''}`}
+            className={`step ${activeStep === index ? 'active' : ''} ${activeStep > index ? 'completed' : ''}`}
           >
             {label}
           </Box>

@@ -160,20 +160,18 @@ function Dashboard() {
 
   // Workout helpers
   const getTodayWorkout = useCallback((workoutPlan) => {
-    if (!workoutPlan || !workoutPlan.workoutDays) {
-      console.log('No workout plan or workoutDays available');
-      return null;
-    }
-
     try {
-      // Get today and set to start of day
-      const today = DateTime.now().startOf('day');
+      if (!workoutPlan?.workoutDays) {
+        return null;
+      }
+
+      const today = DateTime.now().setZone('Australia/Sydney');
       
       // Get the current day of the week (1-7, Monday is 1)
       const currentDayOfWeek = today.weekday;
-
-      // Adjust index to 0-based (Monday = 0, Sunday = 6)
-      const currentDayIndex = currentDayOfWeek - 1;
+      
+      // Map Luxon's weekday (1-7, Mon-Sun) to array index (0-6, Mon-Sun)
+      const currentDayIndex = (currentDayOfWeek - 1) % 7;
       
       console.log('Workout calculation:', {
         today: today.toISO(),
@@ -196,7 +194,7 @@ function Dashboard() {
 
   // Effect to update current workout whenever workout plans change
   useEffect(() => {
-    if (workoutPlans.length > 0) {
+    if (workoutPlans?.length > 0 && workoutPlans[0]?.workoutDays) {
       const todayWorkout = getTodayWorkout(workoutPlans[0]);
       setCurrentWorkout(todayWorkout);
       console.log('Updated current workout:', todayWorkout);
@@ -364,11 +362,18 @@ function Dashboard() {
                     Log a Workout Session
                   </Typography>
                   <Paper elevation={3} style={{ padding: '20px' }}>
-                    <LogSessionForm
-                      workoutPlans={workoutPlans}
-                      source="dashboard"
-                      onSessionLogged={handleSessionLoggedCallback}
-                    />
+                    {workoutPlans && workoutPlans.length > 0 ? (
+                      <LogSessionForm
+                        workoutPlans={workoutPlans}
+                        source="dashboard"
+                        onSessionLogged={handleSessionLoggedCallback}
+                        isLoading={isLoadingWorkoutPlan}
+                      />
+                    ) : (
+                      <Typography variant="body1" color="textSecondary">
+                        No workout plans available. Generate a workout plan to start logging sessions.
+                      </Typography>
+                    )}
                   </Paper>
                 </Box>
               </Container>
