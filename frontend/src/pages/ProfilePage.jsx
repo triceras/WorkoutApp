@@ -1,17 +1,27 @@
 // src/pages/ProfilePage.jsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import ProgressionMetrics from '../components/ProgressionMetrics';
 import UploadProfilePicture from '../components/UploadProfilePicture';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
-  const [profileData, setProfileData] = useState(null);
-  const [workoutPlans, setWorkoutPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('trainingSessions');
   const [expandedSessions, setExpandedSessions] = useState({});
+  const [profileData, setProfileData] = useState({
+    user: {
+      first_name: '',
+      last_name: '',
+      age: '',
+      member_since: '',
+      id: '',
+      profile_picture: null
+    },
+    training_sessions: []
+  });
 
   // Helper function to extract day number from day string
   const extractDayNumber = (dayString) => {
@@ -22,11 +32,19 @@ const ProfilePage = () => {
   // Function to fetch profile data from the backend
   const fetchProfileData = async () => {
     try {
-      const response = await axiosInstance.get('user/progression/');
-      setProfileData(response.data);
-    } catch (err) {
-      console.error('Error fetching profile data:', err);
-      setError('Failed to load profile data.');
+      setLoading(true);
+      const userResponse = await axiosInstance.get('user/');
+      const progressionResponse = await axiosInstance.get('user/progression/');
+      
+      setProfileData({
+        user: userResponse.data,
+        training_sessions: progressionResponse.data.training_sessions || []
+      });
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+      setError('Failed to load profile data');
+      setLoading(false);
     }
   };
 
@@ -46,7 +64,6 @@ const ProfilePage = () => {
         })),
       }));
 
-      setWorkoutPlans(processedPlans);
       console.log('Processed workoutPlans:', processedPlans); // Debugging
     } catch (err) {
       console.error('Error fetching workout plans:', err);
@@ -60,47 +77,145 @@ const ProfilePage = () => {
     fetchWorkoutPlans();
   }, []);
 
-  // Handle tab switching
-  const handleTabClick = (tabName) => {
-    setActiveTab(tabName);
-  };
-
-  // Toggle session details visibility
-  const toggleSession = (sessionId) => {
-    setExpandedSessions((prevState) => ({
-      ...prevState,
-      [sessionId]: !prevState[sessionId],
+  const handleUploadSuccess = (newProfilePicture) => {
+    setProfileData(prev => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        profile_picture: newProfilePicture
+      }
     }));
+    fetchProfileData(); // Refresh all profile data after upload
   };
 
-  // Refresh profile data after successful profile picture upload or session logging
-  const handleUploadSuccess = () => {
-    fetchProfileData();
+  const TrainingSessionsTab = () => {
+    const [sessions, setSessions] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const fetchSessions = async () => {
+        try {
+          const response = await axiosInstance.get('workout-plans/');
+          if (response.data && response.data.length > 0) {
+            const currentPlan = response.data[0];
+            const scheduledSessions = currentPlan.workoutDays.map(day => ({
+              id: `scheduled_${day.day}`,
+              date: new Date(),
+              session_name: day.day,
+              workout_type: day.workout_type || 'Strength',
+              exercises: day.exercises.map(exercise => {
+                if (day.workout_type === 'Cardio') {
+                  return {
+                    name: exercise.name,
+                    duration: exercise.setsReps,
+                    isCardio: true
+                  };
+                } else {
+                  const setsMatch = exercise.setsReps?.match(/(\d+)\s*sets/);
+                  const repsMatch = exercise.setsReps?.match(/(\d+)\s*reps/);
+                  
+                  return {
+                    name: exercise.name,
+                    setsReps: exercise.setsReps,
+                    sets: setsMatch ? parseInt(setsMatch[1]) : 3,
+                    reps: repsMatch ? parseInt(repsMatch[1]) : 12,
+                    isCardio: false
+                  };
+                }
+              })
+            }));
+            setSessions(scheduledSessions);
+          }
+        } catch (error) {
+          console.error('Error fetching training sessions:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchSessions();
+    }, []);
+
+    if (loading) {
+      return (
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="training-schedule">
+        <div className="schedule-header">
+          <h2>Weekly Training Schedule</h2>
+        </div>
+        
+        {sessions.map((session) => (
+          <div key={session.id} className="session-block">
+            <div className="session-header">
+              <div className="header-button">{session.session_name}</div>
+              <div className="header-button workout-type">{session.workout_type}</div>
+            </div>
+            
+            {session.session_name.toLowerCase().includes('recovery') ? (
+              <div className="recovery-message">
+                No workout planned for this recovery day. Take it easy and focus on stretching and light activities.
+              </div>
+            ) : (
+              <table className="schedule-table">
+                <thead>
+                  <tr>
+                    <th className="exercise-name">EXERCISE</th>
+                    {session.workout_type === 'Cardio' ? (
+                      <th>DURATION</th>
+                    ) : (
+                      <>
+                        <th>SET 1</th>
+                        <th>SET 2</th>
+                        <th>SET 3</th>
+                        <th>SET 4</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {session.exercises.map((exercise, idx) => (
+                    <tr key={idx}>
+                      <td className="exercise-name">{exercise.name}</td>
+                      {exercise.isCardio ? (
+                        <td>{exercise.duration}</td>
+                      ) : (
+                        <>
+                          {[...Array(4)].map((_, i) => (
+                            <td key={i}>
+                              {i < exercise.sets ? exercise.reps : '-'}
+                            </td>
+                          ))}
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
-  // Handle session logged from LogSessionForm
-  const handleSessionLogged = (sessionData) => {
-    console.log('Session logged:', sessionData);
-    // Update profile data after a session is logged
-    fetchProfileData();
-  };
-
-  // Display error message if data fetching fails
-  if (error) {
-    return <div className="profile-loading">Error: {error}</div>;
+  if (loading) {
+    return <div className="profile-loading">Loading...</div>;
   }
 
-  // Display loading message while fetching data
-  if (!profileData) {
-    return <div className="profile-loading">Loading...</div>;
+  if (error) {
+    return <div className="profile-error">{error}</div>;
   }
 
   const { user, training_sessions } = profileData;
 
   return (
-    <div className="profile-page">
-      <h2>User Profile</h2>
-
+    <div className="page-container">
       {/* User Information Box */}
       <div className="user-info-box">
         <div className="user-info-and-upload">
@@ -130,7 +245,7 @@ const ProfilePage = () => {
                   <strong>Age:</strong> {user.age || 'N/A'}
                 </p>
                 <p>
-                  <strong>Member Since:</strong> {user.member_since}
+                  <strong>Member Since:</strong> {new Date(user.member_since).toLocaleDateString()}
                 </p>
                 <p>
                   <strong>Membership Number:</strong> {user.id}
@@ -144,163 +259,27 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* Tabs for Training Sessions and Progression Metrics */}
-      <div className="tabs">
-        <button
-          className={`tab-button ${
-            activeTab === 'trainingSessions' ? 'active' : ''
-          }`}
-          onClick={() => handleTabClick('trainingSessions')}
+      {/* Navigation Tabs */}
+      <div className="nav-tabs">
+        <button 
+          className={`nav-tab ${activeTab === 'trainingSessions' ? 'active' : 'inactive'}`}
+          onClick={() => setActiveTab('trainingSessions')}
         >
           Training Sessions
         </button>
-        <button
-          className={`tab-button ${
-            activeTab === 'progressionMetrics' ? 'active' : ''
-          }`}
-          onClick={() => handleTabClick('progressionMetrics')}
+        <button 
+          className={`nav-tab ${activeTab === 'progressionMetrics' ? 'active' : 'inactive'}`}
+          onClick={() => setActiveTab('progressionMetrics')}
         >
           Progression Metrics
         </button>
       </div>
 
       {/* Tab Content */}
-      <div className="tab-content">
-        {/* Training Sessions Tab */}
-        {activeTab === 'trainingSessions' && (
-          <div className="profile-section">
-            <h3>Training Sessions</h3>
-            {training_sessions.length === 0 ? (
-              <p>No training sessions available.</p>
-            ) : (
-              training_sessions.map((session) => (
-                <div key={session.id} className="session-item">
-                  <div
-                    className="session-header"
-                    onClick={() => toggleSession(session.id)}
-                  >
-                    <h4>{session.session_name}</h4>
-                    <span>{expandedSessions[session.id] ? '-' : '+'}</span>
-                  </div>
-                  {expandedSessions[session.id] && (
-                    <div className="session-details">
-                      <p>
-                        <strong>Date:</strong>{' '}
-                        {new Date(session.date).toLocaleDateString()}
-                      </p>
-                      <p>
-                        <strong>Feedback:</strong>{' '}
-                        {getEmoji(session.emoji_feedback)}
-                      </p>
-
-                      {session.intensity_level !== null &&
-                        session.intensity_level !== undefined && (
-                          <p>
-                            <strong>Intensity Level:</strong>{' '}
-                            {session.intensity_level}
-                          </p>
-                        )}
-
-                      {session.duration !== null &&
-                        session.duration !== undefined && (
-                          <p>
-                            <strong>Duration:</strong> {session.duration}{' '}
-                            minutes
-                          </p>
-                        )}
-
-                      {session.calories_burned !== null &&
-                        session.calories_burned !== undefined && (
-                          <p>
-                            <strong>Calories Burned:</strong>{' '}
-                            {session.calories_burned} kcal
-                          </p>
-                        )}
-
-                      {session.heart_rate_pre !== null &&
-                        session.heart_rate_pre !== undefined && (
-                          <p>
-                            <strong>Heart Rate Before:</strong>{' '}
-                            {session.heart_rate_pre} bpm
-                          </p>
-                        )}
-
-                      {session.heart_rate_post !== null &&
-                        session.heart_rate_post !== undefined && (
-                          <p>
-                            <strong>Heart Rate After:</strong>{' '}
-                            {session.heart_rate_post} bpm
-                          </p>
-                        )}
-
-                      {session.comments && (
-                        <p>
-                          <strong>Comments:</strong> {session.comments}
-                        </p>
-                      )}
-
-                      {/* Display Exercises in a Table */}
-                      {session.exercises &&
-                        session.exercises.length > 0 && (
-                          <div className="session-exercises">
-                            <h5>Exercises:</h5>
-                            <table className="exercise-table">
-                              <thead>
-                                <tr>
-                                  <th>Exercise Name</th>
-                                  <th>Sets</th>
-                                  <th>Reps</th>
-                                  <th>Weight (kg)</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {session.exercises.map((exercise) => (
-                                  <tr key={exercise.id}>
-                                    <td>{exercise.exercise_name}</td>
-                                    <td>{exercise.sets}</td>
-                                    <td>{exercise.reps}</td>
-                                    <td>
-                                      {exercise.weight !== null
-                                        ? exercise.weight
-                                        : 'N/A'}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Progression Metrics Tab */}
-        {activeTab === 'progressionMetrics' && (
-          <div className="profile-section">
-            <h3>Progression Metrics</h3>
-            <ProgressionMetrics />
-          </div>
-        )}
-      </div>
+      {activeTab === 'trainingSessions' && <TrainingSessionsTab />}
+      {activeTab === 'progressionMetrics' && <ProgressionMetrics />}
     </div>
   );
-};
-
-// Helper function to convert feedback score to emoji
-const getEmoji = (score) => {
-  const emojiMap = {
-    0: '😰 Terrible',
-    1: '😟 Very Bad',
-    2: '😕 Bad',
-    3: '😐 Neutral',
-    4: '😊 Good',
-    5: '😃 Excellent',
-  };
-  return emojiMap[score] || '🤔 Unknown';
 };
 
 export default ProfilePage;

@@ -249,25 +249,32 @@ class TrainingSessionExercise(models.Model):
     training_session = models.ForeignKey(
         TrainingSession, 
         on_delete=models.CASCADE, 
-        related_name='training_session_exercises'  # Unique related_name
+        related_name='training_session_exercises'
     )
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
-    sets = models.PositiveIntegerField()
-    reps = models.PositiveIntegerField()
+    
+    # Fields for strength exercises
+    sets = models.PositiveIntegerField(null=True, blank=True)
+    reps = models.PositiveIntegerField(null=True, blank=True)
     weight = models.FloatField(null=True, blank=True)
     
-    # Aerobic-specific fields
-    duration = models.PositiveIntegerField(null=True, blank=True)  # in minutes
+    # Fields for cardio exercises
+    duration = models.PositiveIntegerField(null=True, blank=True)
     calories_burned = models.PositiveIntegerField(null=True, blank=True)
     average_heart_rate = models.PositiveIntegerField(null=True, blank=True)
     max_heart_rate = models.PositiveIntegerField(null=True, blank=True)
-    intensity = models.CharField(max_length=50, null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.exercise.name} in {self.training_session}"
+    intensity = models.CharField(
+        max_length=50,
+        choices=[('Low', 'Low'), ('Moderate', 'Moderate'), ('High', 'High')],
+        null=True,
+        blank=True
+    )
 
     class Meta:
         unique_together = ('training_session', 'exercise')
+
+    def __str__(self):
+        return f"{self.exercise.name} - {self.training_session}"
 
 class YouTubeVideo(models.Model):
     exercise_name = models.CharField(max_length=255, unique=True)

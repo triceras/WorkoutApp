@@ -2,7 +2,14 @@
 
 import React, { useContext, useEffect, useState } from 'react';
 import { AuthContext } from './context/AuthContext';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { 
+  BrowserRouter as Router, 
+  Routes, 
+  Route, 
+  Navigate,
+  createRoutesFromElements,
+  createBrowserRouter,
+} from 'react-router-dom';
 import RegistrationPage from './pages/RegistrationPage';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
@@ -20,6 +27,21 @@ import TrainingSessionList from './pages/TrainingSessionList';
 import './App.css';
 import { CircularProgress } from '@mui/material';
 import { WebSocketProvider } from './context/WebSocketContext';
+
+// Configure future flags
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route>
+      {/* Your routes here */}
+    </Route>
+  ),
+  {
+    future: {
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    },
+  }
+);
 
 function App() {
   const { authToken, loading: authLoading } = useContext(AuthContext);
@@ -42,7 +64,10 @@ function App() {
   }
 
   return (
-    <Router>
+    <Router future={{ 
+      v7_startTransition: true,
+      v7_relativeSplatPath: true 
+    }}>
       <WebSocketProvider>
         <Navbar />
         <div className="app-container">

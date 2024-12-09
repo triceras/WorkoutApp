@@ -4,6 +4,7 @@ import json
 from celery import shared_task
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q
 from .models import WorkoutPlan, TrainingSession
 from .services import generate_workout_plan
 from channels.layers import get_channel_layer
@@ -171,6 +172,80 @@ def process_feedback_submission_task(self, training_session_id):
             logger.error(f"Max retries exceeded for processing feedback of Training Session ID {training_session_id}")
 
 
+def get_latest_feedback(user):
+    """
+    Get the latest feedback from the user's training sessions.
+    Returns a string summarizing recent feedback patterns.
+    """
+    recent_sessions = TrainingSession.objects.filter(
+        user=user
+    ).order_by('-date')[:5]  # Get last 5 sessions
+
+    if not recent_sessions:
+        return "No previous feedback available."
+
+    feedback_summary = []
+    for session in recent_sessions:
+        if session.comments:
+            feedback_summary.append(f"Session '{session.session_name}': {session.comments}")
+
+    return " | ".join(feedback_summary) if feedback_summary else "No detailed feedback in recent sessions."
+
+
+def process_feedback_with_ai(feedback_data, modify_specific_session=False):
+    """
+    Process feedback using AI to modify the workout plan.
+    Returns modified session or None if processing fails.
+    """
+    try:
+        # For now, implement a simple modification based on the feedback
+        session_name = feedback_data.get('session_name')
+        comments = feedback_data.get('comments', '').lower()
+        workout_plan = feedback_data.get('workout_plan', {})
+        
+        # Find the specific session in the workout plan
+        workout_days = workout_plan.get('workoutDays', [])
+        target_session = None
+        
+        for day in workout_days:
+            if day.get('day') == session_name:
+                target_session = day.copy()
+                break
+        
+        if not target_session:
+            logger.error(f"Session {session_name} not found in workout plan")
+            return None
+            
+        # Simple exercise replacement logic based on comments
+        exercises = target_session.get('exercises', [])
+        modified_exercises = []
+        
+        for exercise in exercises:
+            # Example: If user mentions replacing an exercise
+            if f"replace {exercise['name'].lower()}" in comments:
+                # This is a simplified example - in production, you'd want to use
+                # a more sophisticated AI model to choose appropriate replacements
+                alternative_exercises = {
+                    'push-ups': {'name': 'Push-Ups', 'sets': 3, 'reps': 12},
+                    'squats': {'name': 'Bodyweight Squats', 'sets': 3, 'reps': 15},
+                    'dumbbell rows': {'name': 'Push-Ups', 'sets': 3, 'reps': 12},
+                }
+                
+                # For this example, we'll replace with push-ups
+                replacement = alternative_exercises.get('push-ups').copy()
+                replacement['exercise_id'] = exercise.get('exercise_id')
+                modified_exercises.append(replacement)
+            else:
+                modified_exercises.append(exercise)
+        
+        target_session['exercises'] = modified_exercises
+        return target_session
+        
+    except Exception as e:
+        logger.error(f"Error processing feedback with AI: {str(e)}", exc_info=True)
+        return None
+
+
 def send_workout_plan_to_group(user, plan_data):
     """
     Send workout plan data to the user's WebSocket group.
@@ -203,3 +278,69 @@ def send_workout_plan_to_group(user, plan_data):
                 'message': 'Error delivering workout plan'
             }
         )
+
+
+@shared_task
+def check_and_refresh_workout_plans():
+    """
+    Check and refresh workout plans that are older than one month
+    """
+    try:
+        one_month_ago = timezone.now() - timezone.timedelta(days=30)
+        users_needing_refresh = User.objects.filter(
+            Q(workout_plan__created_at__lte=one_month_ago) | 
+            Q(workout_plan__isnull=True)
+        )
+
+        for user in users_needing_refresh:
+            generate_workout_plan.delay(user.id)
+            
+    except Exception as e:
+        logger.error(f"Error refreshing workout plans: {str(e)}", exc_info=True)
+
+
+@shared_task
+def process_negative_feedback(training_session_id):
+    """
+    Process negative feedback and modify the workout plan accordingly
+    """
+    try:
+        session = TrainingSession.objects.get(id=training_session_id)
+        if not session.feedback or not session.feedback.get('emoji') or not session.feedback.get('comments'):
+            return
+        
+        emoji = session.feedback['emoji']
+        comments = session.feedback['comments'].lower()
+        
+        # Check if feedback is negative
+        if emoji in ['😞', '😢', '😡']:  # bad, very bad, terrible
+            workout_plan = session.user.workout_plan
+            if not workout_plan:
+                return
+                
+            # Find the specific day in the workout plan
+            workout_days = workout_plan.workoutDays
+            for day in workout_days:
+                if day['day'] == session.session_name:
+                    # Process feedback with AI
+                    modified_session = process_feedback_with_ai({
+                        'session_name': session.session_name,
+                        'comments': comments,
+                        'workout_plan': workout_plan
+                    })
+                    
+                    if modified_session:
+                        # Update the workout plan with modified session
+                        day.update(modified_session)
+                        workout_plan.save()
+                        
+                        # Notify user about the changes
+                        send_workout_plan_to_group(session.user, {
+                            'type': 'workout_plan_updated',
+                            'message': 'Your workout plan has been updated based on your feedback.',
+                            'updated_session': session.session_name
+                        })
+                    break
+                    
+    except Exception as e:
+        logger.error(f"Error processing negative feedback: {str(e)}", exc_info=True)

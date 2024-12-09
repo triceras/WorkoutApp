@@ -25,6 +25,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { toast } from 'react-toastify';
+import RestDaySuggestions from '../components/RestDaySuggestions';
 
 const useStyles = makeStyles((theme) => ({
   dashboardContainer: {
@@ -321,41 +322,57 @@ function Dashboard() {
                   Welcome {userData?.first_name || userData?.username}!
                 </Typography>
 
-                {currentWorkout && Array.isArray(currentWorkout.exercises) ? (
-                  <>
-                    <Typography variant="h5" className={classes.sectionTitle}>
-                      Today's Workout
+                {currentWorkout && (
+                  <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
+                    <Typography variant="h5" gutterBottom>
+                      Today's Plan - {currentWorkout.day}
                     </Typography>
-                    <WorkoutCard
-                      workouts={currentWorkout.exercises}
-                      userName={userData?.first_name || userData?.username}
-                    />
-
-                    {/* Progress Chart placed below the exercise cards */}
-                    <Typography variant="h5" className={classes.sectionTitle}>
-                      Your Progress
-                    </Typography>
-                    <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
-                      {progressData ? (
-                        <ProgressChart progressData={progressData} />
-                      ) : (
-                        <Typography variant="body1">
-                          Start logging your sessions to see progress.
+                    {currentWorkout.type === 'rest' ? (
+                      <>
+                        <Typography variant="body1" color="text.secondary" paragraph>
+                          {currentWorkout.notes}
                         </Typography>
-                      )}
-                    </Paper>
-
-                    {/* Progression Metrics */}
-                    <ProgressionMetrics />
-
-                  </>
-                ) : (
-                  <Typography variant="body1">
-                    {workoutPlans.length > 0
-                      ? 'Today is a rest day. Take some time to recover!'
-                      : 'You have no workout scheduled for today. Generate a new plan!'}
-                  </Typography>
+                        <RestDaySuggestions />
+                      </>
+                    ) : (
+                      <>
+                        <Typography variant="h6" gutterBottom>
+                          Workout Details
+                        </Typography>
+                        <Typography variant="body1" paragraph>
+                          Type: {currentWorkout.workout_type}
+                        </Typography>
+                        <Typography variant="body1" paragraph>
+                          Duration: {currentWorkout.duration}
+                        </Typography>
+                        <Typography variant="h6" gutterBottom>
+                          Exercises
+                        </Typography>
+                        <WorkoutCard
+                          workouts={currentWorkout.exercises}
+                          userName={userData?.first_name || userData?.username}
+                        />
+                      </>
+                    )}
+                  </Paper>
                 )}
+
+                {/* Progress Chart placed below the exercise cards */}
+                <Typography variant="h5" className={classes.sectionTitle}>
+                  Your Progress
+                </Typography>
+                <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
+                  {progressData ? (
+                    <ProgressChart progressData={progressData} />
+                  ) : (
+                    <Typography variant="body1">
+                      Start logging your sessions to see progress.
+                    </Typography>
+                  )}
+                </Paper>
+
+                {/* Progression Metrics */}
+                <ProgressionMetrics />
 
                 <Box marginTop={4}>
                   <Typography variant="h5" className={classes.sectionTitle}>

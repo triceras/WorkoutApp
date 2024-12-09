@@ -88,7 +88,15 @@ export const WebSocketProvider = ({ children }) => {
 
             case 'workout_plan_completed':
               console.log('WebSocket: Workout plan completed message received', data);
-              const planData = data.plan_data;
+              const planData = {
+                ...data.plan_data,
+                id: data.plan_id,
+                user: {
+                  id: user?.id,
+                  username: user?.username || '',
+                  // Include other user fields if needed
+                }
+              };
               if (planData) {
                 console.log('WebSocket: Setting latest workout plan:', planData);
                 setLatestWorkoutPlan(planData);

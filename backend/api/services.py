@@ -366,14 +366,9 @@ CRITICAL REQUIREMENTS - YOUR RESPONSE WILL BE REJECTED IF ANY OF THESE ARE NOT M
    * If workout_days > 5:
      - Exactly {workout_days} workout days
      - Remaining days must be ACTIVE RECOVERY days (not rest)
-   * Fixed weekly schedule:
-     * Monday: Workout (Day 1)
-     * Tuesday: Workout (Day 2)
-     * Wednesday: Workout (Day 3)
-     * Thursday: {"Rest" if workout_days <= 5 else "Active Recovery"}
-     * Friday: Workout (Day 4)
-     * Saturday: Workout (Day 5)
-     * Sunday: {"Rest" if workout_days <= 5 else "Active Recovery"}
+   * Distribute workout days evenly throughout the week
+   * Label days as "Day X: [Focus Area]" where X is 1 to 7
+   * Ensure proper rest/recovery between similar muscle groups
 
 2. Exercise Requirements (MANDATORY):
    - Each exercise MUST include ALL of these fields:
