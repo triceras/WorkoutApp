@@ -18,7 +18,7 @@ function Logout() {
       } finally {
         // Use the logout function from AuthContext
         logout();
-        navigate('/login'); // Redirect to login page
+        navigate('/'); // Redirect to landing page instead of login
       }
     };
 

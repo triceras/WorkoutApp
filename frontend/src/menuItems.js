@@ -6,14 +6,10 @@ export const getMenuItems = (authToken) => {
       return [
         { path: '/dashboard', label: 'Dashboard' },
         { path: '/profile', label: 'Profile' },
-        { path: '/logout', label: 'Logout' },
+        { path: '', label: 'Logout' }, // Removed path for logout since it's handled by click
       ];
     } else {
-      // User is not logged in
-      return [
-        { path: '/login', label: 'Login' },
-        { path: '/register', label: 'Register' },
-      ];
+      // User is not logged in - return empty array since login/register are handled by nav buttons
+      return [];
     }
   };
-  

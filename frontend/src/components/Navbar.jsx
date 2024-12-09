@@ -168,12 +168,54 @@ function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { authToken } = useContext(AuthContext);
+  const { authToken, logout } = useContext(AuthContext);
   const location = useLocation();
+  const navigate = useNavigate();
   const profileRef = useRef(null);
   const [loginOpen, setLoginOpen] = useState(false);
 
   const hideNavbar = location.pathname === '/login' || location.pathname === '/register';
+
+  const handleLogout = async () => {
+    try {
+      await axiosInstance.post('logout/');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    } finally {
+      logout();
+      navigate('/');
+    }
+  };
+
+  const renderMenuItem = (item) => {
+    if (item.label === 'Logout') {
+      return (
+        <Button
+          className="navbar-link"
+          onClick={handleLogout}
+          sx={{
+            textTransform: 'none',
+            fontSize: 'inherit',
+            fontWeight: 'inherit',
+            padding: 'inherit',
+          }}
+        >
+          {item.label}
+        </Button>
+      );
+    }
+    return (
+      <NavLink
+        to={item.path}
+        className={({ isActive }) =>
+          isActive ? 'navbar-link active-link' : 'navbar-link'
+        }
+        onClick={() => setIsOpen(false)}
+      >
+        {item.label}
+      </NavLink>
+    );
+  };
 
   const toggleMenu = () => {
     setIsOpen((prev) => !prev);
@@ -248,15 +290,7 @@ function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
           <ul className={`navbar-menu ${isOpen ? 'active' : ''}`}>
             {menuItems.map((item) => (
               <li className="navbar-item" key={item.path}>
-                <NavLink
-                  to={item.path}
-                  className={({ isActive }) =>
-                    isActive ? 'navbar-link active-link' : 'navbar-link'
-                  }
-                  onClick={() => setIsOpen(false)}
-                >
-                  {item.label}
-                </NavLink>
+                {renderMenuItem(item)}
               </li>
             ))}
             {!authToken && (

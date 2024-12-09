@@ -43,12 +43,6 @@ const useStyles = makeStyles((theme) => ({
     marginTop: 40,
     marginBottom: 20,
   },
-  connectionStatus: {
-    position: 'fixed',
-    top: 20,
-    right: 20,
-    zIndex: 1000,
-  },
   spinnerContainer: {
     display: 'flex',
     justifyContent: 'center',
@@ -68,7 +62,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { authToken, user, loading: authLoading } = useContext(AuthContext);
-  const { connected: wsConnected, reconnecting: wsReconnecting, latestWorkoutPlan } = useWebSocket();
+  const { latestWorkoutPlan } = useWebSocket();
 
   // State
   const [userData, setUserData] = useState(null);
@@ -278,11 +272,6 @@ function Dashboard() {
           <p className="mt-4">
             Your personalized workout plan is being created. Please wait...
           </p>
-          {!wsConnected && (
-            <p className="mt-2 text-sm text-red-500">
-              Reconnecting to server...
-            </p>
-          )}
         </div>
       </Box>
     );
@@ -293,18 +282,6 @@ function Dashboard() {
     <ErrorBoundary>
       <div className={classes.dashboardContainer}>
         <ToastContainer position="top-right" autoClose={5000} />
-
-        <Chip
-          className={classes.connectionStatus}
-          color={wsConnected ? 'success' : wsReconnecting ? 'warning' : 'error'}
-          label={
-            wsConnected
-              ? 'Connected'
-              : wsReconnecting
-              ? 'Reconnecting...'
-              : 'Disconnected'
-          }
-        />
 
         <main className={classes.content}>
           {isLoadingWorkoutPlan ? (

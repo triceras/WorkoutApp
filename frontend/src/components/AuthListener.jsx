@@ -9,8 +9,8 @@ const AuthListener = () => {
   useEffect(() => {
     const handleStorageChange = (event) => {
       if (event.key === 'authToken' && !event.newValue) {
-        // Token was removed, redirect to login
-        navigate('/login');
+        // Token was removed, redirect to landing page
+        navigate('/');
       }
     };
 

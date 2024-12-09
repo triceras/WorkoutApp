@@ -19,7 +19,6 @@ import WorkoutPlan from './components/WorkoutPlan';
 import AuthListener from './components/AuthListener';
 import Navbar from './components/Navbar';
 import GeneratingWorkout from './pages/GeneratingWorkout';
-import Logout from './pages/LogoutPage';
 import NotFoundPage from './pages/NotFoundPage';
 import TrainingSessionDetail from './pages/TrainingSessionDetail';
 import LandingPage from './pages/LandingPage';
@@ -80,8 +79,18 @@ function App() {
                   authToken ? <Navigate to="/dashboard" replace /> : <LandingPage />
                 }
               />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegistrationPage />} />
+              <Route 
+                path="/login" 
+                element={
+                  authToken ? <Navigate to="/dashboard" replace /> : <LoginPage />
+                }
+              />
+              <Route 
+                path="/register" 
+                element={
+                  authToken ? <Navigate to="/dashboard" replace /> : <RegistrationPage />
+                }
+              />
               <Route
                 path="/dashboard"
                 element={
@@ -122,7 +131,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/logout" element={<Logout />} />
               <Route path="/generating-workout" element={<GeneratingWorkout />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

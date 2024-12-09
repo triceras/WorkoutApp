@@ -306,12 +306,13 @@ function LandingPage() {
           >
             MyFitnessApp
           </Typography>
+          <Box sx={{ flexGrow: 1 }} />
           <Button
             variant="outlined"
             onClick={handleLoginOpen}
             className={classes.loginButton}
           >
-            Login
+            LOGIN
           </Button>
           <Button
             component={Link}

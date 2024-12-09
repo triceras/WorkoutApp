@@ -12,7 +12,7 @@ const ProtectedRoute = ({ children }) => {
     return <div>Loading...</div>; // Or a spinner component
   }
 
-  return authToken ? children : <Navigate to="/login" replace />;
+  return authToken ? children : <Navigate to="/" replace />;
 };
 
 ProtectedRoute.propTypes = {
