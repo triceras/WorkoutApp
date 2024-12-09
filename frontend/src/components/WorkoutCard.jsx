@@ -35,10 +35,8 @@ function WorkoutCard({ workouts, userName }) {
 
   return (
     <div>
-      <Typography variant="h6">{`Hello ${userName}, here is your workout for today:`}</Typography>
-
       {/* Exercises List */}
-      <Grid container spacing={3} style={{ marginTop: '16px' }}>
+      <Grid container spacing={3} sx={{ mt: 2 }}>
         {workouts.map((exercise, index) => (
           <Grid item xs={12} sm={6} md={4} key={exercise.id || index}>
             <ExerciseCard exercise={exercise} openVideoModal={openVideoModal} />

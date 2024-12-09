@@ -200,13 +200,21 @@ class CustomAuthToken(ObtainAuthToken):
                 'first_name': user.first_name,
                 'last_name': user.last_name,
             }
-            logger.info(f"User {user.username} logged in. Token: {token.key}")
+            logger.info(f"User {user.username} logged in successfully. Token: {token.key}")
             return Response({
                 'token': token.key,
                 'user': user_data
             })
         else:
-            logger.warning(f"Login failed for data {request.data}. Errors: {serializer.errors}")
+            # Log the specific validation errors
+            logger.warning(f"Login validation failed for data {request.data}. Errors: {serializer.errors}")
+            # Log the attempted username to check if it exists
+            username = request.data.get('username')
+            if username:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user_exists = User.objects.filter(username=username).exists()
+                logger.info(f"Username '{username}' exists in database: {user_exists}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -341,34 +349,46 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         """Get both completed and scheduled training sessions"""
         user = self.request.user
         
-        # Get completed sessions
-        completed_sessions = TrainingSession.objects.filter(user=user)
+        queryset = TrainingSession.objects.filter(user=user)
         
-        # Get current workout plan
-        try:
-            workout_plan = WorkoutPlan.objects.get(user=user)
-            today = timezone.now().date()
+        # Get query parameters
+        date = self.request.query_params.get('date')
+        workout_plan_id = self.request.query_params.get('workout_plan_id')
+        
+        # Apply date filter if provided
+        if date:
+            queryset = queryset.filter(date=date)
             
-            # Convert workout plan days into training session format
-            scheduled_sessions = []
-            for day in workout_plan.workoutDays:
-                scheduled_sessions.append({
-                    'id': f"scheduled_{day.get('day')}",
-                    'user': user,
-                    'date': today,  # You might want to calculate the actual date based on the day
-                    'workout_plan': workout_plan,
-                    'session_name': day.get('day'),
-                    'workout_type': day.get('workout_type', ''),
-                    'exercises': day.get('exercises', []),
-                    'is_scheduled': True  # Flag to identify scheduled sessions
-                })
+        # Apply workout plan filter if provided
+        if workout_plan_id:
+            queryset = queryset.filter(workout_plan_id=workout_plan_id)
             
-            # Combine both completed and scheduled sessions
-            all_sessions = list(completed_sessions) + scheduled_sessions
-            return sorted(all_sessions, key=lambda x: x.get('date') if isinstance(x, dict) else x.date)
-            
-        except WorkoutPlan.DoesNotExist:
-            return completed_sessions
+        # If no filters are applied, include scheduled sessions
+        if not (date or workout_plan_id):
+            try:
+                workout_plan = WorkoutPlan.objects.get(user=user)
+                today = timezone.now().date()
+                
+                # Convert workout plan days into training session format
+                scheduled_sessions = []
+                for day in workout_plan.workoutDays:
+                    scheduled_sessions.append({
+                        'id': f"scheduled_{day.get('day')}",
+                        'user': user,
+                        'date': today,
+                        'workout_plan': workout_plan,
+                        'session_name': day.get('day'),
+                        'workout_type': day.get('workout_type', ''),
+                        'exercises': day.get('exercises', []),
+                        'is_scheduled': True
+                    })
+                
+                # Combine both completed and scheduled sessions
+                return list(queryset) + scheduled_sessions
+            except WorkoutPlan.DoesNotExist:
+                pass
+                
+        return queryset
 
     @action(detail=False, methods=['get'])
     def current_plan(self, request):

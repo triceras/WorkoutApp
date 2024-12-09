@@ -15,6 +15,7 @@ import {
   Box,
   Container,
   Paper,
+  CircularProgress
 } from '@mui/material';
 import './WorkoutPlan.css';
 import { processWorkoutPlan } from '../utils/processWorkoutPlan';
@@ -246,89 +247,291 @@ function WorkoutPlan() {
    */
   return (
     <Container maxWidth="lg" className="workout-plan-container">
-      <Typography variant="h4" align="center" gutterBottom>
-        Your Personalized Weekly Workout Plan{username ? ` for ${username}` : ''}
-      </Typography>
-      <Typography variant="body1" align="center" paragraph>
-        Based on your inputs, we've created a personalized weekly workout plan to help you build muscle. Please find the plan below:
-      </Typography>
+      <Box sx={{
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+        borderRadius: '20px',
+        padding: '2.5rem',
+        marginBottom: '2rem',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+      }}>
+        <Typography variant="h4" sx={{
+          fontSize: '2.5rem',
+          fontWeight: 800,
+          background: 'linear-gradient(135deg, #1a237e 0%, #0d47a1 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          marginBottom: '2.5rem',
+          textAlign: 'center'
+        }}>
+          Day 1: Upper Body Strength
+        </Typography>
+
+        <Grid container spacing={4}>
+          {/* Workout Type Card */}
+          <Grid item xs={12} md={4}>
+            <Paper elevation={0} sx={{
+              p: 3,
+              height: '100%',
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)',
+              border: '1px solid rgba(33, 150, 243, 0.1)',
+              borderRadius: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2.5,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 12px 28px rgba(33, 150, 243, 0.15)',
+              }
+            }}>
+              <Box sx={{
+                width: 64,
+                height: 64,
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 16px rgba(33, 150, 243, 0.2)',
+              }}>
+                <span style={{ fontSize: '32px' }}>💪</span>
+              </Box>
+              <Box>
+                <Typography variant="overline" sx={{
+                  color: '#1976d2',
+                  fontWeight: 700,
+                  letterSpacing: '1.5px',
+                  fontSize: '0.75rem',
+                }}>
+                  WORKOUT TYPE
+                </Typography>
+                <Typography variant="h6" sx={{
+                  fontWeight: 700,
+                  color: '#1a237e',
+                  marginTop: '4px',
+                }}>
+                  Strength Training
+                </Typography>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Duration Card */}
+          <Grid item xs={12} md={4}>
+            <Paper elevation={0} sx={{
+              p: 3,
+              height: '100%',
+              background: 'linear-gradient(135deg, #fce4ec 0%, #ffffff 100%)',
+              border: '1px solid rgba(233, 30, 99, 0.1)',
+              borderRadius: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2.5,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 12px 28px rgba(233, 30, 99, 0.15)',
+              }
+            }}>
+              <Box sx={{
+                width: 64,
+                height: 64,
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #e91e63 0%, #c2185b 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 16px rgba(233, 30, 99, 0.2)',
+              }}>
+                <span style={{ fontSize: '32px' }}>⏱️</span>
+              </Box>
+              <Box>
+                <Typography variant="overline" sx={{
+                  color: '#c2185b',
+                  fontWeight: 700,
+                  letterSpacing: '1.5px',
+                  fontSize: '0.75rem',
+                }}>
+                  DURATION
+                </Typography>
+                <Typography variant="h6" sx={{
+                  fontWeight: 700,
+                  color: '#880e4f',
+                  marginTop: '4px',
+                }}>
+                  60 Minutes
+                </Typography>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Focus Card */}
+          <Grid item xs={12} md={4}>
+            <Paper elevation={0} sx={{
+              p: 3,
+              height: '100%',
+              background: 'linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%)',
+              border: '1px solid rgba(76, 175, 80, 0.1)',
+              borderRadius: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2.5,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 12px 28px rgba(76, 175, 80, 0.15)',
+              }
+            }}>
+              <Box sx={{
+                width: 64,
+                height: 64,
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 16px rgba(76, 175, 80, 0.2)',
+              }}>
+                <span style={{ fontSize: '32px' }}>🎯</span>
+              </Box>
+              <Box>
+                <Typography variant="overline" sx={{
+                  color: '#388e3c',
+                  fontWeight: 700,
+                  letterSpacing: '1.5px',
+                  fontSize: '0.75rem',
+                }}>
+                  FOCUS
+                </Typography>
+                <Typography variant="h6" sx={{
+                  fontWeight: 700,
+                  color: '#1b5e20',
+                  marginTop: '4px',
+                }}>
+                  Upper Body
+                </Typography>
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Box>
 
       {/* Display Today's Workout */}
       {todayWorkout ? (
-        <Paper className="workout-day" elevation={3}>
-          {/* Day and Duration */}
-          <Box className="day-cell">
-            <Typography variant="h5" className="day-title">
-              {todayWorkout.dayName || 'Today'}
-            </Typography>
-            <Typography variant="subtitle1" className="day-duration">
-              {todayWorkout.duration || 'No duration provided'}
-            </Typography>
-          </Box>
-          {/* Exercises */}
-          {todayWorkout.exercises && todayWorkout.exercises.length > 0 ? (
-            <Grid container spacing={3} className="exercises-container">
-              {todayWorkout.exercises.map((exercise) => (
+        <Box sx={{ mt: 4 }}>
+          <Grid container spacing={3}>
+            {todayWorkout.exercises && todayWorkout.exercises.length > 0 ? (
+              todayWorkout.exercises.map((exercise) => (
                 <Grid item xs={12} sm={6} md={4} key={exercise.name}>
-                  <Card className="exercise-card exercise-item">
+                  <Card sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                    }
+                  }}>
                     {exercise.videoId && (
                       <CardMedia
                         component="img"
-                        height="140"
+                        height="180"
                         image={getYoutubeThumbnailUrl(exercise.videoId)}
                         alt={`${exercise.name} video`}
-                        className="youtube-thumbnail"
+                        sx={{
+                          objectFit: 'cover',
+                          cursor: 'pointer',
+                        }}
                         onClick={() => openVideoModal(exercise.videoId)}
-                        style={{ cursor: 'pointer' }}
                       />
                     )}
-                    <CardContent className="exercise-details">
-                      <Typography variant="h6" className="exercise-name" gutterBottom>
+                    <CardContent sx={{ p: 3 }}>
+                      <Typography variant="h6" sx={{
+                        fontWeight: 600,
+                        mb: 2,
+                        fontSize: '1.25rem'
+                      }}>
                         {exercise.name}
                       </Typography>
+
                       {exercise.setsReps && (
-                        <div className="exercise-detail sets-reps-detail">
-                          <span className="label">💪 Sets and Reps:</span>
-                          <span className="detail-text">{exercise.setsReps}</span>
-                        </div>
+                        <Box sx={{ 
+                          display: 'flex',
+                          alignItems: 'center',
+                          mb: 1.5,
+                          gap: 1
+                        }}>
+                          <span style={{ fontSize: '1.2rem' }}>💪</span>
+                          <Typography variant="body1">
+                            <strong>Sets & Reps:</strong> {exercise.setsReps}
+                          </Typography>
+                        </Box>
                       )}
+
                       {exercise.equipment && (
-                        <div className="exercise-detail equipment-detail">
-                          <span className="label">🏋️ Equipment Required:</span>
-                          <span className="detail-text">{exercise.equipment}</span>
-                        </div>
+                        <Box sx={{ 
+                          display: 'flex',
+                          alignItems: 'center',
+                          mb: 1.5,
+                          gap: 1
+                        }}>
+                          <span style={{ fontSize: '1.2rem' }}>🏋️</span>
+                          <Typography variant="body1">
+                            <strong>Equipment:</strong> {exercise.equipment}
+                          </Typography>
+                        </Box>
                       )}
+
                       {exercise.instructions && (
-                        <div className="exercise-detail instructions-detail">
-                          <span className="label">📋 Instructions:</span>
-                          <ul className="instruction-list">
-                            {splitIntoSentences(exercise.instructions).map(
-                              (sentence, sentenceIdx) => (
-                                <li key={sentenceIdx} className="instruction-item">
-                                  {sentence}.
-                                </li>
-                              )
-                            )}
-                          </ul>
-                        </div>
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="body1" sx={{ 
+                            fontWeight: 600,
+                            mb: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1
+                          }}>
+                            <span style={{ fontSize: '1.2rem' }}>📋</span>
+                            Instructions:
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                            {exercise.instructions}
+                          </Typography>
+                        </Box>
                       )}
                     </CardContent>
                   </Card>
                 </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <Typography variant="body1" color="textSecondary">
-              No exercises listed for today.
-            </Typography>
-          )}
-        </Paper>
+              ))
+            ) : (
+              <Grid item xs={12}>
+                <Paper sx={{
+                  p: 3,
+                  textAlign: 'center',
+                  borderRadius: '12px'
+                }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No exercises listed for today.
+                  </Typography>
+                </Paper>
+              </Grid>
+            )}
+          </Grid>
+        </Box>
       ) : (
-        <Typography variant="body1" align="center">
-          Loading workout details...
-        </Typography>
+        <Box sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '200px'
+        }}>
+          <CircularProgress />
+        </Box>
       )}
-
       {/* Additional Tips */}
       {workoutPlan && workoutPlan.additionalTips && workoutPlan.additionalTips.length > 0 && (
         <Box mt={5} className="additional-tips">

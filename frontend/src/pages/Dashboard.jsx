@@ -12,6 +12,7 @@ import {
   Paper,
   Chip,
   Container,
+  Grid
 } from '@mui/material';
 import { makeStyles } from '@mui/styles';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -323,38 +324,150 @@ function Dashboard() {
                 </Typography>
 
                 {currentWorkout && (
-                  <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
-                    <Typography variant="h5" gutterBottom>
-                      Today's Plan - {currentWorkout.day}
-                    </Typography>
-                    {currentWorkout.type === 'rest' ? (
-                      <>
-                        <Typography variant="body1" color="text.secondary" paragraph>
-                          {currentWorkout.notes}
+                  <React.Fragment>
+                    <Paper elevation={0} sx={{
+                      p: 3,
+                      mb: 4,
+                      background: 'linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%)',
+                      border: '1px solid rgba(75, 0, 130, 0.1)',
+                      borderRadius: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2.5,
+                    }}>
+                      <Box sx={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: '20px',
+                        background: 'linear-gradient(135deg, #6B46C1 0%, #553C9A 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 8px 16px rgba(107, 70, 193, 0.2)',
+                      }}>
+                        <span style={{ fontSize: '40px' }}>🎯</span>
+                      </Box>
+                      <Box>
+                        <Typography variant="overline" sx={{
+                          color: '#6B46C1',
+                          fontWeight: 700,
+                          letterSpacing: '2px',
+                          fontSize: '0.875rem',
+                        }}>
+                          TODAY'S WORKOUT
                         </Typography>
-                        <RestDaySuggestions />
-                      </>
-                    ) : (
-                      <>
-                        <Typography variant="h6" gutterBottom>
-                          Workout Details
+                        <Typography variant="h4" sx={{
+                          fontWeight: 800,
+                          color: '#2D3748',
+                          marginTop: '4px',
+                          fontSize: '2rem',
+                          lineHeight: 1.2,
+                        }}>
+                          {currentWorkout.name || "Day 1: Upper Body Strength"}
                         </Typography>
-                        <Typography variant="body1" paragraph>
-                          Type: {currentWorkout.workout_type}
-                        </Typography>
-                        <Typography variant="body1" paragraph>
-                          Duration: {currentWorkout.duration}
-                        </Typography>
-                        <Typography variant="h6" gutterBottom>
-                          Exercises
-                        </Typography>
-                        <WorkoutCard
-                          workouts={currentWorkout.exercises}
-                          userName={userData?.first_name || userData?.username}
-                        />
-                      </>
-                    )}
-                  </Paper>
+                      </Box>
+                    </Paper>
+                    <Grid container spacing={3} sx={{ mb: 4 }}>
+                      <Grid item xs={12} sm={6}>
+                        <Paper elevation={0} sx={{
+                          p: 3,
+                          height: '100%',
+                          background: 'linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)',
+                          border: '1px solid rgba(33, 150, 243, 0.1)',
+                          borderRadius: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2.5,
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: '0 12px 28px rgba(33, 150, 243, 0.15)',
+                          }
+                        }}>
+                          <Box sx={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: '16px',
+                            background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 8px 16px rgba(33, 150, 243, 0.2)',
+                          }}>
+                            <span style={{ fontSize: '32px' }}>💪</span>
+                          </Box>
+                          <Box>
+                            <Typography variant="overline" sx={{
+                              color: '#1976d2',
+                              fontWeight: 700,
+                              letterSpacing: '1.5px',
+                              fontSize: '0.75rem',
+                            }}>
+                              WORKOUT TYPE
+                            </Typography>
+                            <Typography variant="h6" sx={{
+                              fontWeight: 700,
+                              color: '#1a237e',
+                              marginTop: '4px',
+                            }}>
+                              {currentWorkout.workout_type}
+                            </Typography>
+                          </Box>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Paper elevation={0} sx={{
+                          p: 3,
+                          height: '100%',
+                          background: 'linear-gradient(135deg, #fce4ec 0%, #ffffff 100%)',
+                          border: '1px solid rgba(233, 30, 99, 0.1)',
+                          borderRadius: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2.5,
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: '0 12px 28px rgba(233, 30, 99, 0.15)',
+                          }
+                        }}>
+                          <Box sx={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: '16px',
+                            background: 'linear-gradient(135deg, #e91e63 0%, #c2185b 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 8px 16px rgba(233, 30, 99, 0.2)',
+                          }}>
+                            <span style={{ fontSize: '32px' }}>⏱️</span>
+                          </Box>
+                          <Box>
+                            <Typography variant="overline" sx={{
+                              color: '#c2185b',
+                              fontWeight: 700,
+                              letterSpacing: '1.5px',
+                              fontSize: '0.75rem',
+                            }}>
+                              DURATION
+                            </Typography>
+                            <Typography variant="h6" sx={{
+                              fontWeight: 700,
+                              color: '#880e4f',
+                              marginTop: '4px',
+                            }}>
+                              {currentWorkout.duration}
+                            </Typography>
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    </Grid>
+                    <WorkoutCard
+                      workouts={currentWorkout.exercises}
+                      userName={userData?.first_name || userData?.username}
+                    />
+                  </React.Fragment>
                 )}
 
                 {/* Progress Chart placed below the exercise cards */}
@@ -375,9 +488,6 @@ function Dashboard() {
                 <ProgressionMetrics />
 
                 <Box marginTop={4}>
-                  <Typography variant="h5" className={classes.sectionTitle}>
-                    Log a Workout Session
-                  </Typography>
                   <Paper elevation={3} style={{ padding: '20px' }}>
                     {workoutPlans && workoutPlans.length > 0 ? (
                       <LogSessionForm

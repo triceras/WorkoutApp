@@ -21,6 +21,7 @@ import {
   InputLabel,
   Select,
   IconButton,
+  Paper,
 } from '@mui/material';
 import {
   SentimentVeryDissatisfied,
@@ -814,446 +815,252 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
 
   return (
     <FormikProvider value={formik}>
-      <Card>
-        <CardContent>
-          <Typography variant="h5" component="h2" gutterBottom align="center">
-            Log Training Session
-          </Typography>
-          
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              console.log('Form submitted with values:', formik.values);
-              formik.handleSubmit(e);
-            }} 
-            noValidate
+      <Box
+        component="form"
+        onSubmit={formik.handleSubmit}
+        sx={{
+          maxWidth: '800px',
+          margin: '0 auto',
+          p: { xs: 2, sm: 3 },
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}
+      >
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 800,
+              color: '#2D3748',
+              mb: 1,
+            }}
           >
-            {submissionStatus.success && (
-              <Box mb={2}>
-                <Typography color="success.main" align="center">
-                  {submissionStatus.success}
-                </Typography>
-              </Box>
-            )}
-            {submissionStatus.error && (
-              <Box mb={2}>
-                <Typography color="error" align="center">
-                  {submissionStatus.error}
-                </Typography>
-              </Box>
-            )}
-            {/* Workout Type Selection */}
-            <Box mt={4}>
-              <FormControl
+            🏋️‍♂️ Log Training Session
+          </Typography>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              color: '#718096',
+            }}
+          >
+            Track your progress and help us improve your workout plan
+          </Typography>
+        </Box>
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: '15px',
+            background: 'linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)',
+            border: '1px solid rgba(33, 150, 243, 0.1)',
+          }}
+        >
+          <Typography
+            variant="overline"
+            sx={{
+              color: '#1976d2',
+              fontWeight: 700,
+              display: 'block',
+              mb: 2,
+            }}
+          >
+            📅 WORKOUT DETAILS
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <TextField
                 fullWidth
-                required
-                variant="outlined"
+                type="date"
+                name="date"
+                label="Date"
+                value={formik.values.date}
+                onChange={handleDateChange}
+                error={formik.touched.date && Boolean(formik.errors.date)}
+                helperText={formik.touched.date && formik.errors.date}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                select
+                name="workout_type"
+                label="Workout Type"
+                value={formik.values.workout_type}
+                onChange={formik.handleChange}
                 error={formik.touched.workout_type && Boolean(formik.errors.workout_type)}
+                helperText={formik.touched.workout_type && formik.errors.workout_type}
               >
-                <InputLabel id="workout-type-label">Workout Type</InputLabel>
-                <Select
-                  labelId="workout-type-label"
-                  id="workout-type"
-                  name="workout_type"
-                  value={formik.values.workout_type || ''}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  label="Workout Type"
-                >
-                  <MenuItem value="">
-                    <em>Select Workout Type</em>
+                {WORKOUT_TYPE_OPTIONS.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
                   </MenuItem>
-                  {WORKOUT_TYPE_OPTIONS.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {formik.touched.workout_type && formik.errors.workout_type && (
-                  <Typography color="error" variant="body2">
-                    {formik.errors.workout_type}
-                  </Typography>
-                )}
-              </FormControl>
-            </Box>
+                ))}
+              </TextField>
+            </Grid>
+          </Grid>
+        </Paper>
 
-            {renderFeedbackSection()}
-
-            {/* Exercises Field Array */}
-            <FieldArray name="exercises">
-              {({ push, remove }) => (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Exercises
-                  </Typography>
-                  
-                  {formik.values.exercises.map((exercise, index) => (
-                    <Card key={index} sx={{ mb: 2, p: 2 }}>
-                      <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={11}>
-                          <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                            Exercise {index + 1}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={1}>
-                          <IconButton 
-                            onClick={() => remove(index)}
-                            disabled={formik.values.exercises.length === 1}
-                            color="error"
-                            size="small"
-                          >
-                            <RemoveCircle />
-                          </IconButton>
-                        </Grid>
-
-                        {/* Exercise Name and Type */}
-                        <Grid item xs={12} md={6}>
-                          <TextField
-                            fullWidth
-                            label="Exercise Name"
-                            name={`exercises.${index}.name`}
-                            value={exercise.name}
-                            onChange={formik.handleChange}
-                            variant="outlined"
-                            size="small"
-                          />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <TextField
-                            fullWidth
-                            label="Exercise Type"
-                            name={`exercises.${index}.exercise_type`}
-                            value={exercise.exercise_type}
-                            onChange={formik.handleChange}
-                            variant="outlined"
-                            size="small"
-                          />
-                        </Grid>
-
-                        {isCardioExercise(exercise.exercise_type) ? (
-                          // Cardio Exercise Fields
-                          <>
-                            <Grid item xs={12} md={3}>
-                              <TextField
-                                fullWidth
-                                label="Duration (min)"
-                                name={`exercises.${index}.duration`}
-                                type="number"
-                                value={exercise.duration}
-                                onChange={formik.handleChange}
-                                variant="outlined"
-                                size="small"
-                              />
-                            </Grid>
-                            <Grid item xs={12} md={3}>
-                              <TextField
-                                fullWidth
-                                label="Avg Heart Rate"
-                                name={`exercises.${index}.avg_heart_rate`}
-                                type="number"
-                                value={exercise.avg_heart_rate}
-                                onChange={formik.handleChange}
-                                variant="outlined"
-                                size="small"
-                              />
-                            </Grid>
-                            <Grid item xs={12} md={3}>
-                              <TextField
-                                fullWidth
-                                label="Max Heart Rate"
-                                name={`exercises.${index}.max_heart_rate`}
-                                type="number"
-                                value={exercise.max_heart_rate}
-                                onChange={formik.handleChange}
-                                variant="outlined"
-                                size="small"
-                              />
-                            </Grid>
-                            <Grid item xs={12} md={3}>
-                              <FormControl fullWidth size="small">
-                                <InputLabel>Intensity</InputLabel>
-                                <Select
-                                  name={`exercises.${index}.intensity`}
-                                  value={exercise.intensity || ''}
-                                  onChange={formik.handleChange}
-                                  label="Intensity"
-                                >
-                                  <MenuItem value="low">Low</MenuItem>
-                                  <MenuItem value="moderate">Medium</MenuItem>
-                                  <MenuItem value="high">High</MenuItem>
-                                </Select>
-                              </FormControl>
-                            </Grid>
-                          </>
-                        ) : (
-                          // Strength Exercise Fields
-                          <>
-                            <Grid item xs={12} md={3}>
-                              <TextField
-                                fullWidth
-                                label="Sets"
-                                name={`exercises.${index}.sets`}
-                                type="number"
-                                value={exercise.sets}
-                                onChange={formik.handleChange}
-                                variant="outlined"
-                                size="small"
-                              />
-                            </Grid>
-                            <Grid item xs={12} md={3}>
-                              <TextField
-                                fullWidth
-                                label="Reps"
-                                name={`exercises.${index}.reps`}
-                                type="number"
-                                value={exercise.reps}
-                                onChange={formik.handleChange}
-                                variant="outlined"
-                                size="small"
-                              />
-                            </Grid>
-                            <Grid item xs={12} md={3}>
-                              <TextField
-                                fullWidth
-                                label="Weight (kg)"
-                                name={`exercises.${index}.weight`}
-                                type="number"
-                                value={exercise.weight}
-                                onChange={formik.handleChange}
-                                variant="outlined"
-                                size="small"
-                              />
-                            </Grid>
-                          </>
-                        )}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: '15px',
+            background: 'linear-gradient(135deg, #fff3e0 0%, #ffffff 100%)',
+            border: '1px solid rgba(245, 124, 0, 0.1)',
+          }}
+        >
+          <Typography
+            variant="overline"
+            sx={{
+              color: '#f57c00',
+              fontWeight: 700,
+              display: 'block',
+              mb: 2,
+            }}
+          >
+            💪 EXERCISES
+          </Typography>
+          <FieldArray name="exercises">
+            {({ push, remove }) => (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {formik.values.exercises.map((exercise, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      p: 2,
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.7)',
+                      border: '1px solid rgba(0, 0, 0, 0.05)',
+                    }}
+                  >
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          name={`exercises.${index}.name`}
+                          label="Exercise Name"
+                          value={exercise.name}
+                          onChange={formik.handleChange}
+                          error={
+                            formik.touched.exercises?.[index]?.name &&
+                            Boolean(formik.errors.exercises?.[index]?.name)
+                          }
+                          helperText={
+                            formik.touched.exercises?.[index]?.name &&
+                            formik.errors.exercises?.[index]?.name
+                          }
+                        />
                       </Grid>
-                    </Card>
-                  ))}
-
-                  <Button
-                    type="button"
-                    variant="contained"
-                    color="primary"
-                    startIcon={<AddCircle />}
-                    onClick={() => push({
-                      exercise_id: '',
+                      <Grid item xs={6} sm={2}>
+                        <TextField
+                          fullWidth
+                          name={`exercises.${index}.sets`}
+                          label="Sets"
+                          type="number"
+                          value={exercise.sets}
+                          onChange={formik.handleChange}
+                        />
+                      </Grid>
+                      <Grid item xs={6} sm={2}>
+                        <TextField
+                          fullWidth
+                          name={`exercises.${index}.reps`}
+                          label="Reps"
+                          type="number"
+                          value={exercise.reps}
+                          onChange={formik.handleChange}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={2}>
+                        <IconButton
+                          onClick={() => remove(index)}
+                          color="error"
+                          sx={{ mt: { xs: 1, sm: 0 } }}
+                        >
+                          <RemoveCircle />
+                        </IconButton>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                ))}
+                <Button
+                  startIcon={<AddCircle />}
+                  onClick={() =>
+                    push({
                       name: '',
-                      exercise_type: '',
                       sets: '',
                       reps: '',
                       weight: '',
-                      duration: '',
-                      avg_heart_rate: '',
-                      max_heart_rate: '',
-                      intensity: ''
-                    })}
-                    sx={{ mt: 2 }}
-                  >
-                    Add Exercise
-                  </Button>
-                </Box>
-              )}
-            </FieldArray>
-
-            {/* Date Field */}
-            <Box mt={4}>
-              <TextField
-                label="Date"
-                name="date"
-                type="date"
-                value={formik.values.date || ''}
-                onChange={handleDateChange}
-                onBlur={formik.handleBlur}
-                fullWidth
-                required
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                variant="outlined"
-                error={formik.touched.date && Boolean(formik.errors.date)}
-                helperText={formik.touched.date && formik.errors.date}
-              />
-            </Box>
-
-            {/* Workout Plan Dropdown */}
-            <Box mt={2}>
-              <FormControl
-                fullWidth
-                required
-                variant="outlined"
-                error={formik.touched.workout_plan_id && Boolean(formik.errors.workout_plan_id)}
-              >
-                <InputLabel id="workout-plan-label">Workout Plan</InputLabel>
-                <Select
-                  labelId="workout-plan-label"
-                  id="workout-plan"
-                  name="workout_plan_id"
-                  value={formik.values.workout_plan_id || ''}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  label="Workout Plan"
+                      exercise_type: formik.values.workout_type,
+                    })
+                  }
+                  sx={{
+                    mt: 1,
+                    background: 'linear-gradient(135deg, #f57c00 0%, #ff9800 100%)',
+                    color: 'white',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #ef6c00 0%, #f57c00 100%)',
+                    },
+                  }}
                 >
-                  <MenuItem value="">
-                    <em>Select Workout Plan</em>
-                  </MenuItem>
-                  {workoutPlans.map((plan) => (
-                    <MenuItem key={plan.id} value={plan.id}>
-                      {username ? `Plan for ${username}` : `Workout Plan ${plan.id}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {formik.touched.workout_plan_id && formik.errors.workout_plan_id && (
-                  <Typography color="error" variant="body2">
-                    {formik.errors.workout_plan_id}
-                  </Typography>
-                )}
-              </FormControl>
-            </Box>
+                  Add Exercise
+                </Button>
+              </Box>
+            )}
+          </FieldArray>
+        </Paper>
 
-            {/* Session Name (Read-Only) */}
-            <Box mt={2}>
-              <TextField
-                label="Session Name"
-                name="session_name"
-                value={formik.values.session_name || ''}
-                fullWidth
-                required
-                variant="outlined"
-                InputProps={{
-                  readOnly: true,
-                }}
-                error={formik.touched.session_name && Boolean(formik.errors.session_name)}
-                helperText={formik.touched.session_name && formik.errors.session_name}
-              />
-            </Box>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: '15px',
+            background: 'linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%)',
+            border: '1px solid rgba(76, 175, 80, 0.1)',
+          }}
+        >
+          <Typography
+            variant="overline"
+            sx={{
+              color: '#43a047',
+              fontWeight: 700,
+              display: 'block',
+              mb: 2,
+            }}
+          >
+            📝 FEEDBACK
+          </Typography>
+          {renderFeedbackSection()}
+        </Paper>
 
-            {/* Aerobic Session Details */}
-            <Box mt={4}>
-              <Typography variant="h6" gutterBottom>
-                Aerobic Session Details
-              </Typography>
-              <Grid container spacing={2}>
-                {/* Time */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    label="Duration (minutes)"
-                    name="time"
-                    type="number"
-                    value={formik.values.time || ''}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    required
-                    variant="outlined"
-                    inputProps={{ min: 1 }}
-                    InputLabelProps={{ shrink: true }}
-                    error={formik.touched.time && Boolean(formik.errors.time)}
-                    helperText={formik.touched.time && formik.errors.time}
-                  />
-                </Grid>
-
-                {/* Average Heart Rate */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    label="Average Heart Rate"
-                    name="average_heart_rate"
-                    type="number"
-                    value={formik.values.average_heart_rate || ''}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    required
-                    variant="outlined"
-                    inputProps={{ min: 0 }}
-                    InputLabelProps={{ shrink: true }}
-                    error={
-                      formik.touched.average_heart_rate &&
-                      Boolean(formik.errors.average_heart_rate)
-                    }
-                    helperText={
-                      formik.touched.average_heart_rate && formik.errors.average_heart_rate
-                    }
-                  />
-                </Grid>
-
-                {/* Max Heart Rate */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    label="Max Heart Rate"
-                    name="max_heart_rate"
-                    type="number"
-                    value={formik.values.max_heart_rate || ''}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    required
-                    variant="outlined"
-                    inputProps={{ min: 0 }}
-                    InputLabelProps={{ shrink: true }}
-                    error={
-                      formik.touched.max_heart_rate && Boolean(formik.errors.max_heart_rate)
-                    }
-                    helperText={formik.touched.max_heart_rate && formik.errors.max_heart_rate}
-                  />
-                </Grid>
-
-                {/* Intensity */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <FormControl fullWidth>
-                    <InputLabel>Intensity</InputLabel>
-                    <Select
-                      labelId="intensity-label"
-                      id="intensity"
-                      name="intensity"
-                      value={formik.values.intensity || ''}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      label="Intensity"
-                    >
-                      <MenuItem value="">
-                        <em>Select Intensity</em>
-                      </MenuItem>
-                      {INTENSITY_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option.toLowerCase()}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Box>
-
-            {/* Submit Button */}
-            <Box mt={4} display="flex" justifyContent="center">
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={isSubmitting || existingSessions.length > 0}
-                fullWidth
-                sx={{ py: 2 }}
-                onClick={() => {
-                  console.log('Submit button clicked');
-                  console.log('Form state:', {
-                    isValid: formik.isValid,
-                    errors: formik.errors,
-                    values: formik.values,
-                    dirty: formik.dirty,
-                    touched: formik.touched
-                  });
-                }}
-              >
-                {isSubmitting ? (
-                  <Box display="flex" alignItems="center" justifyContent="center">
-                    <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
-                    <span>Logging Session...</span>
-                  </Box>
-                ) : (
-                  'Log Session'
-                )}
-              </Button>
-            </Box>
-          </form>
-        </CardContent>
-      </Card>
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={isSubmitting || !formik.isValid}
+            sx={{
+              py: 2,
+              px: 6,
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #6B46C1 0%, #553C9A 100%)',
+              fontSize: '1.1rem',
+              fontWeight: 600,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #553C9A 0%, #44307D 100%)',
+              },
+            }}
+          >
+            {isSubmitting ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'Log Session'
+            )}
+          </Button>
+        </Box>
+      </Box>
     </FormikProvider>
   );
 };
