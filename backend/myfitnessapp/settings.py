@@ -8,6 +8,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 import logging.config
 from celery.schedules import crontab
+import logging
 
 # Load environment variables from .env
 load_dotenv()
@@ -155,6 +156,10 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Media files (User uploaded files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # In development, you typically don't need to set STATIC_ROOT.
 # STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Only for production
 
@@ -294,28 +299,12 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
-# CELERY_BEAT_SCHEDULE = {
-#     'send-feedback-every-monday-morning': {
-#         'task': 'api.tasks.process_feedback_submission_task',
-#         'schedule': crontab(hour=0, minute=0, day_of_week=1),  # Every Monday at 00:00 UTC
-#     },
-# }
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-
-env = environ.Env(
-    DEBUG=(bool, False)
-)
-
-# Read .env file
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
-
-REPLICATE_API_TOKEN = env('REPLICATE_API_TOKEN')
-
-
-YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
+CELERY_BEAT_SCHEDULE = {
+    'send-feedback-every-monday-morning': {
+        'task': 'api.tasks.process_feedback_submission_task',
+        'schedule': crontab(hour=0, minute=0, day_of_week=1),  # Every Monday at 00:00 UTC
+    }
+}
 
 # ./backend/myfitnessapp/settings.py
 
@@ -331,3 +320,17 @@ CACHES = {
 
 # Cache timeout for YouTube video IDs (24 hours)
 YOUTUBE_VIDEO_ID_CACHE_TIMEOUT = 86400
+
+env = environ.Env(
+    DEBUG=(bool, False)
+)
+
+# Read .env file
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+# Replicate API settings
+logger = logging.getLogger(__name__)
+REPLICATE_API_TOKEN = env('REPLICATE_API_TOKEN')
+logger.info(f"REPLICATE_API_TOKEN loaded: {'Yes' if REPLICATE_API_TOKEN else 'No'}")
+
+YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')

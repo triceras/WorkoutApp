@@ -18,6 +18,11 @@ from asgiref.sync import async_to_sync
 from django.utils import timezone
 from django.db import transaction, IntegrityError
 import re
+from replicate import Client
+from django.core.files.base import ContentFile
+import time
+from PIL import Image
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +46,8 @@ WORKOUT_PLAN_SCHEMA = {
                 "properties": {
                     "day": {"type": "string"},
                     "type": {"type": "string", "enum": ["workout", "rest", "active_recovery"]},
-                    "workout_type": {"type": "string"},
-                    "duration": {"type": "string"},
+                    "workout_type": {"type": ["string", "null"]},
+                    "duration": {"type": ["string", "integer"]},
                     "exercises": {
                         "type": "array",
                         "items": {
@@ -189,219 +194,106 @@ def generate_prompt(
     """
     Generates the prompt for the AI model to create a customized workout plan.
     """
-    strength_goals_str = ', '.join(strength_goals) if isinstance(strength_goals, list) else strength_goals or 'None'
-    available_equipment_str = ', '.join(equipment) if isinstance(equipment, list) else equipment or 'None'
-    additional_goals_str = additional_goals or 'None'
-    user_comments_str = user_comments or 'No additional comments provided.'
+    # Convert workout_days to int if it's a string
+    workout_days_int = int(workout_days) if isinstance(workout_days, str) else workout_days
+    
+    base_prompt = f"""Create a personalized 7-day workout plan based on the following information:
 
-    # Determine the rest or active recovery days based on workout_days
-    if workout_days <= 5:
-        rest_days_count = 7 - workout_days
-        rest_days_instructions = f"{rest_days_count} rest day{'s' if rest_days_count > 1 else ''}."
-        day_type_rules = """
-3. Day Type Rules:
-   - The "type" field for each day MUST be one of: ["workout", "rest"]
-   - For workout days:
-     * "type": "workout"
-     * Include "workout_type" and "duration" fields
-   - For rest days:
-     * "type": "rest"
-     * Do NOT include "workout_type" or "duration" fields
-     * Exercises are optional but should be light (e.g., stretching)
-   - ALL days must include the "exercises" array and "notes" field
-"""
-        examples = """
-Here's a complete example of a workout day:
-{
-  "day": "Day 1: Upper Body Strength",
-  "type": "workout",
-  "workout_type": "Strength",
-  "duration": "45 minutes",
-  "exercises": [
-    {
-      "name": "Bench Press",
-      "setsReps": "3 sets of 8 reps",
-      "equipment": "Barbell",
-      "instructions": "Lie on the bench, grip the bar slightly wider than shoulder-width, lower to chest, and press back up.",
-      "videoId": null,
-      "exercise_type": "strength"
-    },
-    {
-      "name": "Dumbbell Rows",
-      "setsReps": "3 sets of 10 reps",
-      "equipment": "Dumbbell",
-      "instructions": "Bend over at the waist, row the dumbbells to your torso while keeping your back straight.",
-      "videoId": null,
-      "exercise_type": "strength"
-    }
-  ],
-  "notes": "Focus on controlled movements and proper form."
-}
+User Profile:
+- Age: {age}
+- Sex: {sex}
+- Weight: {weight}
+- Height: {height}
+- Fitness Level: {fitness_level}
+- Available Equipment: {equipment}
+- Time per workout: {workout_time} minutes
+- Requested workout days per week: {workout_days}
 
-And here's a complete example of a rest day:
-{
-  "day": "Day 7: Rest Day",
-  "type": "rest",
-  "exercises": [],
-  "notes": "Take this day to recover and prepare for the next week's workouts."
-}
-"""
+Goals:
+- Strength Goals: {strength_goals}
+- Additional Goals: {additional_goals}
+
+Requirements:
+1. Structure the plan as a JSON object with EXACTLY 7 DAYS total
+2. Include specific exercises with sets, reps, and rest periods
+3. Provide clear instructions for each exercise
+4. Consider the user's fitness level and available equipment
+5. Include warm-up and cool-down routines
+6. Specify workout duration and intensity
+7. Add variation in exercises and muscle groups"""
+
+    # Add specific instructions for high-frequency training
+    if workout_days_int >= 6:
+        base_prompt += f"""
+8. IMPORTANT: Distribution of the 7 days:
+   - {workout_days_int - 1} workout days
+   - Exactly ONE active recovery day
+   - ONE complete rest day
+   
+   The active recovery day:
+   - Should focus on mobility, stretching, and light cardio
+   - Must be placed strategically between intense workout days
+   - Label as 'type': 'active_recovery'
+   
+   The rest day:
+   - Should be a complete rest day with no planned activities
+   - Label as 'type': 'rest'"""
     else:
-        rest_days_count = 7 - workout_days
-        rest_days_instructions = f"{rest_days_count} active recovery day{'s' if rest_days_count > 1 else ''}."
-        day_type_rules = """
-3. Day Type Rules:
-   - The "type" field for each day MUST be one of: ["workout", "active_recovery"]
-   - For workout days:
-     * "type": "workout"
-     * Include "workout_type" and "duration" fields
-   - For active recovery days:
-     * "type": "active_recovery"
-     * Do NOT include "workout_type" or "duration" fields
-     * Include 2-3 light exercises (e.g., stretching, mobility work)
-   - ALL days must include the "exercises" array and "notes" field
-"""
-        examples = """
-Here's a complete example of a workout day:
+        base_prompt += f"""
+8. Distribution of the 7 days:
+   - {workout_days_int} workout days
+   - {7 - workout_days_int} rest days labeled as 'type': 'rest'"""
+
+    if feedback_note:
+        base_prompt += f"\n\nPrevious Feedback: {feedback_note}"
+    
+    if user_comments:
+        base_prompt += f"\n\nUser Comments: {user_comments}"
+
+    base_prompt += """
+
+Provide the response in the following JSON format:
 {
-  "day": "Day 1: Lower Body Strength",
-  "type": "workout",
-  "workout_type": "Strength",
-  "duration": "60 minutes",
-  "exercises": [
-    {
-      "name": "Squats",
-      "setsReps": "4 sets of 6 reps",
-      "equipment": "Barbell",
-      "instructions": "Stand with feet shoulder-width apart, squat down keeping your back straight, and return to standing.",
-      "videoId": null,
-      "exercise_type": "strength"
-    },
-    {
-      "name": "Deadlifts",
-      "setsReps": "3 sets of 8 reps",
-      "equipment": "Barbell",
-      "instructions": "Stand with feet hip-width apart, bend at the hips and knees to grip the bar, lift by extending hips and knees.",
-      "videoId": null,
-      "exercise_type": "strength"
-    }
-  ],
-  "notes": "Ensure proper form to prevent injury."
+    "workoutDays": [
+        {
+            "day": "Day 1",
+            "type": "workout",
+            "workout_type": "Strength",
+            "duration": "60 minutes",
+            "exercises": [
+                {
+                    "name": "Bench Press",
+                    "sets": 3,
+                    "reps": "8-10",
+                    "rest": "90 seconds",
+                    "instructions": "Detailed form instructions...",
+                    "setsReps": "3 sets of 8-10 reps",
+                    "equipment": "barbell"
+                }
+            ],
+            "warmup": ["Exercise 1", "Exercise 2"],
+            "cooldown": ["Stretch 1", "Stretch 2"],
+            "notes": "Focus on proper form and control."
+        },
+        {
+            "day": "Day 7",
+            "type": "rest",
+            "workout_type": null,
+            "duration": "0 minutes",
+            "exercises": [],
+            "warmup": [],
+            "cooldown": [],
+            "notes": "Take a complete rest day to allow for recovery."
+        }
+    ]
 }
 
-And here's a complete example of an active recovery day:
-{
-  "day": "Day 7: Active Recovery Day",
-  "type": "active_recovery",
-  "exercises": [
-    {
-      "name": "Light Cycling",
-      "setsReps": "20 minutes",
-      "equipment": "Stationary Bike",
-      "instructions": "Cycle at a comfortable pace to promote blood flow.",
-      "videoId": null,
-      "exercise_type": "cardio"
-    },
-    {
-      "name": "Foam Rolling",
-      "setsReps": "15 minutes",
-      "equipment": "Foam Roller",
-      "instructions": "Roll out major muscle groups to release tension.",
-      "videoId": null,
-      "exercise_type": "flexibility"
-    }
-  ],
-  "notes": "Focus on gentle movement and muscle recovery."
-}
-"""
+IMPORTANT NOTES:
+1. The response MUST contain EXACTLY 7 days in total.
+2. For workout days, workout_type MUST be one of: Cardio, Endurance, Speed, Agility, Plyometric, Core, Strength, Flexibility, Balance.
+3. For rest days, workout_type MUST be null."""
 
-    prompt = f"""
-You are a professional fitness trainer. Create a personalized workout plan in JSON format based on the following user information:
-
-Age: {age}
-Sex: {sex}
-Weight: {weight} kg
-Height: {height} cm
-Fitness Level: {fitness_level}
-Strength Goals: {strength_goals_str}
-Additional Goals: {additional_goals_str}
-Available Equipment: {available_equipment_str}
-Time per Session: {workout_time} minutes
-Workout Days per Week: {workout_days}
-
-Latest Feedback: {feedback_note}
-Additional Comments: {user_comments}
-
-RESPONSE FORMAT (MANDATORY):
-The response MUST be a JSON object with the following structure:
-{{
-  "workoutDays": [
-    {{
-      "day": "string (e.g., 'Day 1: Upper Body')",
-      "type": "workout | rest | active_recovery",
-      "workout_type": "string (required if type is workout)",
-      "duration": "string (required if type is workout)",
-      "exercises": [
-        {{
-          "name": "string",
-          "setsReps": "string",
-          "equipment": "string",
-          "instructions": "string",
-          "videoId": "string | null",
-          "exercise_type": "string"
-        }}
-      ],
-      "notes": "string"
-    }}
-  ]
-}}
-
-CRITICAL REQUIREMENTS - YOUR RESPONSE WILL BE REJECTED IF ANY OF THESE ARE NOT MET:
-
-1. Schedule Requirements (MANDATORY):
-   * Total of 7 days per week
-   * If workout_days <= 5:
-     - Exactly {workout_days} workout days
-     - Remaining days must be REST days (not active recovery)
-   * If workout_days > 5:
-     - Exactly {workout_days} workout days
-     - Remaining days must be ACTIVE RECOVERY days (not rest)
-   * Distribute workout days evenly throughout the week
-   * Label days as "Day X: [Focus Area]" where X is 1 to 7
-   * Ensure proper rest/recovery between similar muscle groups
-
-2. Exercise Requirements (MANDATORY):
-   - Each exercise MUST include ALL of these fields:
-     * "name": Exercise name
-     * "setsReps": Sets and reps or duration
-     * "equipment": Equipment needed
-     * "instructions": How to perform
-     * "videoId": null
-     * "exercise_type": Exercise category
-   - The "exercise_type" MUST be one of: ['strength', 'flexibility', 'balance', 'endurance', 'power', 'speed', 'agility', 'plyometric', 'core', 'cardio']
-
-{day_type_rules}
-
-Example format:
-{examples}
-
-{rest_days_instructions}
-
-FINAL VERIFICATION CHECKLIST - VERIFY BEFORE SUBMITTING:
-1. EXACTLY {workout_days} days have type: "workout"
-2. EXACTLY {7 - workout_days} days have type: {"rest" if workout_days <= 5 else "active_recovery"}
-3. EVERY exercise has "videoId": null
-4. EVERY exercise has ALL required fields
-5. ALL days include exercises array and notes field
-6. Only workout days have workout_type and duration fields
-7. Total number of days equals 7
-8. Days follow the specified Monday-Sunday pattern
-
-IMPORTANT: Do NOT use any other root keys like "week", "schedule", "weekly_schedule", or "workout_plan". The root key must be "workoutDays".
-
-Return ONLY the JSON. No text before or after. No comments or backticks.
-"""
-    return prompt
+    return base_prompt
 
 def generate_workout_plan(user_id, feedback_text=None):
     """
@@ -502,186 +394,339 @@ def generate_workout_plan(user_id, feedback_text=None):
 
         # Extract the assistant's reply
         output_str = ai_response['choices'][0]['message']['content']
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error occurred during AI model invocation: {http_err}")
-        raise ReplicateServiceUnavailable(f"AI model HTTP error: {http_err}") from http_err
-    except Exception as err:
-        logger.error(f"Error during AI model invocation: {err}")
-        raise ReplicateServiceUnavailable(f"AI model error: {err}") from err
+        logger.debug(f"Raw AI Output:\n{output_str}")
+        
+        # Clean and extract the JSON content
+        json_str = extract_json_from_text(output_str)
+        if not json_str:
+            # If the extract_json_from_text failed, try a simpler approach
+            # Sometimes the AI response is already a clean JSON
+            if output_str.strip().startswith('{') and output_str.strip().endswith('}'):
+                json_str = output_str.strip()
+            else:
+                logger.error("Failed to extract valid JSON from AI response")
+                raise ValueError("Invalid response format from AI model")
 
-    # Log the AI output for debugging
-    logger.debug(f"AI Model Output:\n{output_str}")
-
-    try:
-        # Parse the workout plan data
-        workout_plan_data = json.loads(output_str)
-        logger.info("Successfully parsed workout plan data from JSON response")
+        try:
+            # Parse the workout plan data
+            workout_plan_data = json.loads(json_str)
+            logger.info("Successfully parsed workout plan data from JSON response")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error: {e}")
+            # Try one more time after removing any potential Unicode characters
+            try:
+                json_str = ''.join(char for char in json_str if ord(char) < 128)
+                workout_plan_data = json.loads(json_str)
+                logger.info("Successfully parsed workout plan data after cleaning Unicode characters")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Failed to parse workout plan data: {e}")
 
         # Verify the required workoutDays field is present
         if 'workoutDays' not in workout_plan_data:
             logger.error("No 'workoutDays' field in workout plan data")
             raise ValueError("Invalid workout plan format: missing 'workoutDays' field")
 
-        # Auto-correct the number of days if necessary
-        if len(workout_plan_data['workoutDays']) < 7:
-            logger.warning(f"Workout plan has fewer than 7 days ({len(workout_plan_data['workoutDays'])}). Auto-correcting...")
-            
-            # Add default rest or active recovery days to reach 7 days
-            while len(workout_plan_data['workoutDays']) < 7:
-                default_day_number = len(workout_plan_data['workoutDays']) + 1
-                default_day_type = 'rest' if workout_days <= 5 else 'active_recovery'
-                default_day = {
-                    'day': f"Day {default_day_number}: {'Rest Day' if default_day_type == 'rest' else 'Active Recovery Day'}",
-                    'type': default_day_type,
-                    'exercises': [],
-                    'notes': 'Added automatically to complete 7-day plan.'
-                }
-                workout_plan_data['workoutDays'].append(default_day)
-            logger.info(f"Auto-corrected workout plan to include {len(workout_plan_data['workoutDays'])} days.")
+        # Process each day in the workout plan
+        for idx, day in enumerate(workout_plan_data.get('workoutDays', []), start=1):
+            # Ensure day naming follows "Day X: Description" or actual day names
+            if 'day' not in day:
+                day['day'] = f"Day {idx}: {day.get('workout_type', 'Workout') if day.get('type') == 'workout' else day.get('type').replace('_', ' ').capitalize()}"
+            else:
+                # Reformat the day name to ensure consistency
+                if not day['day'].startswith(f"Day {idx}"):
+                    description = day['workout_type'] if day.get('type') == 'workout' else day['type'].replace('_', ' ').capitalize()
+                    day['day'] = f"Day {idx}: {description}"
 
-        try:
-            # Process each day in the workout plan
-            for idx, day in enumerate(workout_plan_data.get('workoutDays', []), start=1):
-                # Ensure day naming follows "Day X: Description" or actual day names
-                if 'day' not in day:
-                    day['day'] = f"Day {idx}: {day.get('workout_type', 'Workout') if day.get('type') == 'workout' else day.get('type').replace('_', ' ').capitalize()}"
-                else:
-                    # Reformat the day name to ensure consistency
-                    if not day['day'].startswith(f"Day {idx}"):
-                        description = day['workout_type'] if day.get('type') == 'workout' else day['type'].replace('_', ' ').capitalize()
-                        day['day'] = f"Day {idx}: {description}"
+            # Process exercises
+            if 'exercises' in day:
+                for exercise in day['exercises']:
+                    # Initialize videoId if not present
+                    if 'videoId' not in exercise:
+                        exercise['videoId'] = None
+                        logger.debug(f"Added 'videoId': null for exercise '{exercise.get('name', 'Unnamed Exercise')}' in Day {idx}.")
 
-                # Process exercises
-                if 'exercises' in day:
-                    for exercise in day['exercises']:
-                        # Initialize videoId if not present
-                        if 'videoId' not in exercise:
-                            exercise['videoId'] = None
-                            logger.debug(f"Added 'videoId': null for exercise '{exercise.get('name', 'Unnamed Exercise')}' in Day {idx}.")
+                    # Ensure all required fields are present with default values if needed
+                    if 'setsReps' not in exercise:
+                        exercise['setsReps'] = '3 sets of 10-12 reps'
+                        logger.debug(f"Added default 'setsReps' for exercise '{exercise.get('name', 'Unnamed Exercise')}' in Day {idx}.")
+                    if 'equipment' not in exercise:
+                        exercise['equipment'] = 'bodyweight'
+                        logger.debug(f"Added default 'equipment' for exercise '{exercise.get('name', 'Unnamed Exercise')}' in Day {idx}.")
+                    if 'instructions' not in exercise:
+                        exercise['instructions'] = f"Perform {exercise.get('name', 'the exercise')} with proper form."
+                        logger.debug(f"Added default 'instructions' for exercise '{exercise.get('name', 'Unnamed Exercise')}' in Day {idx}.")
 
-                        # Ensure all required fields are present with default values if needed
-                        if 'setsReps' not in exercise:
-                            exercise['setsReps'] = '3 sets of 10-12 reps'
-                            logger.debug(f"Added default 'setsReps' for exercise '{exercise.get('name', 'Unnamed Exercise')}' in Day {idx}.")
-                        if 'equipment' not in exercise:
-                            exercise['equipment'] = 'bodyweight'
-                            logger.debug(f"Added default 'equipment' for exercise '{exercise.get('name', 'Unnamed Exercise')}' in Day {idx}.")
-                        if 'instructions' not in exercise:
-                            exercise['instructions'] = f"Perform {exercise.get('name', 'the exercise')} with proper form."
-                            logger.debug(f"Added default 'instructions' for exercise '{exercise.get('name', 'Unnamed Exercise')}' in Day {idx}.")
+            # Ensure notes field is present
+            if 'notes' not in day:
+                day['notes'] = "Focus on proper form and technique."
+                logger.debug(f"Added default 'notes' for Day {idx}.")
 
-                # Ensure notes field is present
-                if 'notes' not in day:
-                    day['notes'] = "Focus on proper form and technique."
-                    logger.debug(f"Added default 'notes' for Day {idx}.")
-
-            # Log the processed workout plan data before validation
-            logger.info(f"Processed workout plan data before validation: {json.dumps(workout_plan_data, indent=2)}")
-
-        except Exception as e:
-            logger.error(f"Error processing workout plan data: {e}", exc_info=True)
-            raise
-
-        # Validate the complete workout plan against the schema
-        try:
-            validate(instance=workout_plan_data, schema=WORKOUT_PLAN_SCHEMA)
-        except ValidationError as e:
-            logger.error(f"Workout plan validation error: {str(e)}")
-            raise ValueError(f"Generated workout plan does not conform to the schema: {str(e)}")
-
-        # Assign YouTube video IDs to exercises
-        assign_video_ids_to_exercises(workout_plan_data)
-
-        # Count the different types of days
-        workout_days_list = [day for day in workout_plan_data['workoutDays'] if day.get('type') == 'workout']
-        rest_days_list = [day for day in workout_plan_data['workoutDays'] if day.get('type') == 'rest']
-        active_recovery_days = [day for day in workout_plan_data['workoutDays'] if day.get('type') == 'active_recovery']
-        
-        actual_workout_days = len(workout_days_list)
-        actual_rest_days = len(rest_days_list)
-        actual_active_recovery_days = len(active_recovery_days)
-        total_days = len(workout_plan_data['workoutDays'])
-
-        # Log the counts
-        logger.info(f"Plan breakdown - Workout: {actual_workout_days}, Rest: {actual_rest_days}, Active Recovery: {actual_active_recovery_days}")
-        
-        # Validate total number of days
-        if total_days != 7:
-            logger.error(f"Expected 7 total days, but got {total_days}.")
-            raise ValueError(f"Expected 7 total days, but got {total_days}.")
-
-        # Verify the day order matches Monday-Sunday pattern
-        expected_days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7']
-        for i, (day, expected) in enumerate(zip(workout_plan_data['workoutDays'], expected_days)):
-            if not day['day'].startswith(f"Day {i+1}"):
-                logger.error(f"Day {i+1} should start with '{expected}', but got '{day['day']}'")
-                raise ValueError(f"Invalid day order. Day {i+1} should start with '{expected}'")
-
-        # For workout_days <= 5, expect rest days
-        if workout_days <= 5:
-            if actual_workout_days != workout_days:
-                logger.error(f"Expected exactly {workout_days} workout days, but got {actual_workout_days}.")
-                raise ValueError(f"Expected exactly {workout_days} workout days, but got {actual_workout_days}.")
-            
-            expected_rest_days = 7 - workout_days
-            if actual_rest_days != expected_rest_days:
-                logger.error(f"Expected exactly {expected_rest_days} rest days, but got {actual_rest_days}.")
-                raise ValueError(f"Expected exactly {expected_rest_days} rest days, but got {actual_rest_days}.")
-            
-            if actual_active_recovery_days > 0:
-                logger.error(f"Expected no active recovery days when workout_days <= 5, but got {actual_active_recovery_days}.")
-                raise ValueError(f"No active recovery days should be present when workout_days <= 5.")
-        
-        # For workout_days > 5, expect active recovery days
-        else:
-            if actual_workout_days != workout_days:
-                logger.error(f"Expected exactly {workout_days} workout days, but got {actual_workout_days}.")
-                raise ValueError(f"Expected exactly {workout_days} workout days, but got {actual_workout_days}.")
-            
-            expected_active_recovery = 7 - workout_days
-            if actual_active_recovery_days != expected_active_recovery:
-                logger.error(f"Expected exactly {expected_active_recovery} active recovery days, but got {actual_active_recovery_days}.")
-                raise ValueError(f"Expected exactly {expected_active_recovery} active recovery days, but got {actual_active_recovery_days}.")
-            
-            if actual_rest_days > 0:
-                logger.error(f"Expected no rest days when workout_days > 5, but got {actual_rest_days}.")
-                raise ValueError(f"No rest days should be present when workout_days > 5.")
-
-        # Log the final breakdown
-        logger.info(f"Final plan breakdown - Total days: {total_days}")
-        logger.info(f"Workout Days: {actual_workout_days}, Rest Days: {actual_rest_days}, Active Recovery Days: {actual_active_recovery_days}")
-
-        # Save or Update the workout plan to the database
-        try:
-            with transaction.atomic():
-                # Use update_or_create to handle existing WorkoutPlan
-                plan, created = WorkoutPlan.objects.update_or_create(
-                    user=user,
-                    defaults={ 
-                        'plan_data': {
-                            'workoutDays': workout_plan_data['workoutDays'],
-                            'startDate': timezone.now().isoformat(),  # Add start date in ISO format
-                            'createdAt': timezone.now().isoformat(),
-                            'userId': user_id
-                        },
-                        'created_at': timezone.now()
-                    }
-                )
-                if created:
-                    logger.info(f"WorkoutPlan created for user_id {user_id}")
-                else:
-                    logger.info(f"WorkoutPlan updated for user_id {user_id}")
-            return plan
-        except IntegrityError as e:
-            logger.error(f"IntegrityError while saving WorkoutPlan: {e}")
-            raise WorkoutPlanCreationError(f"Error saving WorkoutPlan: {e}") from e
-        except Exception as e:
-            logger.error(f"Unexpected error while saving WorkoutPlan: {e}")
-            raise WorkoutPlanCreationError(f"Error saving WorkoutPlan: {e}") from e
+        # Log the processed workout plan data before validation
+        logger.info(f"Processed workout plan data before validation: {json.dumps(workout_plan_data, indent=2)}")
 
     except Exception as e:
-        logger.error(f"Error processing feedback with AI: {e}")
-        logger.info("Task completed with error")
-        raise WorkoutPlanCreationError(f"Error generating workout plan: {e}") from e
+        logger.error(f"Error processing workout plan data: {e}", exc_info=True)
+        raise
+
+    # Validate the complete workout plan against the schema
+    try:
+        validate(instance=workout_plan_data, schema=WORKOUT_PLAN_SCHEMA)
+    except ValidationError as e:
+        logger.error(f"Workout plan validation error: {str(e)}")
+        raise ValueError(f"Generated workout plan does not conform to the schema: {str(e)}")
+
+    # Assign YouTube video IDs to exercises
+    assign_video_ids_to_exercises(workout_plan_data)
+
+    # Count the different types of days
+    workout_days_list = [day for day in workout_plan_data['workoutDays'] if day.get('type') == 'workout']
+    rest_days_list = [day for day in workout_plan_data['workoutDays'] if day.get('type') == 'rest']
+    active_recovery_days = [day for day in workout_plan_data['workoutDays'] if day.get('type') == 'active_recovery']
+    
+    actual_workout_days = len(workout_days_list)
+    actual_rest_days = len(rest_days_list)
+    actual_active_recovery_days = len(active_recovery_days)
+    total_days = len(workout_plan_data['workoutDays'])
+
+    # Log the counts
+    logger.info(f"Plan breakdown - Workout: {actual_workout_days}, Rest: {actual_rest_days}, Active Recovery: {actual_active_recovery_days}")
+    
+    # Validate total number of days
+    if total_days != 7:
+        logger.error(f"Expected 7 total days, but got {total_days}.")
+        raise ValueError(f"Expected 7 total days, but got {total_days}.")
+
+    # Verify the day order matches Monday-Sunday pattern
+    expected_days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7']
+    for i, (day, expected) in enumerate(zip(workout_plan_data['workoutDays'], expected_days)):
+        if not day['day'].startswith(f"Day {i+1}"):
+            logger.error(f"Day {i+1} should start with '{expected}', but got '{day['day']}'")
+            raise ValueError(f"Invalid day order. Day {i+1} should start with '{expected}'")
+
+    # For workout_days <= 5, expect rest days
+    if workout_days <= 5:
+        if actual_workout_days != workout_days:
+            logger.error(f"Expected exactly {workout_days} workout days, but got {actual_workout_days}.")
+            raise ValueError(f"Expected exactly {workout_days} workout days, but got {actual_workout_days}.")
+        
+        expected_rest_days = 7 - workout_days
+        if actual_rest_days != expected_rest_days:
+            logger.error(f"Expected exactly {expected_rest_days} rest days, but got {actual_rest_days}.")
+            raise ValueError(f"Expected exactly {expected_rest_days} rest days, but got {actual_rest_days}.")
+        
+        if actual_active_recovery_days > 0:
+            logger.error(f"Expected no active recovery days when workout_days <= 5, but got {actual_active_recovery_days}.")
+            raise ValueError(f"No active recovery days should be present when workout_days <= 5.")
+    
+    # For workout_days > 5, handle 6 and 7 day cases differently
+    else:
+        if workout_days == 6:
+            # For 6 days: 5 workouts + 1 active recovery + 1 rest
+            if actual_workout_days != 5:
+                logger.error(f"For 6-day plan, expected exactly 5 workout days, but got {actual_workout_days}.")
+                raise ValueError(f"For 6-day plan, expected exactly 5 workout days, but got {actual_workout_days}.")
+            
+            if actual_active_recovery_days != 1:
+                logger.error(f"Expected exactly 1 active recovery day, but got {actual_active_recovery_days}.")
+                raise ValueError(f"Expected exactly 1 active recovery day, but got {actual_active_recovery_days}.")
+            
+            if actual_rest_days != 1:
+                logger.error(f"Expected exactly 1 rest day, but got {actual_rest_days}.")
+                raise ValueError(f"Expected exactly 1 rest day, but got {actual_rest_days}.")
+        else:  # workout_days == 7
+            # For 7 days: 6 workouts + 1 active recovery + 0 rest
+            if actual_workout_days != 6:
+                logger.error(f"For 7-day plan, expected exactly 6 workout days, but got {actual_workout_days}.")
+                raise ValueError(f"For 7-day plan, expected exactly 6 workout days, but got {actual_workout_days}.")
+            
+            if actual_active_recovery_days != 1:
+                logger.error(f"Expected exactly 1 active recovery day, but got {actual_active_recovery_days}.")
+                raise ValueError(f"Expected exactly 1 active recovery day, but got {actual_active_recovery_days}.")
+            
+            if actual_rest_days != 0:
+                logger.error(f"Expected 0 rest days for 7-day plan, but got {actual_rest_days}.")
+                raise ValueError(f"Expected 0 rest days for 7-day plan, but got {actual_rest_days}.")
+
+    # Log the final breakdown
+    logger.info(f"Final plan breakdown - Total days: {total_days}")
+    logger.info(f"Workout Days: {actual_workout_days}, Rest Days: {actual_rest_days}, Active Recovery Days: {actual_active_recovery_days}")
+
+    # Save or Update the workout plan to the database
+    try:
+        with transaction.atomic():
+            # Use update_or_create to handle existing WorkoutPlan
+            plan, created = WorkoutPlan.objects.update_or_create(
+                user=user,
+                defaults={ 
+                    'plan_data': {
+                        'workoutDays': workout_plan_data['workoutDays'],
+                        'startDate': timezone.now().isoformat(),  # Add start date in ISO format
+                        'createdAt': timezone.now().isoformat(),
+                        'userId': user_id
+                    },
+                    'created_at': timezone.now()
+                }
+            )
+            if created:
+                logger.info(f"WorkoutPlan created for user_id {user_id}")
+            else:
+                logger.info(f"WorkoutPlan updated for user_id {user_id}")
+        return plan
+    except IntegrityError as e:
+        logger.error(f"IntegrityError while saving WorkoutPlan: {e}")
+        raise WorkoutPlanCreationError(f"Error saving WorkoutPlan: {e}") from e
+    except Exception as e:
+        logger.error(f"Unexpected error while saving WorkoutPlan: {e}")
+        raise WorkoutPlanCreationError(f"Error saving WorkoutPlan: {e}") from e
 
     return None
+
+def delete_old_profile_picture(user):
+    """
+    Delete the user's old profile picture if it exists.
+    """
+    try:
+        if user.profile_picture:
+            # Get the old file path
+            old_file_path = user.profile_picture.path
+            # Delete from storage if exists
+            if os.path.isfile(old_file_path):
+                os.remove(old_file_path)
+                logger.info(f"Deleted old profile picture for user {user.id}")
+    except Exception as e:
+        logger.warning(f"Error deleting old profile picture for user {user.id}: {str(e)}")
+
+def validate_image_file(file_content):
+    """
+    Validate that the file content is a valid image file.
+    """
+    try:
+        # Try to open the image using Pillow
+        image = Image.open(io.BytesIO(file_content))
+        image.verify()
+        return True
+    except Exception as e:
+        logger.error(f"Invalid image file: {str(e)}")
+        return False
+
+def generate_profile_picture(user):
+    """
+    Generate a profile picture for a new user using the black-forest-labs/flux-1.1-pro model.
+    """
+    try:
+        logger.info(f"Starting profile picture generation for user {user.id}")
+        
+        if not settings.REPLICATE_API_TOKEN:
+            error_msg = "REPLICATE_API_TOKEN is not set in environment variables. Please add it to your .env file."
+            logger.error(error_msg)
+            raise ReplicateServiceUnavailable(error_msg)
+            
+        # Initialize the Replicate client
+        client = Client(api_token=settings.REPLICATE_API_TOKEN)
+        logger.info("Replicate client initialized successfully")
+
+        # Adjust prompt based on user's sex
+        if user.sex == "Male":
+            prompt = ("A professional headshot of an Asian male athlete in workout clothes, "
+                     "muscular build, short black hair, determined expression, "
+                     "high quality, photorealistic, centered composition, looking at camera, "
+                     "natural lighting, gym background, clean modern style")
+            negative_prompt = ("female, woman, long hair, feminine features, "
+                             "blurry, cartoon, anime, illustration, unrealistic, "
+                             "distorted, deformed, low quality")
+        else:
+            prompt = ("A professional headshot of an Asian female athlete in workout clothes, "
+                     "athletic build, tied back hair, confident expression, "
+                     "high quality, photorealistic, centered composition, looking at camera, "
+                     "natural lighting, gym background, clean modern style")
+            negative_prompt = ("male, masculine features, facial hair, "
+                             "blurry, cartoon, anime, illustration, unrealistic, "
+                             "distorted, deformed, low quality")
+
+        # Generate the image using black-forest-labs/flux-1.1-pro model
+        prediction = client.run(
+            "black-forest-labs/flux-1.1-pro",
+            input={
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "aspect_ratio": "1:1",  # Square aspect ratio for profile picture
+                "width": 512,  # Must be multiple of 32
+                "height": 512,  # Must be multiple of 32
+                "output_format": "png",  # Using PNG for best quality
+                "output_quality": 100,  # Maximum quality
+                "safety_tolerance": 2,  # Default safety tolerance
+                "prompt_upsampling": True,  # Enable creative generation
+                "seed": -1  # Random seed for variation
+            }
+        )
+        logger.info(f"Image generation completed, prediction: {prediction}")
+
+        # Check if we got a valid output URL
+        if not prediction:
+            logger.error(f"No output received from Replicate for user {user.id}. Prediction: {prediction}")
+            return False
+
+        # Download the image with timeout and retries
+        max_retries = 3
+        timeout = 10  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(prediction, timeout=timeout)
+                logger.info(f"Image download attempt {attempt + 1}, status code: {response.status_code}")
+                
+                if response.status_code == 200:
+                    # Validate the downloaded content is an actual image
+                    if not validate_image_file(response.content):
+                        logger.error(f"Downloaded content is not a valid image for user {user.id}")
+                        return False
+                    
+                    # Create a unique filename with timestamp to prevent conflicts
+                    timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+                    filename = f"profile_picture_{user.id}_{timestamp}.png"
+                    logger.info(f"Saving image as: {filename}")
+                    
+                    # Delete old profile picture if it exists
+                    delete_old_profile_picture(user)
+                    
+                    try:
+                        # Save the image to the user's profile
+                        user.profile_picture.save(
+                            filename,
+                            ContentFile(response.content),
+                            save=True
+                        )
+                        
+                        # Verify the file was saved correctly
+                        if not os.path.exists(user.profile_picture.path):
+                            logger.error(f"Failed to verify saved profile picture for user {user.id}")
+                            return False
+                        
+                        logger.info(f"Successfully generated and saved profile picture for user {user.id}")
+                        return True
+                    except Exception as e:
+                        logger.error(f"Failed to save profile picture for user {user.id}: {str(e)}")
+                        return False
+                
+                elif response.status_code == 404:
+                    logger.error(f"Image URL not found for user {user.id}")
+                    break  # Don't retry on 404
+                else:
+                    logger.warning(f"Failed download attempt {attempt + 1} with status code: {response.status_code}")
+                    if attempt < max_retries - 1:
+                        time.sleep(1)  # Wait before retrying
+            except requests.Timeout:
+                logger.warning(f"Timeout on download attempt {attempt + 1}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+            except requests.RequestException as e:
+                logger.error(f"Request error on attempt {attempt + 1}: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+        
+        logger.error(f"All download attempts failed for user {user.id}")
+        return False
+            
+    except Exception as e:
+        logger.error(f"Error generating profile picture for user {user.id}: {str(e)}", exc_info=True)
+        return False

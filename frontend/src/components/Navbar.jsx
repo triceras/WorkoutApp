@@ -174,7 +174,7 @@ function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
   const profileRef = useRef(null);
   const [loginOpen, setLoginOpen] = useState(false);
 
-  const hideNavbar = location.pathname === '/login' || location.pathname === '/register';
+  const hideNavbar = location.pathname === '/register';
 
   const handleLogout = async () => {
     try {
