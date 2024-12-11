@@ -129,3 +129,17 @@ class WorkoutPlanConsumer(AsyncWebsocketConsumer):
                 'type': message_type,
                 'message': message
             }))
+
+    async def profile_picture_ready(self, event):
+        """
+        Called when a profile picture has been generated.
+        Sends the notification to the WebSocket client.
+        """
+        try:
+            await self.send(text_data=json.dumps({
+                'type': 'profile_picture_ready',
+                'message': event.get('message', 'Your profile picture has been generated successfully!')
+            }))
+            logger.info(f"Sent profile picture ready notification to user {self.user_id}")
+        except Exception as e:
+            logger.error(f"Error sending profile picture ready notification to user {self.user_id}: {str(e)}", exc_info=True)

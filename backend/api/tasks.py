@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from .models import WorkoutPlan, TrainingSession
-from .services import generate_workout_plan
+from .services import generate_workout_plan, generate_profile_picture
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
@@ -16,6 +16,13 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+def format_json_log(data):
+    """Helper function to format JSON data for logging"""
+    try:
+        return json.dumps(data, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return str(data)
 
 @shared_task
 def generate_workout_plan_task(user_id):
@@ -46,6 +53,8 @@ def generate_workout_plan_task(user_id):
             
             # Send the workout plan to the user via WebSocket
             if plan and plan.plan_data:
+                # Log the generated plan in a formatted way
+                logger.info(f"Generated workout plan for user {user_id}:\n{format_json_log(plan.plan_data)}")
                 send_workout_plan_to_group(user, plan.plan_data)
                 logger.info(f"Workout plan sent to user {user_id}")
             else:
@@ -111,6 +120,9 @@ def process_feedback_submission_task(self, training_session_id):
             "comments": training_session.comments.strip() if training_session.comments else '',
         }
 
+        # Log feedback data in a formatted way
+        logger.info(f"Feedback data:\n{format_json_log(feedback_data)}")
+
         # Determine if the session needs modification
         modify_specific_session = training_session.emoji_feedback in [0, 1, 2]  # Terrible, Very Bad, Bad
 
@@ -131,7 +143,7 @@ def process_feedback_submission_task(self, training_session_id):
             logger.error(f"Failed to generate modified session for user {user.username}")
             return
         else:
-            logger.debug(f"Modified session: {modified_session}")
+            logger.debug(f"Modified session: {format_json_log(modified_session)}")
 
         # Update the WorkoutPlan
         workout_plan = training_session.workout_plan
@@ -198,7 +210,9 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
     Returns modified session or None if processing fails.
     """
     try:
-        # For now, implement a simple modification based on the feedback
+        # Log input data
+        logger.info(f"Processing feedback with AI:\n{format_json_log(feedback_data)}")
+        
         session_name = feedback_data.get('session_name')
         comments = feedback_data.get('comments', '').lower()
         workout_plan = feedback_data.get('workout_plan', {})
@@ -216,6 +230,9 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
             logger.error(f"Session {session_name} not found in workout plan")
             return None
             
+        # Log target session before modification
+        logger.debug(f"Target session before modification:\n{format_json_log(target_session)}")
+        
         # Simple exercise replacement logic based on comments
         exercises = target_session.get('exercises', [])
         modified_exercises = []
@@ -235,10 +252,17 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
                 replacement = alternative_exercises.get('push-ups').copy()
                 replacement['exercise_id'] = exercise.get('exercise_id')
                 modified_exercises.append(replacement)
+                
+                # Log exercise replacement
+                logger.info(f"Replacing exercise:\nOld: {format_json_log(exercise)}\nNew: {format_json_log(replacement)}")
             else:
                 modified_exercises.append(exercise)
         
         target_session['exercises'] = modified_exercises
+        
+        # Log final modified session
+        logger.info(f"Final modified session:\n{format_json_log(target_session)}")
+        
         return target_session
         
     except Exception as e:
@@ -278,6 +302,40 @@ def send_workout_plan_to_group(user, plan_data):
                 'message': 'Error delivering workout plan'
             }
         )
+
+
+@shared_task
+def generate_profile_picture_task(user_id):
+    """
+    Celery task to generate a profile picture for a user.
+    """
+    logger.info(f"Starting profile picture generation task for user_id {user_id}")
+    
+    try:
+        User = get_user_model()
+        user = User.objects.get(id=user_id)
+        
+        from .services import generate_profile_picture
+        success = generate_profile_picture(user)
+        
+        if success:
+            logger.info(f"Successfully generated profile picture for user {user_id}")
+            # Notify the user via WebSocket that their profile picture is ready
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_{user_id}",
+                {
+                    "type": "profile_picture_ready",
+                    "message": "Your profile picture has been generated successfully!"
+                }
+            )
+        else:
+            logger.error(f"Failed to generate profile picture for user {user_id}")
+            
+    except User.DoesNotExist:
+        logger.error(f"User {user_id} not found")
+    except Exception as e:
+        logger.error(f"Error generating profile picture for user {user_id}: {str(e)}")
 
 
 @shared_task

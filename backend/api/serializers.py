@@ -194,13 +194,14 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
         for day in workout_days_data:
             exercises = day.get('exercises', [])
             serialized_exercises = NestedExerciseSerializer(exercises, many=True).data
+            day_type = day.get('type', 'workout')
             serialized_day = {
                 'day': day.get('day', ''),
-                'type': day.get('type', 'workout'),  # Default to 'workout' if not specified
-                'workout_type': day.get('workout_type', ''),  # Added this line
-                'duration': day.get('duration', '') if day.get('type', 'workout') == 'workout' else '',
-                'exercises': serialized_exercises if day.get('type', 'workout') == 'workout' else [],
-                'notes': day.get('notes', '') if day.get('type', 'workout') == 'rest' else '',
+                'type': day_type,
+                'workout_type': day.get('workout_type', ''),
+                'duration': day.get('duration', '') if day_type in ['workout', 'active_recovery'] else '',
+                'exercises': serialized_exercises if day_type in ['workout', 'active_recovery'] else [],
+                'notes': day.get('notes', '') if day_type == 'rest' else '',
             }
             serialized_workout_days.append(serialized_day)
         return serialized_workout_days

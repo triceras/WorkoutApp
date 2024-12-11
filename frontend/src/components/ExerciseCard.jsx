@@ -166,13 +166,56 @@ function ExerciseCard({ exercise, openVideoModal }) {
             }}>
               📝 INSTRUCTIONS
             </Typography>
-            <Typography variant="body2" sx={{
-              color: '#4a148c',
-              lineHeight: 1.6,
-              fontWeight: 500,
-            }}>
-              {exercise.instructions}
-            </Typography>
+            {exercise.instructions.setup && (
+              <Box mb={2}>
+                <Typography variant="subtitle2" color="#6a1b9a" gutterBottom>
+                  Setup:
+                </Typography>
+                <Typography variant="body2" sx={{
+                  color: '#4a148c',
+                  lineHeight: 1.6,
+                  fontWeight: 500,
+                }}>
+                  {exercise.instructions.setup}
+                </Typography>
+              </Box>
+            )}
+            {exercise.instructions.execution && (
+              <Box mb={2}>
+                <Typography variant="subtitle2" color="#6a1b9a" gutterBottom>
+                  Execution:
+                </Typography>
+                <Typography variant="body2" component="div" sx={{
+                  color: '#4a148c',
+                  lineHeight: 1.6,
+                  fontWeight: 500,
+                }}>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                    {exercise.instructions.execution.map((step, index) => (
+                      <li key={index}>{step}</li>
+                    ))}
+                  </ul>
+                </Typography>
+              </Box>
+            )}
+            {exercise.instructions.form_tips && (
+              <Box>
+                <Typography variant="subtitle2" color="#6a1b9a" gutterBottom>
+                  Form Tips:
+                </Typography>
+                <Typography variant="body2" component="div" sx={{
+                  color: '#4a148c',
+                  lineHeight: 1.6,
+                  fontWeight: 500,
+                }}>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                    {exercise.instructions.form_tips.map((tip, index) => (
+                      <li key={index}>{tip}</li>
+                    ))}
+                  </ul>
+                </Typography>
+              </Box>
+            )}
           </Paper>
         )}
       </Box>
@@ -185,7 +228,11 @@ ExerciseCard.propTypes = {
     name: PropTypes.string.isRequired,
     setsReps: PropTypes.string,
     equipment: PropTypes.string,
-    instructions: PropTypes.string,
+    instructions: PropTypes.shape({
+      setup: PropTypes.string,
+      execution: PropTypes.arrayOf(PropTypes.string),
+      form_tips: PropTypes.arrayOf(PropTypes.string),
+    }),
     videoId: PropTypes.string,
   }).isRequired,
   openVideoModal: PropTypes.func.isRequired,

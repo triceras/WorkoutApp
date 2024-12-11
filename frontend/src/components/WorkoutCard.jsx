@@ -62,7 +62,11 @@ WorkoutCard.propTypes = {
       name: PropTypes.string.isRequired,
       setsReps: PropTypes.string.isRequired,
       equipment: PropTypes.string.isRequired,
-      instructions: PropTypes.string,
+      instructions: PropTypes.shape({
+        setup: PropTypes.string,
+        execution: PropTypes.arrayOf(PropTypes.string),
+        form_tips: PropTypes.arrayOf(PropTypes.string)
+      }),
       videoId: PropTypes.string, // To fetch YouTube thumbnails
     })
   ),

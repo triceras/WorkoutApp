@@ -1,28 +1,47 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from api.services import generate_profile_picture
+from api.services import generate_profile_picture_async
 import logging
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 class Command(BaseCommand):
     help = 'Generate profile pictures for users who do not have one'
 
-    def handle(self, *args, **options):
-        User = get_user_model()
-        users_without_picture = User.objects.filter(profile_picture='')
-        total = users_without_picture.count()
+    def handle(self, *args, **kwargs):
+        """
+        COMMENTED OUT TO AVOID API CALLS DURING TESTING
+        This command was used to generate profile pictures for users who don't have one
+        """
+        self.stdout.write("Profile picture generation is currently disabled to avoid API calls during testing")
+        return
+
+        # Original implementation commented out:
+        """
+        users_without_pictures = User.objects.filter(profile_picture='')
+        total_users = users_without_pictures.count()
         
-        self.stdout.write(f"Found {total} users without profile pictures")
+        if total_users == 0:
+            self.stdout.write(self.style.SUCCESS('All users have profile pictures.'))
+            return
+            
+        self.stdout.write(f'Found {total_users} users without profile pictures.')
+        self.stdout.write('Queueing profile picture generation tasks...')
         
-        for i, user in enumerate(users_without_picture, 1):
-            self.stdout.write(f"Processing user {i}/{total}: {user.username}")
-            try:
-                if generate_profile_picture(user):
-                    self.stdout.write(self.style.SUCCESS(f"Successfully generated profile picture for {user.username}"))
-                else:
-                    self.stdout.write(self.style.ERROR(f"Failed to generate profile picture for {user.username}"))
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Error generating profile picture for {user.username}: {str(e)}"))
+        success_count = 0
+        for user in users_without_pictures:
+            if generate_profile_picture_async(user):
+                success_count += 1
+                self.stdout.write(f'Queued profile picture generation for user {user.id}')
+            else:
+                self.stdout.write(
+                    self.style.ERROR(f'Failed to queue profile picture generation for user {user.id}')
+                )
         
-        self.stdout.write(self.style.SUCCESS("Finished processing all users"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'Successfully queued {success_count} out of {total_users} profile picture generation tasks.'
+            )
+        )
+        """

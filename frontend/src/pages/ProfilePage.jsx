@@ -173,34 +173,69 @@ const ProfilePage = () => {
       const fetchSessions = async () => {
         try {
           const response = await axiosInstance.get('workout-plans/');
+          console.log('API Response:', response.data);
+          
           if (response.data && response.data.length > 0) {
             const currentPlan = response.data[0];
-            const scheduledSessions = currentPlan.workoutDays.map(day => ({
-              id: `scheduled_${day.day}`,
-              date: new Date(),
-              session_name: day.day,
-              workout_type: day.workout_type || 'Strength',
-              exercises: day.exercises.map(exercise => {
-                if (day.workout_type === 'Cardio') {
-                  return {
+            console.log('Current Plan:', currentPlan);
+            
+            const scheduledSessions = currentPlan.workoutDays.map(day => {
+              // Extract the raw day data
+              console.log('Raw day data:', day);
+              
+              // Create the session object
+              const session = {
+                id: `scheduled_${day.day}`,
+                date: new Date(),
+                session_name: day.day,
+                workout_type: day.workout_type,
+                type: day.type,
+                exercises: Array.isArray(day.exercises) ? day.exercises.map(exercise => {
+                  console.log('Raw exercise data:', exercise);
+                  
+                  const baseExercise = {
                     name: exercise.name,
-                    duration: exercise.setsReps,
-                    isCardio: true
+                    duration: exercise.duration,
+                    intensity: exercise.intensity?.toLowerCase() || 'low',
+                    tracking_type: exercise.tracking_type || 'reps_based'
                   };
-                } else {
+
+                  // For active recovery or time-based exercises
+                  if (day.type === 'active_recovery' || exercise.tracking_type === 'time_based') {
+                    return {
+                      ...baseExercise,
+                      duration: exercise.duration || '20-30 minutes',
+                      intensity: exercise.intensity?.toLowerCase() || 'low'
+                    };
+                  }
+                  
+                  // For cardio exercises
+                  if (exercise.exercise_type === 'cardio') {
+                    return {
+                      ...baseExercise,
+                      duration: exercise.duration || '30 minutes',
+                      isCardio: true
+                    };
+                  }
+                  
+                  // For strength exercises
                   const setsMatch = exercise.setsReps?.match(/(\d+)\s*sets/);
                   const repsMatch = exercise.setsReps?.match(/(\d+)\s*reps/);
                   
                   return {
-                    name: exercise.name,
-                    setsReps: exercise.setsReps,
-                    sets: setsMatch ? parseInt(setsMatch[1]) : 3,
-                    reps: repsMatch ? parseInt(repsMatch[1]) : 12,
+                    ...baseExercise,
+                    sets: exercise.sets || (setsMatch ? parseInt(setsMatch[1]) : 3),
+                    reps: exercise.reps || (repsMatch ? parseInt(repsMatch[1]) : 12),
                     isCardio: false
                   };
-                }
-              })
-            }));
+                }) : []
+              };
+              
+              console.log('Created session:', session);
+              return session;
+            });
+            
+            console.log('Final scheduled sessions:', scheduledSessions);
             setSessions(scheduledSessions);
           }
         } catch (error) {
@@ -226,8 +261,12 @@ const ProfilePage = () => {
         {sessions.map((session) => (
           <WorkoutCard 
             key={session.id} 
-            type={session.workout_type.toUpperCase()}
+            type={session.workout_type?.toUpperCase()}
             elevation={0}
+            sx={session.type === 'rest' ? {
+              background: 'linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%)',
+              border: '1px solid rgba(76, 175, 80, 0.1)',
+            } : undefined}
           >
             <Box sx={{ 
               display: 'flex', 
@@ -235,77 +274,93 @@ const ProfilePage = () => {
               alignItems: 'center',
               mb: 2 
             }}>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  color: session.workout_type === 'CARDIO' ? '#f57c00' : '#43a047',
-                  fontWeight: 700 
-                }}
-              >
-                {session.session_name}
-              </Typography>
-              <Typography 
-                variant="subtitle1"
-                sx={{
-                  bgcolor: session.workout_type === 'CARDIO' ? '#fff3e0' : '#e8f5e9',
-                  color: session.workout_type === 'CARDIO' ? '#f57c00' : '#43a047',
-                  px: 2,
-                  py: 0.5,
-                  borderRadius: '20px',
-                  fontWeight: 600,
-                }}
-              >
-                {session.workout_type}
-              </Typography>
+              {session.type === 'rest' ? (
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    color: '#43a047',
+                    fontWeight: 700,
+                    fontSize: '1.25rem'
+                  }}
+                >
+                  Rest Day
+                </Typography>
+              ) : (
+                <>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      color: session.workout_type === 'CARDIO' ? '#f57c00' : '#43a047',
+                      fontWeight: 700 
+                    }}
+                  >
+                    {session.session_name}
+                  </Typography>
+                  <Typography 
+                    variant="subtitle1"
+                    sx={{
+                      bgcolor: session.workout_type === 'CARDIO' ? '#fff3e0' : '#e8f5e9',
+                      color: session.workout_type === 'CARDIO' ? '#f57c00' : '#43a047',
+                      px: 2,
+                      py: 0.5,
+                      borderRadius: '20px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {session.workout_type}
+                  </Typography>
+                </>
+              )}
             </Box>
 
-            {session.session_name.toLowerCase().includes('recovery') ? (
-              <Typography 
-                sx={{ 
-                  p: 3, 
-                  bgcolor: 'rgba(0,0,0,0.02)', 
-                  borderRadius: '10px',
-                  color: '#666' 
-                }}
-              >
-                No workout planned for this recovery day. Take it easy and focus on stretching and light activities.
-              </Typography>
+            {session.type === 'rest' ? null : session.type === 'active_recovery' ? (
+              <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>DURATION</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>INTENSITY</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {Array.isArray(session.exercises) && session.exercises.map((exercise, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell component="th" scope="row">
+                          {exercise.name}
+                        </TableCell>
+                        <TableCell>{exercise.duration || '20-30 minutes'}</TableCell>
+                        <TableCell sx={{ textTransform: 'capitalize' }}>
+                          {exercise.intensity || 'Low'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             ) : (
               <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
                 <Table>
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
-                      {session.workout_type === 'Cardio' ? (
-                        <TableCell sx={{ fontWeight: 700 }}>DURATION</TableCell>
-                      ) : (
-                        <>
-                          {['SET 1', 'SET 2', 'SET 3', 'SET 4'].map((set) => (
-                            <TableCell key={set} align="center" sx={{ fontWeight: 700 }}>
-                              {set}
-                            </TableCell>
-                          ))}
-                        </>
-                      )}
+                      {['SET 1', 'SET 2', 'SET 3', 'SET 4'].map((set) => (
+                        <TableCell key={set} align="center" sx={{ fontWeight: 700 }}>
+                          {set}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {session.exercises.map((exercise, idx) => (
+                    {Array.isArray(session.exercises) && session.exercises.map((exercise, idx) => (
                       <TableRow key={idx}>
                         <TableCell component="th" scope="row">
                           {exercise.name}
                         </TableCell>
-                        {exercise.isCardio ? (
-                          <TableCell>{exercise.duration}</TableCell>
-                        ) : (
-                          <>
-                            {[...Array(4)].map((_, i) => (
-                              <TableCell key={i} align="center">
-                                {i < exercise.sets ? exercise.reps : '-'}
-                              </TableCell>
-                            ))}
-                          </>
-                        )}
+                        <TableCell align="center">{exercise.sets >= 1 ? exercise.reps : '-'}</TableCell>
+                        <TableCell align="center">{exercise.sets >= 2 ? exercise.reps : '-'}</TableCell>
+                        <TableCell align="center">{exercise.sets >= 3 ? exercise.reps : '-'}</TableCell>
+                        <TableCell align="center">{exercise.sets >= 4 ? exercise.reps : '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

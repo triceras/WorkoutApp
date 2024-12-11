@@ -41,7 +41,7 @@ function LoginDialog({ open, onClose }) {
       console.log('Attempting login with:', { username });
       const response = await axiosInstance.post('auth/login/', {
         username: username.trim(),
-        password: password.trim(),
+        password: password,
       });
 
       console.log('Login response:', response.data);
@@ -62,21 +62,28 @@ function LoginDialog({ open, onClose }) {
     } catch (error) {
       console.error('Login error:', error.response || error);
       
+      let errorMessage = 'An error occurred during login.';
+      
       if (error.response?.data?.non_field_errors) {
-        setError(error.response.data.non_field_errors[0]);
+        errorMessage = error.response.data.non_field_errors[0];
       } else if (error.response?.data?.username) {
-        setError(`Username error: ${error.response.data.username[0]}`);
+        errorMessage = `Username error: ${error.response.data.username[0]}`;
       } else if (error.response?.data?.password) {
-        setError(`Password error: ${error.response.data.password[0]}`);
+        errorMessage = `Password error: ${error.response.data.password[0]}`;
       } else if (error.response?.status === 400) {
-        setError('Invalid username or password. Please check your credentials and try again.');
+        errorMessage = 'Invalid username or password.';
       } else if (error.response?.status === 401) {
-        setError('Authentication failed. Please check your credentials.');
-      } else if (error.message.includes('Server response was incomplete')) {
-        setError('Server response was incomplete. Please try again.');
-      } else {
-        setError('An unexpected error occurred. Please try again later.');
+        errorMessage = 'Unauthorized. Please check your credentials.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection.';
       }
+      
+      setError(errorMessage);
+      console.error('Detailed error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: errorMessage
+      });
     }
   };
 

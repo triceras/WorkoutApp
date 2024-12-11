@@ -132,7 +132,7 @@ function App() {
                 }
               />
               <Route path="/generating-workout" element={<GeneratingWorkout />} />
-              <Route path="*" element={<NotFoundPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
         </div>
