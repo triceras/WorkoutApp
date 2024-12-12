@@ -2,15 +2,12 @@
 
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext'; 
-//import PropTypes from 'prop-types';
 import { DateTime } from 'luxon';
 import axiosInstance from '../api/axiosInstance';
 import VideoModal from './VideoModal';
+import ExerciseCard from './ExerciseCard';
 import {
   Typography,
-  Card,
-  CardContent,
-  CardMedia,
   Grid,
   Box,
   Container,
@@ -19,27 +16,6 @@ import {
 } from '@mui/material';
 import './WorkoutPlan.css';
 import { processWorkoutPlan } from '../utils/processWorkoutPlan';
-
-/**
- * Splits a text into sentences for better readability.
- * @param {string} text - The text to split.
- * @returns {string[]} - Array of sentences.
- */
-const splitIntoSentences = (text) => {
-  return text
-    .split('.')
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 0);
-};
-
-/**
- * Generates YouTube thumbnail URL based on video ID.
- * @param {string} videoId - The YouTube video ID.
- * @returns {string} - The thumbnail URL.
- */
-const getYoutubeThumbnailUrl = (videoId) => {
-  return `https://img.youtube.com/vi/${videoId}/0.jpg`;
-};
 
 function WorkoutPlan() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -52,10 +28,6 @@ function WorkoutPlan() {
   const { user } = useContext(AuthContext);
   const username = user?.first_name || user?.username || '';
 
-  /**
-   * Fetches the workout plan from the backend.
-   */
-
   useEffect(() => {
     const fetchWorkoutPlan = async () => {
       try {
@@ -67,8 +39,6 @@ function WorkoutPlan() {
         }
 
         let currentPlan = response.data[0]; // Use the most recent plan
-
-        // Process the workout plan to include rest days and align with weekdays
         currentPlan = processWorkoutPlan(currentPlan);
 
         console.log('Processed Workout Plan in WorkoutPlan:', currentPlan); // Debugging
@@ -85,9 +55,6 @@ function WorkoutPlan() {
     fetchWorkoutPlan();
   }, []);
 
-  /**
-   * Determines today's workout or rest day based on the full weekly plan.
-   */
   useEffect(() => {
     if (!fullWeeklyPlan || fullWeeklyPlan.length === 0) {
       console.error('Full weekly plan is empty or undefined.');
@@ -95,17 +62,59 @@ function WorkoutPlan() {
       return;
     }
 
-    const todayWeekday = DateTime.local().weekday; // 1 (Monday) to 7 (Sunday)
-
+    const todayWeekday = DateTime.local().weekday;
     const todayPlan = fullWeeklyPlan.find((day) => day.dayNumber === todayWeekday);
-
+    
     if (todayPlan) {
-      if (todayPlan.type === 'workout') {
-        setTodayWorkout(todayPlan);
+      console.log('Original todayPlan:', todayPlan);
+      console.log('Original exercise data:', todayPlan.exercises);
+
+      const processedPlan = {
+        ...todayPlan,
+        exercises: todayPlan.exercises?.map((exercise) => {
+          console.log('Processing exercise:', exercise);
+          
+          const isActiveRecovery = todayPlan.type === 'active_recovery';
+          const isCardioDay = todayPlan.workout_type?.toLowerCase().includes('cardio');
+          const isCardioExercise = exercise.exercise_type === 'cardio';
+          const isTimeBasedExercise = exercise.tracking_type === 'time_based' || exercise.exercise_type === 'core';
+          const isCardio = isCardioDay || isActiveRecovery || isCardioExercise || isTimeBasedExercise;
+
+          console.log('Exercise conditions:', {
+            isActiveRecovery,
+            isCardioDay,
+            isCardioExercise,
+            isTimeBasedExercise,
+            isCardio
+          });
+
+          const processedExercise = {
+            ...exercise,
+            tracking_type: 'time_based',
+            exercise_type: 'cardio',
+            duration: todayPlan.duration,
+            intensity: 'low',
+            workout_type: todayPlan.workout_type,
+            type: todayPlan.type,
+            // Clear strength-related fields
+            sets: null,
+            reps: null,
+            setsReps: null
+          };
+
+          console.log('Processed exercise:', processedExercise);
+          return processedExercise;
+        }) || []
+      };
+
+      console.log('Final processed plan:', processedPlan);
+
+      if (processedPlan.type === 'workout') {
+        setTodayWorkout(processedPlan);
         setIsRestDay(false);
-      } else if (todayPlan.type === 'rest') {
-        setTodayWorkout(todayPlan); // Set to todayPlan to access notes
-        setIsRestDay(true);
+      } else if (processedPlan.type === 'rest' || processedPlan.type === 'active_recovery') {
+        setTodayWorkout(processedPlan);
+        setIsRestDay(processedPlan.type === 'rest');
       } else {
         setTodayWorkout(null);
         setIsRestDay(true);
@@ -118,26 +127,16 @@ function WorkoutPlan() {
     }
   }, [fullWeeklyPlan]);
 
-  /**
-   * Opens the video modal with the selected video ID.
-   * @param {string} videoId - The ID of the YouTube video to play.
-   */
   const openVideoModal = (videoId) => {
     setCurrentVideoId(videoId);
     setModalIsOpen(true);
   };
 
-  /**
-   * Closes the video modal.
-   */
   const closeVideoModal = () => {
     setModalIsOpen(false);
     setCurrentVideoId(null);
   };
 
-  /**
-   * If there's an error, display it.
-   */
   if (error) {
     return (
       <Typography variant="body1" color="error" align="center">
@@ -146,9 +145,6 @@ function WorkoutPlan() {
     );
   }
 
-  /**
-   * If the workout plan is loading, show a loading message.
-   */
   if (!fullWeeklyPlan || fullWeeklyPlan.length === 0) {
     return (
       <Typography variant="body1" align="center">
@@ -157,9 +153,6 @@ function WorkoutPlan() {
     );
   }
 
-  /**
-   * If today is a rest day, display a rest day message with upcoming workouts.
-   */
   if (isRestDay) {
     return (
       <Container maxWidth="lg" className="workout-plan-container">
@@ -170,12 +163,11 @@ function WorkoutPlan() {
           Today is a Rest Day! Take this time to recover and rejuvenate.
         </Typography>
         {todayWorkout && todayWorkout.notes && (
-        <Typography variant="body2" align="center" color="textSecondary">
-          {todayWorkout.notes}
-        </Typography>
-      )}
+          <Typography variant="body2" align="center" color="textSecondary">
+            {todayWorkout.notes}
+          </Typography>
+        )}
 
-        {/* Upcoming Workouts */}
         <Box mt={5}>
           <Typography variant="h5" align="center" gutterBottom>
             Upcoming Workouts
@@ -213,8 +205,6 @@ function WorkoutPlan() {
           </Grid>
         </Box>
 
-
-        {/* Additional Tips */}
         {workoutPlan && workoutPlan.additionalTips && workoutPlan.additionalTips.length > 0 && (
           <Box mt={5} className="additional-tips">
             <Typography variant="h5" gutterBottom>
@@ -242,9 +232,6 @@ function WorkoutPlan() {
     );
   }
 
-  /**
-   * Render today's workout.
-   */
   return (
     <Container maxWidth="lg" className="workout-plan-container">
       <Box sx={{
@@ -416,97 +403,33 @@ function WorkoutPlan() {
         </Grid>
       </Box>
 
-      {/* Display Today's Workout */}
       {todayWorkout ? (
         <Box sx={{ mt: 4 }}>
           <Grid container spacing={3}>
             {todayWorkout.exercises && todayWorkout.exercises.length > 0 ? (
-              todayWorkout.exercises.map((exercise) => (
-                <Grid item xs={12} sm={6} md={4} key={exercise.name}>
-                  <Card sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    borderRadius: '16px',
-                    overflow: 'hidden',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                    }
-                  }}>
-                    {exercise.videoId && (
-                      <CardMedia
-                        component="img"
-                        height="180"
-                        image={getYoutubeThumbnailUrl(exercise.videoId)}
-                        alt={`${exercise.name} video`}
-                        sx={{
-                          objectFit: 'cover',
-                          cursor: 'pointer',
-                        }}
-                        onClick={() => openVideoModal(exercise.videoId)}
-                      />
-                    )}
-                    <CardContent sx={{ p: 3 }}>
-                      <Typography variant="h6" sx={{
-                        fontWeight: 600,
-                        mb: 2,
-                        fontSize: '1.25rem'
-                      }}>
-                        {exercise.name}
-                      </Typography>
-
-                      {exercise.setsReps && (
-                        <Box sx={{ 
-                          display: 'flex',
-                          alignItems: 'center',
-                          mb: 1.5,
-                          gap: 1
-                        }}>
-                          <span style={{ fontSize: '1.2rem' }}>💪</span>
-                          <Typography variant="body1">
-                            <strong>Sets & Reps:</strong> {exercise.setsReps}
-                          </Typography>
-                        </Box>
-                      )}
-
-                      {exercise.equipment && (
-                        <Box sx={{ 
-                          display: 'flex',
-                          alignItems: 'center',
-                          mb: 1.5,
-                          gap: 1
-                        }}>
-                          <span style={{ fontSize: '1.2rem' }}>🏋️</span>
-                          <Typography variant="body1">
-                            <strong>Equipment:</strong> {exercise.equipment}
-                          </Typography>
-                        </Box>
-                      )}
-
-                      {exercise.instructions && (
-                        <Box sx={{ mt: 2 }}>
-                          <Typography variant="body1" sx={{ 
-                            fontWeight: 600,
-                            mb: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1
-                          }}>
-                            <span style={{ fontSize: '1.2rem' }}>📋</span>
-                            Instructions:
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                            {exercise.instructions}
-                          </Typography>
-                        </Box>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))
+              todayWorkout.exercises.map((exercise, index) => {
+                console.log('Raw Exercise Data:', exercise);
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={`${exercise.name}-${index}`}>
+                    <ExerciseCard
+                      exercise={{
+                        ...exercise,
+                        workout_type: todayWorkout.workout_type,
+                        type: todayWorkout.type,
+                        tracking_type: 'time_based',
+                        exercise_type: 'cardio',
+                        duration: todayWorkout.duration,
+                        intensity: 'low',
+                        sets: null,
+                        reps: null,
+                        setsReps: null,
+                        rest_time: null
+                      }}
+                      openVideoModal={openVideoModal}
+                    />
+                  </Grid>
+                );
+              })
             ) : (
               <Grid item xs={12}>
                 <Paper sx={{
@@ -532,7 +455,7 @@ function WorkoutPlan() {
           <CircularProgress />
         </Box>
       )}
-      {/* Additional Tips */}
+
       {workoutPlan && workoutPlan.additionalTips && workoutPlan.additionalTips.length > 0 && (
         <Box mt={5} className="additional-tips">
           <Typography variant="h5" gutterBottom>
@@ -559,8 +482,5 @@ function WorkoutPlan() {
     </Container>
   );
 }
-
-WorkoutPlan.propTypes = {
-};
 
 export default WorkoutPlan;

@@ -74,24 +74,43 @@ export const processWorkoutPlan = (plan) => {
       dayName = `${weekdayName}: ${dayDescription}`;
     }
 
-    // Ensure exercises is an array
-    let exercises = Array.isArray(day.exercises) ? day.exercises : [];
-    if (!Array.isArray(exercises)) {
-      console.warn(`Exercises for day at index ${index} is not an array:`, exercises);
-      exercises = [];
+    // Process exercises
+    if (day.exercises) {
+      day.exercises = day.exercises.map(exercise => {
+        console.log('Processing exercise:', exercise);
+        
+        const isCardioDay = day.workout_type?.toLowerCase().includes('cardio');
+        const isActiveRecovery = day.type === 'active_recovery';
+        const isCardioExercise = exercise.name?.toLowerCase().includes('jogging') || 
+                                exercise.name?.toLowerCase().includes('running') ||
+                                exercise.exercise_type === 'cardio';
+
+        if (isCardioDay || isActiveRecovery || isCardioExercise) {
+          console.log('Converting to cardio exercise:', exercise.name);
+          return {
+            ...exercise,
+            tracking_type: 'time_based',
+            exercise_type: 'cardio',
+            duration: day.duration || '30 minutes',
+            intensity: 'low',
+            type: day.type,
+            workout_type: day.workout_type,
+            sets: null,
+            reps: null,
+            setsReps: null
+          };
+        }
+        return exercise;
+      });
     }
 
-    // Detailed logging for exercises
-    console.log(`Exercises for Day ${index + 1}:`, exercises);
-
     // Determine if it's a workout or rest day
-    const isRestDay = exercises.length === 0 || day.type === 'rest';
+    const isRestDay = day.exercises.length === 0 || day.type === 'rest';
 
     const processedDay = {
       ...day,
       dayNumber: dayNumber,
       dayName: dayName,
-      exercises: exercises,
       type: isRestDay ? 'rest' : 'workout',
     };
 

@@ -404,6 +404,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         required=True,
         help_text="Primary key of the associated WorkoutPlan."
     )
+    workout_type = serializers.ChoiceField(choices=TrainingSession.WORKOUT_TYPE_CHOICES)
     emoji_feedback = serializers.ChoiceField(
         choices=TrainingSession.EMOJI_FEEDBACK_CHOICES, 
         required=False
@@ -438,7 +439,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         allow_null=True, 
         help_text="Maximum heart rate reached during the workout."
     )
-    source = serializers.CharField(write_only=True, required=True)
+    source = serializers.CharField(required=False)  
 
     class Meta:
         model = TrainingSession
@@ -506,16 +507,34 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        """Create a new training session with exercises."""
+        # Get the user from the context
+        user = self.context['request'].user
         exercises_data = validated_data.pop('training_session_exercises', [])
-        # Remove source field as it's not part of the model
-        validated_data.pop('source', None)
-        training_session = TrainingSession.objects.create(**validated_data)
+        source = validated_data.pop('source', 'completed')  
 
+        # Create the training session with the user and source
+        training_session = TrainingSession.objects.create(
+            user=user,
+            source=source,  
+            **validated_data
+        )
+
+        # Create exercises for the training session
         for exercise_data in exercises_data:
-            TrainingSessionExercise.objects.create(
+            exercise = exercise_data.pop('exercise')
+            exercise_instance = TrainingSessionExercise.objects.create(
                 training_session=training_session,
+                exercise=exercise,
                 **exercise_data
             )
+            
+            # For cardio workouts, copy the exercise duration to the session's time field
+            if (training_session.workout_type.lower() in ['cardio', 'light cardio'] and 
+                exercise_instance.duration and 
+                not training_session.time):
+                training_session.time = exercise_instance.duration
+                training_session.save()
 
         return training_session
 

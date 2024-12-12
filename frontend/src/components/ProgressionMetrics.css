@@ -1,9 +1,13 @@
 /* src/components/ProgressionMetrics.css */
 
 .progression-metrics {
+  padding: 20px;
+}
+
+.metrics-summary {
   display: flex;
   justify-content: space-around;
-  margin-top: 20px;
+  margin-bottom: 40px;
 }
 
 .metric {
@@ -23,4 +27,5 @@
 .metric p {
   font-size: 1.2em;
   color: #555;
+  margin: 0;
 }

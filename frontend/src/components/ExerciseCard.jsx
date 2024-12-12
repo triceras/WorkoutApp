@@ -1,10 +1,6 @@
-// src/components/ExerciseCard.jsx
-
 import React from 'react';
 import PropTypes from 'prop-types';
 import {
-  Card,
-  CardContent,
   CardMedia,
   Typography,
   Box,
@@ -21,7 +17,70 @@ const getYoutubeThumbnailUrl = (videoId) => {
   return `https://img.youtube.com/vi/${videoId}/0.jpg`;
 };
 
+// Helper function to parse instructions if they're in string format
+const parseInstructions = (instructions) => {
+  if (typeof instructions === 'string') {
+    try {
+      // Clean up the string before parsing
+      const cleanedString = instructions
+        .replace(/'/g, '"')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      const parsed = JSON.parse(cleanedString);
+
+      // Split form tips if they contain 'Avoid'
+      const formTips = Array.isArray(parsed.form_tips) ? parsed.form_tips : [parsed.form_tips];
+      const processedFormTips = formTips.flatMap(tip => {
+        if (typeof tip === 'string' && tip.includes('Avoid')) {
+          return tip.split('Avoid').map((part, index) => {
+            part = part.trim();
+            return index === 0 ? part : `Avoid ${part}`;
+          }).filter(part => part.length > 0);
+        }
+        return [tip];
+      });
+      
+      return {
+        setup: Array.isArray(parsed.setup) ? parsed.setup : [parsed.setup],
+        execution: Array.isArray(parsed.execution) ? parsed.execution : [parsed.execution],
+        form_tips: processedFormTips
+      };
+    } catch (e) {
+      console.warn('Failed to parse instructions:', e);
+      return {
+        setup: [],
+        execution: [],
+        form_tips: []
+      };
+    }
+  }
+  return instructions || { setup: [], execution: [], form_tips: [] };
+};
+
 function ExerciseCard({ exercise, openVideoModal }) {
+  console.log('ExerciseCard received exercise:', exercise);
+
+  const parsedInstructions = parseInstructions(exercise.instructions);
+
+  // Determine if exercise is cardio/time-based or strength/weight-based
+  const isCardio = exercise.name?.toLowerCase().includes('jogging') || 
+                  exercise.name?.toLowerCase().includes('running') ||
+                  exercise.exercise_type === 'cardio' || 
+                  exercise.tracking_type === 'time_based' || 
+                  exercise.type === 'active_recovery';
+
+  console.log('ExerciseCard isCardio check:', {
+    name: exercise.name,
+    exerciseType: exercise.exercise_type,
+    trackingType: exercise.tracking_type,
+    isCardio
+  });
+
+  // Conditions for displaying info
+  const showCardioInfo = isCardio;
+  const showStrengthInfo = !isCardio && Boolean(exercise.sets) && Boolean(exercise.reps);
+
   return (
     <Paper elevation={0} sx={{
       height: '100%',
@@ -34,7 +93,7 @@ function ExerciseCard({ exercise, openVideoModal }) {
         transform: 'translateY(-4px)',
         boxShadow: '0 12px 28px rgba(0, 0, 0, 0.1)',
       }
-    }}>
+    }} className="exercise-card">
       {exercise.videoId && (
         <Box sx={{
           position: 'relative',
@@ -84,137 +143,167 @@ function ExerciseCard({ exercise, openVideoModal }) {
         </Box>
       )}
       <Box sx={{ p: 3 }}>
-        <Typography variant="h5" sx={{
-          fontWeight: 700,
-          color: '#2D3748',
-          mb: 3,
-          fontSize: '1.5rem',
-        }}>
+        <Typography variant="h6" sx={{ mb: 2, color: '#7b1fa2', display: 'flex', alignItems: 'center', gap: 1 }}>
           🏋️‍♂️ {exercise.name}
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
-          {exercise.setsReps && (
-            <Paper elevation={0} sx={{
-              p: 2,
-              flex: 1,
-              background: 'linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)',
-              border: '1px solid rgba(33, 150, 243, 0.1)',
-              borderRadius: '12px',
-            }}>
-              <Typography variant="overline" sx={{
-                color: '#1976d2',
-                fontWeight: 700,
-                letterSpacing: '1.5px',
-                fontSize: '0.75rem',
-                display: 'block',
-                mb: 1,
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
+          {showCardioInfo && (
+            <>
+              <Paper elevation={0} sx={{
+                backgroundColor: '#fff3e0',
+                p: 2,
+                borderRadius: 2,
+                mb: 2
               }}>
-                💪 SETS & REPS
-              </Typography>
-              <Typography variant="body1" sx={{
-                fontWeight: 600,
-                color: '#1a237e',
+                <Typography sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  color: '#f57c00',
+                  fontWeight: 600,
+                  mb: 1
+                }}>
+                  ⏳ DURATION
+                </Typography>
+                <Typography variant="body1" sx={{ color: '#f57c00' }}>
+                  {exercise.duration || '30 minutes'}
+                </Typography>
+              </Paper>
+
+              <Paper elevation={0} sx={{
+                backgroundColor: '#e3f2fd',
+                p: 2,
+                borderRadius: 2,
+                mb: 2
               }}>
-                {exercise.setsReps}
-              </Typography>
-            </Paper>
+                <Typography sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  color: '#0288d1',
+                  fontWeight: 600,
+                  mb: 1
+                }}>
+                  🔥 INTENSITY
+                </Typography>
+                <Typography variant="body1" sx={{ color: '#0288d1', textTransform: 'capitalize' }}>
+                  {exercise.intensity || 'low'}
+                </Typography>
+              </Paper>
+            </>
           )}
 
-          {exercise.equipment && (
-            <Paper elevation={0} sx={{
-              p: 2,
-              flex: 1,
-              background: 'linear-gradient(135deg, #fce4ec 0%, #ffffff 100%)',
-              border: '1px solid rgba(233, 30, 99, 0.1)',
-              borderRadius: '12px',
-            }}>
-              <Typography variant="overline" sx={{
-                color: '#c2185b',
-                fontWeight: 700,
-                letterSpacing: '1.5px',
-                fontSize: '0.75rem',
-                display: 'block',
-                mb: 1,
-              }}>
-                🔧 EQUIPMENT
-              </Typography>
-              <Typography variant="body1" sx={{
-                fontWeight: 600,
-                color: '#880e4f',
-              }}>
-                {exercise.equipment}
-              </Typography>
-            </Paper>
+          {showStrengthInfo && (
+            <>
+              {/* Sets & Reps for Strength */}
+              {Boolean(exercise.sets) && Boolean(exercise.reps) && (
+                <Paper elevation={0} sx={{
+                  backgroundColor: '#e8f5e9',
+                  p: 2,
+                  borderRadius: 2,
+                  flex: '1 1 auto',
+                  minWidth: '200px'
+                }}>
+                  <Typography sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    color: '#2e7d32',
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
+                    🎯 SETS & REPS
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: '#2e7d32' }}>
+                    {`${exercise.sets} sets × ${exercise.reps} reps`}
+                  </Typography>
+                </Paper>
+              )}
+
+              {/* Rest Interval if provided */}
+              {exercise.rest_time && (
+                <Paper elevation={0} sx={{
+                  backgroundColor: '#e8f5e9',
+                  p: 2,
+                  borderRadius: 2,
+                  flex: '1 1 auto',
+                  minWidth: '200px'
+                }}>
+                  <Typography sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    color: '#2e7d32',
+                    fontWeight: 600,
+                    mb: 1,
+                    textTransform: 'uppercase'
+                  }}>
+                    ⏱️ REST INTERVAL
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: '#2e7d32' }}>
+                    {Number(exercise.rest_time) > 0 ? `${exercise.rest_time} seconds` : 'Not specified'}
+                  </Typography>
+                </Paper>
+              )}
+            </>
           )}
         </Box>
 
-        {exercise.instructions && (
+        {parsedInstructions && (
           <Paper elevation={0} sx={{
+            backgroundColor: '#fce4ec',
             p: 2,
-            background: 'linear-gradient(135deg, #f3e5f5 0%, #ffffff 100%)',
-            border: '1px solid rgba(156, 39, 176, 0.1)',
-            borderRadius: '12px',
+            borderRadius: 2,
           }}>
-            <Typography variant="overline" sx={{
-              color: '#7b1fa2',
-              fontWeight: 700,
-              letterSpacing: '1.5px',
-              fontSize: '0.75rem',
-              display: 'block',
-              mb: 1,
+            <Typography sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              color: '#d81b60',
+              fontWeight: 600,
+              mb: 2
             }}>
               📝 INSTRUCTIONS
             </Typography>
-            {exercise.instructions.setup && (
-              <Box mb={2}>
-                <Typography variant="subtitle2" color="#6a1b9a" gutterBottom>
+
+            {parsedInstructions.setup?.length > 0 && (
+              <div className="instruction-subsection">
+                <Typography variant="subtitle1" sx={{ color: '#d81b60', fontWeight: 600, mb: 1 }}>
                   Setup:
                 </Typography>
-                <Typography variant="body2" sx={{
-                  color: '#4a148c',
-                  lineHeight: 1.6,
-                  fontWeight: 500,
-                }}>
-                  {exercise.instructions.setup}
+                <Typography variant="body1" sx={{ color: '#d81b60', ml: 2 }}>
+                  {parsedInstructions.setup}
                 </Typography>
-              </Box>
+              </div>
             )}
-            {exercise.instructions.execution && (
-              <Box mb={2}>
-                <Typography variant="subtitle2" color="#6a1b9a" gutterBottom>
+
+            {parsedInstructions.execution?.length > 0 && (
+              <div className="instruction-subsection">
+                <Typography variant="subtitle1" sx={{ color: '#d81b60', fontWeight: 600, mb: 1 }}>
                   Execution:
                 </Typography>
-                <Typography variant="body2" component="div" sx={{
-                  color: '#4a148c',
-                  lineHeight: 1.6,
-                  fontWeight: 500,
-                }}>
-                  <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
-                    {exercise.instructions.execution.map((step, index) => (
-                      <li key={index}>{step}</li>
-                    ))}
-                  </ul>
+                <Typography variant="body1" sx={{ color: '#d81b60', ml: 2 }}>
+                  {parsedInstructions.execution}
                 </Typography>
-              </Box>
+              </div>
             )}
-            {exercise.instructions.form_tips && (
-              <Box>
-                <Typography variant="subtitle2" color="#6a1b9a" gutterBottom>
+
+            {parsedInstructions.form_tips?.length > 0 && (
+              <div className="instruction-subsection">
+                <Typography variant="subtitle1" sx={{ color: '#d81b60', fontWeight: 600, mb: 1 }}>
                   Form Tips:
                 </Typography>
-                <Typography variant="body2" component="div" sx={{
-                  color: '#4a148c',
-                  lineHeight: 1.6,
-                  fontWeight: 500,
-                }}>
-                  <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
-                    {exercise.instructions.form_tips.map((tip, index) => (
-                      <li key={index}>{tip}</li>
-                    ))}
-                  </ul>
-                </Typography>
-              </Box>
+                <ul style={{ listStyle: 'none', paddingLeft: '16px', margin: 0 }}>
+                  {parsedInstructions.form_tips.map((tip, index) => (
+                    <li key={index} style={{ marginBottom: index < parsedInstructions.form_tips.length - 1 ? '8px' : 0 }}>
+                      <Typography variant="body1" sx={{ color: '#d81b60' }}>
+                        {tip}
+                      </Typography>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </Paper>
         )}
@@ -226,16 +315,25 @@ function ExerciseCard({ exercise, openVideoModal }) {
 ExerciseCard.propTypes = {
   exercise: PropTypes.shape({
     name: PropTypes.string.isRequired,
-    setsReps: PropTypes.string,
-    equipment: PropTypes.string,
-    instructions: PropTypes.shape({
-      setup: PropTypes.string,
-      execution: PropTypes.arrayOf(PropTypes.string),
-      form_tips: PropTypes.arrayOf(PropTypes.string),
-    }),
+    sets: PropTypes.string,
+    reps: PropTypes.string,
+    rest_time: PropTypes.string,
+    duration: PropTypes.string,
+    intensity: PropTypes.string,
+    exercise_type: PropTypes.string,
+    workout_type: PropTypes.string,
+    tracking_type: PropTypes.string,
+    instructions: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        setup: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
+        execution: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
+        form_tips: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)])
+      })
+    ]),
     videoId: PropTypes.string,
   }).isRequired,
-  openVideoModal: PropTypes.func.isRequired,
+  openVideoModal: PropTypes.func.isRequired
 };
 
 export default ExerciseCard;

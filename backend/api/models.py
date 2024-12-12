@@ -182,6 +182,7 @@ class WorkoutSession(models.Model):
 class TrainingSession(models.Model):
     WORKOUT_TYPE_CHOICES = [
         ('Cardio', 'Cardio'),
+        ('Light Cardio', 'Light Cardio'),
         ('Strength', 'Strength'),
         ('Flexibility', 'Flexibility'),
         ('Balance', 'Balance'),
@@ -200,6 +201,12 @@ class TrainingSession(models.Model):
         (3, '🙂 Okay'),
         (4, '😃 Good'),
         (5, '😄 Awesome'),
+    ]
+
+    SOURCE_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('completed', 'Completed'),
+        ('manual', 'Manual'),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -227,6 +234,13 @@ class TrainingSession(models.Model):
     max_heart_rate = models.PositiveIntegerField(null=True, blank=True)
     intensity = models.CharField(max_length=50, null=True, blank=True)
     exercises = models.ManyToManyField('Exercise', through='TrainingSessionExercise')
+
+    # Source field to track where the session came from
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default='completed'  # Changed from 'manual' to 'completed'
+    )
 
     def save(self, *args, **kwargs):
         if self.workout_type != 'aerobic':

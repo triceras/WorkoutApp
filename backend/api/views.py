@@ -409,9 +409,13 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
             data = request.data.copy()
             data['user'] = request.user.id
             
+            print("Creating training session with data:", data)
+            
             serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
             session = serializer.save()
+            
+            print(f"Successfully created training session: ID={session.id}, Date={session.date}, Source={session.source}")
             
             # Check if feedback is negative and needs processing
             emoji_feedback = data.get('emoji_feedback')
@@ -426,6 +430,7 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
                 headers=headers
             )
         except Exception as e:
+            print(f"Error creating training session: {str(e)}")
             logger.error(f"Error creating training session: {str(e)}", exc_info=True)
             return Response(
                 {'error': str(e)}, 
@@ -486,34 +491,59 @@ class UserProgressionView(APIView):
     permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
 
     def get(self, request):
-        user = request.user
-
-        # Serialize user data
-        user_serializer = UserSerializer(user, context={'request': request})
-
-        # Retrieve the user's workout plan
+        """Get user progression data including training sessions and workout plan."""
         try:
-            workout_plan = WorkoutPlan.objects.get(user=user)
-            workout_plan_serializer = WorkoutPlanSerializer(workout_plan, context={'request': request})
-        except WorkoutPlan.DoesNotExist:
-            workout_plan_serializer = None
+            user = request.user
+            logger.info(f"Fetching progression data for user: {user.username}")
 
-        # Retrieve the user's training sessions
-        training_sessions = TrainingSession.objects.filter(user=user).order_by('-date')
-        training_sessions_serializer = TrainingSessionSerializer(
-            training_sessions,
-            many=True,
-            context={'request': request}
-        )
+            # Serialize user data
+            user_serializer = UserSerializer(user, context={'request': request})
 
-        # Compile the progression data
-        progression_data = {
-            "user": user_serializer.data,
-            "workout_plan": workout_plan_serializer.data if workout_plan_serializer else {},
-            "training_sessions": training_sessions_serializer.data,
-        }
+            # Retrieve the user's workout plan
+            try:
+                workout_plan = WorkoutPlan.objects.get(user=user)
+                workout_plan_data = WorkoutPlanSerializer(workout_plan, context={'request': request}).data
+                logger.info(f"Found workout plan: {workout_plan.id}")
+            except WorkoutPlan.DoesNotExist:
+                workout_plan_data = {}
+                logger.info("No workout plan found")
 
-        return Response(progression_data, status=status.HTTP_200_OK)
+            # Retrieve the user's completed training sessions
+            training_sessions = TrainingSession.objects.filter(
+                user=user,
+                source='completed'  # Only get completed sessions
+            ).order_by('-date')
+            
+            logger.info(f"Found {training_sessions.count()} training sessions")
+            # Print details of each session for debugging
+            for session in training_sessions:
+                logger.info(f"Session ID: {session.id}, Date: {session.date}, Type: {session.workout_type}, Source: {session.source}")
+
+            training_sessions_data = TrainingSessionSerializer(
+                training_sessions,
+                many=True,
+                context={'request': request}
+            ).data
+
+            logger.info(f"Serialized {len(training_sessions_data)} sessions")
+            logger.info(f"Sample session data: {training_sessions_data[0] if training_sessions_data else 'No sessions'}")
+
+            # Compile the progression data
+            progression_data = {
+                "user": user_serializer.data,
+                "workout_plan": workout_plan_data,
+                "training_sessions": training_sessions_data,
+            }
+
+            logger.info(f"Returning progression data with {len(training_sessions_data)} sessions")
+            return Response(progression_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error in UserProgressionView: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "Failed to fetch progression data"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class CheckUsernameView(APIView):

@@ -18,10 +18,12 @@ import {
   CircularProgress,
   MenuItem,
   FormControl,
+  FormHelperText,
   InputLabel,
   Select,
   IconButton,
   Paper,
+  InputAdornment,
 } from '@mui/material';
 import {
   SentimentVeryDissatisfied,
@@ -47,51 +49,68 @@ const EMOJIS = [
   { value: 5, icon: <SentimentSatisfiedAlt fontSize="large" />, label: 'Awesome', helpText: 'Perfect workout!' },
 ];
 
+// All workout type options
+const WORKOUT_TYPE_OPTIONS = [
+  'Cardio',
+  'Light Cardio',
+  'Strength',
+  'Flexibility',
+  'Balance',
+  'Endurance',
+  'Power',
+  'Speed',
+  'Agility',
+  'Plyometric',
+  'Core'
+];
+
+// Intensity options for aerobic workouts (matching backend choices)
+const INTENSITY_OPTIONS = ['Low', 'Moderate', 'High'];
+
 // Exercise types matching backend choices
-const EXERCISE_TYPES = ['cardio', 'strength', 'flexibility', 'balance', 'hiit'];
+const EXERCISE_TYPES = [
+  'strength',
+  'flexibility',
+  'balance',
+  'endurance',
+  'power',
+  'speed',
+  'agility',
+  'plyometric',
+  'core',
+  'cardio'
+];
 
 // Workout types categorized as aerobic
-const AEROBIC_WORKOUT_TYPES = ['Cardio', 'Endurance', 'Speed', 'Agility', 'Plyometric', 'Core'];
+const AEROBIC_WORKOUT_TYPES = ['Cardio', 'Light Cardio', 'Endurance', 'Speed', 'Agility', 'Plyometric', 'Core'];
 
 // Workout types categorized as non-aerobic
-const NON_AEROBIC_WORKOUT_TYPES = ['Strength', 'Flexibility', 'Balance', 'Upper Body', 'Lower Body', 'Full Body', 'Legs Day', 'Push', 'Pull', 'HIIT'];
-
-// All workout type options
-const WORKOUT_TYPE_OPTIONS = [...AEROBIC_WORKOUT_TYPES, ...NON_AEROBIC_WORKOUT_TYPES];
-
-// Intensity options for aerobic workouts
-const INTENSITY_OPTIONS = ['low', 'medium', 'high'];
+const NON_AEROBIC_WORKOUT_TYPES = ['Strength', 'Flexibility', 'Balance', 'Power'];
 
 // Helper function to determine exercise type based on workout type
 const getExerciseType = (workoutType) => {
   const typeMap = {
-    'Cardio': EXERCISE_TYPES[0],
-    'Strength': EXERCISE_TYPES[1],
-    'Flexibility': EXERCISE_TYPES[2],
-    'Balance': EXERCISE_TYPES[3],
-    'Endurance': EXERCISE_TYPES[0],
-    'Power': EXERCISE_TYPES[1],
-    'Speed': EXERCISE_TYPES[0],
-    'Agility': EXERCISE_TYPES[0],
-    'Plyometric': EXERCISE_TYPES[0],
-    'Core': EXERCISE_TYPES[0],
-    'HIIT': EXERCISE_TYPES[4],
-    'Upper Body': EXERCISE_TYPES[1],
-    'Lower Body': EXERCISE_TYPES[1],
-    'Full Body': EXERCISE_TYPES[1],
-    'Legs Day': EXERCISE_TYPES[1],
-    'Push': EXERCISE_TYPES[1],
-    'Pull': EXERCISE_TYPES[1],
+    'Cardio': 'cardio',
+    'Light Cardio': 'cardio',
+    'Endurance': 'endurance',
+    'Strength': 'strength',
+    'Flexibility': 'flexibility',
+    'Balance': 'balance',
+    'Power': 'power',
+    'Speed': 'speed',
+    'Agility': 'agility',
+    'Plyometric': 'plyometric',
+    'Core': 'core',
   };
   
-  return typeMap[workoutType] || EXERCISE_TYPES[1]; // Default to strength if type not found
+  return typeMap[workoutType] || 'cardio'; // Default to cardio if type not found
 };
 
 // Helper function to check if exercise is cardio/endurance type
 const isCardioExercise = (exerciseType) => {
   if (!exerciseType) return false;
   const type = String(exerciseType).toLowerCase();
-  return ['cardio', 'aerobic'].includes(type);
+  return ['cardio', 'endurance'].includes(type);
 };
 
 /**
@@ -119,6 +138,16 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
   const [exercisesLoading, setExercisesLoading] = useState(true);
   const [exercisesError, setExercisesError] = useState(null);
 
+  // State to hold selected workout plan
+  const [selectedWorkoutPlan, setSelectedWorkoutPlan] = useState(workoutPlans[0] || null);
+
+  // Effect to handle workout plan selection
+  useEffect(() => {
+    if (workoutPlans.length > 0 && !selectedWorkoutPlan) {
+      setSelectedWorkoutPlan(workoutPlans[0]);
+    }
+  }, [workoutPlans]);
+
   /**
    * Fetches the list of available exercises from the backend.
    */
@@ -144,21 +173,31 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
   useEffect(() => {
     if (workoutPlans.length > 0) {
       const plan = workoutPlans[0]; // Assuming the first plan is current
+      console.log('Initial plan:', plan);
 
       if (plan.workoutDays && plan.workoutDays.length > 0) {
-        const updatedWorkoutDays = plan.workoutDays.map((day) => ({
-          ...day,
-          dayNumber: extractDayNumber(day.day) || 0, // dayNumber is now derived here
-          exercises: (day.exercises || []).map((exercise) => ({
-            sets: exercise.sets !== undefined ? exercise.sets : '',
-            reps: exercise.reps !== undefined ? exercise.reps : '',
-            weight: exercise.weight !== undefined ? exercise.weight : '',
-            duration: exercise.duration || '', // Add duration if applicable
-            ...exercise,
-          })),
-        }));
+        const updatedWorkoutDays = plan.workoutDays.map((day) => {
+          console.log('Processing day:', day);
+          return {
+            ...day,
+            dayNumber: extractDayNumber(day.day) || 0,
+            exercises: (day.exercises || []).map((exercise) => {
+              console.log('Processing exercise:', exercise);
+              return {
+                ...exercise,
+                sets: exercise.sets !== undefined ? exercise.sets : '',
+                reps: exercise.reps !== undefined ? exercise.reps : '',
+                weight: exercise.weight !== undefined ? exercise.weight : '',
+                duration: exercise.duration || '30 minutes',
+                intensity: exercise.intensity || 'Low'
+              };
+            }),
+          };
+        });
 
-        const todayWeekday = DateTime.local().weekday; // 1 (Monday) to 7 (Sunday)
+        console.log('Updated workout days:', updatedWorkoutDays);
+        
+        const todayWeekday = DateTime.local().weekday;
         console.log('Today weekday:', todayWeekday);
         console.log('Updated workout days:', updatedWorkoutDays);
         
@@ -170,38 +209,47 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
           }
         );
 
-        console.log('Current workout day:', currentWorkoutDay);
+        console.log('Found current workout day:', currentWorkoutDay);
 
         if (currentWorkoutDay) {
           if (currentWorkoutDay.type === 'rest') {
             setCurrentSession(null);
             setError('Today is a rest day. No session to log.');
-          } else if (currentWorkoutDay.type === 'active_recovery') {
-            // Handle active recovery days
-            const updatedSession = {
-              ...currentWorkoutDay,
-              exercises: currentWorkoutDay.exercises.map(exercise => ({
-                ...exercise,
-                tracking_type: exercise.tracking_type || 'time_based',
-                duration: exercise.duration || '20-30',
-                intensity: exercise.intensity || 'low'
-              }))
-            };
-            setCurrentSession(updatedSession);
-            setError(null);
           } else {
-            setCurrentSession(currentWorkoutDay);
-            setError(null); // Clear any previous errors
+            // Process exercises based on workout type
+            const processedExercises = currentWorkoutDay.exercises.map(exercise => {
+              console.log('Processing exercise for session:', exercise);
+              const isCardio = exercise.name?.toLowerCase().includes('jogging') || 
+                             exercise.name?.toLowerCase().includes('running') ||
+                             exercise.exercise_type === 'cardio' ||
+                             exercise.tracking_type === 'time_based';
+
+              const processedExercise = {
+                ...exercise,
+                tracking_type: 'time_based',
+                exercise_type: 'cardio',
+                duration: exercise.duration || '30 minutes',
+                intensity: exercise.intensity || 'Low',
+                sets: null,
+                reps: null
+              };
+              console.log('Processed exercise:', processedExercise);
+              return processedExercise;
+            });
+
+            const session = {
+              ...currentWorkoutDay,
+              exercises: processedExercises
+            };
+            console.log('Setting current session:', session);
+            setCurrentSession(session);
+            setError(null);
           }
         } else {
           setCurrentSession(null);
           setError('No workout scheduled for today.');
         }
-      } else {
-        setError('Workout plan data is incomplete.');
       }
-    } else {
-      setError('No workout plans available.');
     }
   }, [workoutPlans]);
 
@@ -313,143 +361,69 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
    */
   const formik = useFormik({
     initialValues: {
-      date: DateTime.local().toISODate(),
-      workout_plan_id: workoutPlans.length > 0 ? workoutPlans[0].id : '',
-      workout_type: currentSession?.workout_type || '', // Set initial workout_type
-      session_name: currentSession ? currentSession.day : '',
-      emoji_feedback: 3,
-      comments: '',
-      duration: '',
-      calories_burned: '',
-      heart_rate_pre: '',
-      heart_rate_post: '',
-      intensity: '', // For aerobic workouts
-      time: '', // For aerobic workouts
-      average_heart_rate: '', // For aerobic workouts
-      max_heart_rate: '', // For aerobic workouts
-      exercises: [], // Initialize with an empty array
-      source: source || '',
+      date: DateTime.local().toFormat('yyyy-MM-dd'),
+      workout_type: 'Cardio',  // Always start with a valid value
+      workout_plan_id: selectedWorkoutPlan?.id || '',
+      exercises: currentSession?.exercises?.map(exercise => {
+        console.log('Mapping exercise for form:', exercise);
+        const isCardio = exercise.name?.toLowerCase().includes('jogging') || 
+                        exercise.name?.toLowerCase().includes('running') ||
+                        exercise.exercise_type === 'cardio' ||
+                        exercise.tracking_type === 'time_based';
+
+        // Extract numeric duration value and remove "minutes" text
+        let duration = '30';
+        if (exercise.duration) {
+          const match = exercise.duration.replace(/\s*minutes\s*/, '').trim();
+          duration = match || '30';
+        }
+        console.log('Duration value:', duration);
+
+        const formExercise = {
+          name: exercise.name,
+          exercise_type: isCardio ? 'cardio' : 'strength',
+          tracking_type: isCardio ? 'time_based' : 'weight_based',
+          duration: duration,
+          intensity: exercise.intensity || 'Low',
+          sets: isCardio ? '' : (exercise.sets || ''),
+          reps: isCardio ? '' : (exercise.reps || ''),
+          weight: exercise.weight || '',
+          notes: ''
+        };
+        console.log('Form exercise:', formExercise);
+        return formExercise;
+      }) || [],
+      feedback_rating: 3,
+      feedback_notes: '',
     },
     enableReinitialize: true,
     validationSchema: Yup.object().shape({
       date: Yup.date().required('Date is required'),
-      workout_plan_id: Yup.string().required('Workout plan ID is required'),
       workout_type: Yup.string()
-        .oneOf(WORKOUT_TYPE_OPTIONS, 'Invalid workout type')
         .required('Workout type is required'),
-      session_name: Yup.string().required('Session name is required'),
-      emoji_feedback: Yup.number()
-        .min(0, 'Minimum rating is 0')
-        .max(5, 'Maximum rating is 5')
-        .required('Rating is required'),
-      comments: Yup.string(),
-      duration: Yup.number()
-        .transform((value) => (isNaN(value) ? undefined : value))
-        .nullable(),
-      calories_burned: Yup.number()
-        .transform((value) => (isNaN(value) ? undefined : value))
-        .nullable(),
-      heart_rate_pre: Yup.number()
-        .transform((value) => (isNaN(value) ? undefined : value))
-        .nullable(),
-      heart_rate_post: Yup.number()
-        .transform((value) => (isNaN(value) ? undefined : value))
-        .nullable(),
-      intensity: Yup.string().test({
-        name: 'intensity',
-        test: function(value) {
-          const workoutType = this.parent.workout_type;
-          if (AEROBIC_WORKOUT_TYPES.includes(workoutType)) {
-            return value ? true : false;
-          }
-          return true;
-        },
-        message: 'Intensity is required for aerobic workouts',
-      }),
-      time: Yup.number().test({
-        name: 'time',
-        test: function(value) {
-          const workoutType = this.parent.workout_type;
-          if (AEROBIC_WORKOUT_TYPES.includes(workoutType)) {
-            return value > 0 ? true : false;
-          }
-          return true;
-        },
-        message: 'Time is required for aerobic workouts',
-      }),
-      average_heart_rate: Yup.number().test({
-        name: 'average_heart_rate',
-        test: function(value) {
-          const workoutType = this.parent.workout_type;
-          if (AEROBIC_WORKOUT_TYPES.includes(workoutType)) {
-            return value >= 40 && value <= 220;
-          }
-          return true;
-        },
-        message: 'Average heart rate must be between 40 and 220 bpm',
-      }),
-      max_heart_rate: Yup.number().test({
-        name: 'max_heart_rate',
-        test: function(value) {
-          const workoutType = this.parent.workout_type;
-          if (AEROBIC_WORKOUT_TYPES.includes(workoutType)) {
-            return value >= 40 && value <= 220;
-          }
-          return true;
-        },
-        message: 'Max heart rate must be between 40 and 220 bpm',
-      }),
-      exercises: Yup.array().of(
-        Yup.object().shape({
-          exercise_id: Yup.number()
-            .transform((value) => (isNaN(value) ? undefined : value))
-            .nullable(),
-          name: Yup.string().required('Exercise name is required'),
-          exercise_type: Yup.string()
-            .required('Exercise type is required')
-            .oneOf(EXERCISE_TYPES, 'Invalid exercise type'),
-          duration: Yup.number()
-            .transform((value) => (isNaN(value) ? undefined : value))
-            .nullable()
-            .when('exercise_type', (exerciseType, schema) => 
-              isCardioExercise(exerciseType) 
-                ? schema.required('Duration is required for cardio exercises').min(1, 'Duration must be at least 1 minute')
-                : schema
-            ),
-          intensity: Yup.string()
-            .nullable()
-            .when('exercise_type', (exerciseType, schema) =>
-              isCardioExercise(exerciseType)
-                ? schema.required('Intensity is required for cardio exercises')
-                       .oneOf(INTENSITY_OPTIONS, 'Invalid intensity level')
-                : schema
-            ),
-          sets: Yup.number()
-            .transform((value) => (isNaN(value) ? undefined : value))
-            .nullable()
-            .when('exercise_type', (exerciseType, schema) =>
-              !isCardioExercise(exerciseType)
-                ? schema.required('Sets are required for strength exercises').min(1, 'Must have at least 1 set')
-                : schema
-            ),
-          reps: Yup.number()
-            .transform((value) => (isNaN(value) ? undefined : value))
-            .nullable()
-            .when('exercise_type', (exerciseType, schema) =>
-              !isCardioExercise(exerciseType)
-                ? schema.required('Reps are required for strength exercises').min(1, 'Must have at least 1 rep')
-                : schema
-            ),
-          weight: Yup.number()
-            .transform((value) => (isNaN(value) ? undefined : value))
-            .nullable()
-            .when('exercise_type', (exerciseType, schema) =>
-              !isCardioExercise(exerciseType)
-                ? schema.min(0, 'Weight cannot be negative')
-                : schema
-            ),
-        })
-      )
+      workout_plan_id: Yup.string()
+        .required('Workout plan is required'),
+      exercises: Yup.array()
+        .min(1, 'At least one exercise is required')
+        .of(
+          Yup.object().shape({
+            name: Yup.string().required('Exercise name is required'),
+            exercise_type: Yup.string().required('Exercise type is required'),
+            duration: Yup.string()
+              .when('exercise_type', (exerciseType, schema) =>
+                exerciseType === 'cardio'
+                  ? schema.required('Duration is required')
+                  : schema
+              ),
+            intensity: Yup.string()
+              .when('exercise_type', (exerciseType, schema) =>
+                exerciseType === 'cardio'
+                  ? schema.required('Intensity is required')
+                  : schema
+              ),
+          })
+        ),
+      feedback_rating: Yup.number().required('Please rate your workout'),
     }),
     onSubmit: async (values, { resetForm }) => {
       setIsSubmitting(true);
@@ -458,33 +432,48 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
       try {
         // Transform exercises data based on type
         const transformedExercises = values.exercises.map(exercise => {
-          const isCardio = isCardioExercise(exercise.exercise_type);
+          const isCardio = exercise.name?.toLowerCase().includes('jogging') || 
+                          exercise.name?.toLowerCase().includes('running') ||
+                          exercise.exercise_type === 'cardio' ||
+                          exercise.tracking_type === 'time_based';
+          
           return {
+            exercise_id: exercise.exercise_id,  // Make sure this is set
             name: exercise.name,
             exercise_type: exercise.exercise_type,
             tracking_type: isCardio ? 'time_based' : 'reps_based',
-            ...(isCardio ? {
-              duration: exercise.duration,
-              intensity: exercise.intensity
-            } : {
-              sets: exercise.sets,
-              reps: exercise.reps,
-              weight: exercise.weight || null
-            })
+            duration: isCardio ? parseInt(exercise.duration) : null,  // Convert to integer
+            intensity: isCardio ? exercise.intensity || 'Low' : null,  // Ensure proper case
+            sets: !isCardio ? parseInt(exercise.sets) : null,
+            reps: !isCardio ? parseInt(exercise.reps) : null,
+            weight: exercise.weight ? parseFloat(exercise.weight) : null
           };
         });
 
         const sessionData = {
-          ...values,
+          workout_plan_id: values.workout_plan_id || selectedWorkoutPlan?.id,
+          workout_type: values.workout_type || 'Cardio',
           exercises: transformedExercises,
           user: user.id,
-          workout_plan: source === 'plan' ? workoutPlans[0]?.id : null,
           date: values.date,
-          feedback_rating: values.emoji_feedback,
-          feedback_text: values.comments,
+          feedback_rating: values.feedback_rating,
+          feedback_notes: values.feedback_notes,
+          source: 'completed',  // Always set source to 'completed' for logged sessions
+          // Add time field for cardio workouts
+          time: values.workout_type === 'Cardio' ? 
+            (transformedExercises[0]?.duration || 30) : null
         };
 
-        const response = await axiosInstance.post('/training-sessions/', sessionData);
+        if (!sessionData.workout_plan_id) {
+          throw new Error('A workout plan is required. Please select a workout plan or create one.');
+        }
+
+        if (sessionData.workout_type === 'Cardio' && !sessionData.time) {
+          throw new Error('Duration is required for cardio workouts');
+        }
+
+        console.log('Submitting session data:', sessionData);
+        const response = await axiosInstance.post('/training_sessions/', sessionData);
         
         setSubmissionStatus({
           success: 'Session logged successfully!',
@@ -498,7 +487,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
         // Reset form after successful submission
         resetForm();
       } catch (error) {
-        console.error('Error submitting session:', error);
+        console.error('Error submitting session:', error.response?.data || error);
         setSubmissionStatus({
           success: '',
           error: error.response?.data?.detail || 'Failed to log session. Please try again.'
@@ -508,6 +497,16 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
       }
     },
   });
+
+  // Update the workout type if it's not in the valid options
+  useEffect(() => {
+    if (currentSession?.workout_type && !WORKOUT_TYPE_OPTIONS.includes(currentSession.workout_type)) {
+      // If the current session has an invalid workout type, update it
+      if (formik) {
+        formik.setFieldValue('workout_type', 'Cardio');
+      }
+    }
+  }, [currentSession]);
 
   // Helper function to capitalize intensity
   const capitalizeIntensity = (intensity) => {
@@ -522,6 +521,17 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
       values: formik.values,
       touched: formik.touched
     });
+
+    // Add detailed logging for each exercise
+    if (formik.values.exercises) {
+      formik.values.exercises.forEach((exercise, index) => {
+        console.log(`Exercise ${index + 1} validation:`, {
+          exercise,
+          errors: formik.errors.exercises?.[index],
+          touched: formik.touched.exercises?.[index]
+        });
+      });
+    }
   }, [formik.isValid, formik.errors, formik.values, formik.touched]);
 
   /**
@@ -575,8 +585,8 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
    * Handles emoji selection.
    */
   const handleEmojiSelect = (value) => {
-    formik.setFieldValue('emoji_feedback', value);
-    formik.setFieldError('emoji_feedback', undefined); // Clear previous errors
+    formik.setFieldValue('feedback_rating', value);
+    formik.setFieldError('feedback_rating', undefined); // Clear previous errors
   };
 
   const getWorkoutDayForDayNumber = (dayNumber) => {
@@ -694,8 +704,8 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
   };
 
   const renderFeedbackSection = () => {
-    const selectedEmoji = EMOJIS.find(emoji => emoji.value === formik.values.emoji_feedback);
-    const isNegativeFeedback = formik.values.emoji_feedback <= 2;
+    const selectedEmoji = EMOJIS.find(emoji => emoji.value === formik.values.feedback_rating);
+    const isNegativeFeedback = formik.values.feedback_rating <= 2;
 
     return (
       <Box sx={{ mt: 3 }}>
@@ -711,7 +721,7 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
                 flexDirection: 'column',
                 alignItems: 'center',
                 cursor: 'pointer',
-                opacity: formik.values.emoji_feedback === emoji.value ? 1 : 0.5,
+                opacity: formik.values.feedback_rating === emoji.value ? 1 : 0.5,
                 transition: 'all 0.2s ease',
                 '&:hover': {
                   opacity: 1,
@@ -740,15 +750,15 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
           fullWidth
           multiline
           rows={4}
-          name="comments"
-          label={isNegativeFeedback ? "Please tell us what we can improve" : "Additional comments (optional)"}
-          value={formik.values.comments}
+          name="feedback_notes"
+          label={isNegativeFeedback ? "Please tell us what we can improve" : "Additional notes (optional)"}
+          value={formik.values.feedback_notes}
           onChange={formik.handleChange}
-          error={formik.touched.comments && Boolean(formik.errors.comments)}
+          error={formik.touched.feedback_notes && Boolean(formik.errors.feedback_notes)}
           helperText={
             isNegativeFeedback
               ? "Your feedback helps us adjust your workout plan. What exercises were too difficult? What would you like to change?"
-              : formik.touched.comments && formik.errors.comments
+              : formik.touched.feedback_notes && formik.errors.feedback_notes
           }
           required={isNegativeFeedback}
           sx={{ mt: 2 }}
@@ -908,22 +918,63 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                select
-                name="workout_type"
-                label="Workout Type"
-                value={formik.values.workout_type}
-                onChange={formik.handleChange}
-                error={formik.touched.workout_type && Boolean(formik.errors.workout_type)}
-                helperText={formik.touched.workout_type && formik.errors.workout_type}
-              >
-                {WORKOUT_TYPE_OPTIONS.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
-                  </MenuItem>
-                ))}
-              </TextField>
+              <FormControl fullWidth>
+                <InputLabel id="workout-plan-label">Workout Plan</InputLabel>
+                <Select
+                  labelId="workout-plan-label"
+                  id="workout-plan"
+                  value={formik.values.workout_plan_id}
+                  onChange={(e) => {
+                    formik.setFieldValue('workout_plan_id', e.target.value);
+                    const plan = workoutPlans.find(p => p.id === e.target.value);
+                    setSelectedWorkoutPlan(plan || null);
+                  }}
+                  label="Workout Plan"
+                  error={formik.touched.workout_plan_id && Boolean(formik.errors.workout_plan_id)}
+                >
+                  {workoutPlans.map((plan) => (
+                    <MenuItem key={plan.id} value={plan.id}>
+                      {plan.name || `Workout Plan ${plan.id}`}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {formik.touched.workout_plan_id && formik.errors.workout_plan_id && (
+                  <FormHelperText error>{formik.errors.workout_plan_id}</FormHelperText>
+                )}
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel id="workout-type-label">Workout Type</InputLabel>
+                <Select
+                  labelId="workout-type-label"
+                  id="workout-type"
+                  name="workout_type"
+                  value={WORKOUT_TYPE_OPTIONS.includes(formik.values.workout_type) ? formik.values.workout_type : 'Cardio'}
+                  onChange={(e) => {
+                    formik.setFieldValue('workout_type', e.target.value);
+                    // Update exercise types based on workout type
+                    if (formik.values.exercises.length > 0) {
+                      const newExercises = formik.values.exercises.map(exercise => ({
+                        ...exercise,
+                        exercise_type: getExerciseType(e.target.value)
+                      }));
+                      formik.setFieldValue('exercises', newExercises);
+                    }
+                  }}
+                  label="Workout Type"
+                  error={formik.touched.workout_type && Boolean(formik.errors.workout_type)}
+                >
+                  {WORKOUT_TYPE_OPTIONS.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {formik.touched.workout_type && formik.errors.workout_type && (
+                  <FormHelperText error>{formik.errors.workout_type}</FormHelperText>
+                )}
+              </FormControl>
             </Grid>
           </Grid>
         </Paper>
@@ -951,143 +1002,159 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
           <FieldArray name="exercises">
             {({ push, remove }) => (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {formik.values.exercises.map((exercise, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      p: 2,
-                      borderRadius: '12px',
-                      background: 'rgba(255, 255, 255, 0.7)',
-                      border: '1px solid rgba(0, 0, 0, 0.05)',
-                    }}
-                  >
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          name={`exercises.${index}.name`}
-                          label="Exercise Name"
-                          value={exercise.name}
-                          onChange={formik.handleChange}
-                          error={
-                            formik.touched.exercises?.[index]?.name &&
-                            Boolean(formik.errors.exercises?.[index]?.name)
-                          }
-                          helperText={
-                            formik.touched.exercises?.[index]?.name &&
-                            formik.errors.exercises?.[index]?.name
-                          }
-                        />
-                      </Grid>
-                      {isCardioExercise(exercise.exercise_type) ? (
-                        <>
-                          <Grid item xs={6} sm={3}>
-                            <TextField
-                              fullWidth
-                              name={`exercises.${index}.duration`}
-                              label="Duration (min)"
-                              type="number"
-                              value={exercise.duration}
-                              onChange={formik.handleChange}
-                              error={
-                                formik.touched.exercises?.[index]?.duration &&
-                                Boolean(formik.errors.exercises?.[index]?.duration)
-                              }
-                              helperText={
-                                formik.touched.exercises?.[index]?.duration &&
-                                formik.errors.exercises?.[index]?.duration
-                              }
-                            />
-                          </Grid>
-                          <Grid item xs={6} sm={3}>
-                            <FormControl fullWidth>
-                              <InputLabel>Intensity</InputLabel>
-                              <Select
-                                name={`exercises.${index}.intensity`}
-                                value={exercise.intensity || ''}
+                {formik.values.exercises.map((exercise, index) => {
+                  const isCardio = exercise.name?.toLowerCase().includes('jogging') || 
+                                 exercise.name?.toLowerCase().includes('running') ||
+                                 exercise.exercise_type === 'cardio' ||
+                                 exercise.tracking_type === 'time_based';
+                  
+                  return (
+                    <Box
+                      key={index}
+                      sx={{
+                        p: 2,
+                        borderRadius: '12px',
+                        background: 'rgba(255, 255, 255, 0.7)',
+                        border: '1px solid rgba(0, 0, 0, 0.05)',
+                      }}
+                    >
+                      <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            name={`exercises.${index}.name`}
+                            label="Exercise Name"
+                            value={exercise.name}
+                            onChange={formik.handleChange}
+                            error={
+                              formik.touched.exercises?.[index]?.name &&
+                              Boolean(formik.errors.exercises?.[index]?.name)
+                            }
+                            helperText={
+                              formik.touched.exercises?.[index]?.name &&
+                              formik.errors.exercises?.[index]?.name
+                            }
+                          />
+                        </Grid>
+                        {isCardio ? (
+                          <>
+                            <Grid item xs={6} sm={3}>
+                              <TextField
+                                fullWidth
+                                name={`exercises.${index}.duration`}
+                                label="Duration"
+                                type="text"
+                                value={formik.values.exercises[index].duration?.replace(/\s*minutes\s*/, '') || ''}
+                                onChange={(e) => {
+                                  // Only allow numeric input
+                                  const value = e.target.value.replace(/[^0-9]/g, '');
+                                  formik.setFieldValue(`exercises.${index}.duration`, value);
+                                }}
+                                error={
+                                  formik.touched.exercises?.[index]?.duration &&
+                                  Boolean(formik.errors.exercises?.[index]?.duration)
+                                }
+                                helperText={
+                                  formik.touched.exercises?.[index]?.duration &&
+                                  formik.errors.exercises?.[index]?.duration
+                                }
+                                InputProps={{
+                                  endAdornment: <InputAdornment position="end">min</InputAdornment>,
+                                }}
+                              />
+                            </Grid>
+                            <Grid item xs={6} sm={3}>
+                              <FormControl fullWidth>
+                                <InputLabel>Intensity</InputLabel>
+                                <Select
+                                  name={`exercises.${index}.intensity`}
+                                  value={exercise.intensity || ''}
+                                  onChange={formik.handleChange}
+                                  label="Intensity"
+                                >
+                                  {INTENSITY_OPTIONS.map((intensity) => (
+                                    <MenuItem key={intensity} value={intensity}>
+                                      {intensity.charAt(0).toUpperCase() + intensity.slice(1)}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Grid>
+                          </>
+                        ) : (
+                          <>
+                            <Grid item xs={6} sm={2}>
+                              <TextField
+                                fullWidth
+                                name={`exercises.${index}.sets`}
+                                label="Sets"
+                                type="number"
+                                value={exercise.sets}
                                 onChange={formik.handleChange}
-                                label="Intensity"
-                              >
-                                {INTENSITY_OPTIONS.map((intensity) => (
-                                  <MenuItem key={intensity} value={intensity}>
-                                    {intensity.charAt(0).toUpperCase() + intensity.slice(1)}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          </Grid>
-                        </>
-                      ) : (
-                        <>
-                          <Grid item xs={6} sm={2}>
-                            <TextField
-                              fullWidth
-                              name={`exercises.${index}.sets`}
-                              label="Sets"
-                              type="number"
-                              value={exercise.sets}
-                              onChange={formik.handleChange}
-                              error={
-                                formik.touched.exercises?.[index]?.sets &&
-                                Boolean(formik.errors.exercises?.[index]?.sets)
-                              }
-                              helperText={
-                                formik.touched.exercises?.[index]?.sets &&
-                                formik.errors.exercises?.[index]?.sets
-                              }
-                            />
-                          </Grid>
-                          <Grid item xs={6} sm={2}>
-                            <TextField
-                              fullWidth
-                              name={`exercises.${index}.reps`}
-                              label="Reps"
-                              type="number"
-                              value={exercise.reps}
-                              onChange={formik.handleChange}
-                              error={
-                                formik.touched.exercises?.[index]?.reps &&
-                                Boolean(formik.errors.exercises?.[index]?.reps)
-                              }
-                              helperText={
-                                formik.touched.exercises?.[index]?.reps &&
-                                formik.errors.exercises?.[index]?.reps
-                              }
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={2}>
-                            <TextField
-                              fullWidth
-                              name={`exercises.${index}.weight`}
-                              label="Weight (kg)"
-                              type="number"
-                              value={exercise.weight}
-                              onChange={formik.handleChange}
-                            />
-                          </Grid>
-                        </>
-                      )}
-                      <Grid item xs={12} sm={1}>
-                        <IconButton
-                          onClick={() => remove(index)}
-                          color="error"
-                          sx={{ mt: { xs: 1, sm: 0 } }}
-                        >
-                          <RemoveCircle />
-                        </IconButton>
+                                error={
+                                  formik.touched.exercises?.[index]?.sets &&
+                                  Boolean(formik.errors.exercises?.[index]?.sets)
+                                }
+                                helperText={
+                                  formik.touched.exercises?.[index]?.sets &&
+                                  formik.errors.exercises?.[index]?.sets
+                                }
+                              />
+                            </Grid>
+                            <Grid item xs={6} sm={2}>
+                              <TextField
+                                fullWidth
+                                name={`exercises.${index}.reps`}
+                                label="Reps"
+                                type="number"
+                                value={exercise.reps}
+                                onChange={formik.handleChange}
+                                error={
+                                  formik.touched.exercises?.[index]?.reps &&
+                                  Boolean(formik.errors.exercises?.[index]?.reps)
+                                }
+                                helperText={
+                                  formik.touched.exercises?.[index]?.reps &&
+                                  formik.errors.exercises?.[index]?.reps
+                                }
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={2}>
+                              <TextField
+                                fullWidth
+                                name={`exercises.${index}.weight`}
+                                label="Weight (kg)"
+                                type="number"
+                                value={exercise.weight}
+                                onChange={formik.handleChange}
+                              />
+                            </Grid>
+                          </>
+                        )}
+                        <Grid item xs={12} sm={1}>
+                          <IconButton
+                            onClick={() => remove(index)}
+                            color="error"
+                            sx={{ mt: { xs: 1, sm: 0 } }}
+                          >
+                            <RemoveCircle />
+                          </IconButton>
+                        </Grid>
                       </Grid>
-                    </Grid>
-                  </Box>
-                ))}
+                    </Box>
+                  );
+                })}
                 <Button
                   startIcon={<AddCircle />}
                   onClick={() =>
                     push({
                       name: '',
+                      duration: '',
+                      intensity: 'low',
                       sets: '',
                       reps: '',
                       weight: '',
-                      exercise_type: formik.values.workout_type,
+                      notes: ''
                     })
                   }
                   sx={{
@@ -1129,11 +1196,49 @@ const LogSessionForm = ({ workoutPlans = [], source, onSessionLogged }) => {
           {renderFeedbackSection()}
         </Paper>
 
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          {/* Display validation errors if any */}
+          {!formik.isValid && formik.submitCount > 0 && (
+            <Typography color="error" variant="body2">
+              Please fix the following errors:
+              <ul>
+                {Object.entries(formik.errors).map(([field, error]) => {
+                  if (field === 'exercises') {
+                    return formik.errors.exercises?.map((exerciseError, index) => (
+                      exerciseError && (
+                        <li key={`exercise-${index}`}>
+                          Exercise {index + 1}:{' '}
+                          {Object.entries(exerciseError).map(([key, value]) => (
+                            <div key={key}>{value}</div>
+                          ))}
+                        </li>
+                      )
+                    ));
+                  }
+                  return (
+                    <li key={field}>
+                      {typeof error === 'string' ? error : JSON.stringify(error)}
+                    </li>
+                  );
+                })}
+              </ul>
+            </Typography>
+          )}
+          
           <Button
             type="submit"
             variant="contained"
-            disabled={isSubmitting || !formik.isValid}
+            onClick={() => {
+              console.log('Submit button clicked');
+              console.log('Form state:', {
+                values: formik.values,
+                errors: formik.errors,
+                isValid: formik.isValid,
+                isSubmitting,
+                touched: formik.touched
+              });
+              formik.handleSubmit();
+            }}
             sx={{
               py: 2,
               px: 6,
