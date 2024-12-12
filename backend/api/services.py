@@ -338,10 +338,10 @@ def generate_prompt(
     age, sex, weight, height, fitness_level, strength_goals, additional_goals,
     equipment, workout_time, workout_days, feedback_note=None, user_comments=None
 ):
-    try:
-        workout_days_int = int(workout_days)
-    except (ValueError, TypeError):
-        workout_days_int = 3
+    """
+    Generate a prompt for the AI model to create a workout plan.
+    """
+    workout_days_int = int(workout_days)
 
     basic_info = f"""
 I need a {workout_days}-day workout plan for a {age}-year-old {sex}.
@@ -361,70 +361,58 @@ Additional Goals: {additional_goals}
 
     sections = [
         "Create a detailed workout plan based on the following information:",
-        basic_info,
-        fitness_info,
-        goals_info,
-        equipment_info,
-        time_info,
-        feedback_section if feedback_section else None,
+        basic_info.strip(),
+        fitness_info.strip(),
+        goals_info.strip(),
+        equipment_info.strip(),
+        time_info.strip(),
+        feedback_section.strip() if feedback_section else None,
         f"""
 Training Structure (7-day week with {workout_days} workout days):
 The plan should include exactly 7 days total:
 - {workout_days} workout days
-- {7 - int(workout_days)} rest/active recovery days
+- {7 - workout_days_int} rest/active recovery days
 
-Suggested workout splits for {workout_days} workout days:
-Option 1 - Push/Pull/Legs:
-- Push (Chest, Shoulders, Triceps)
-- Pull (Back, Biceps)
-- Legs
-- Rest/Active Recovery
-Repeat pattern as needed to fill {workout_days} workout days
-
-Option 2 - Body Part Split:
-- Chest & Triceps
-- Back & Biceps
-- Legs
-- Shoulders & Abs
-- Arms & Core
-- Full Body
-Adjust to fit {workout_days} workout days
-
-Feel free to modify these splits to better match the user's goals and preferences.
-Place rest/active recovery days strategically between intense workouts.
+Suggested workout approaches (feel free to adjust these splits as needed to better match the user's goals and preferences):
+- Push/Pull/Legs (or variations)
+- Body Part Splits (e.g., Chest & Triceps, Back & Biceps, Legs, Shoulders & Abs, Arms & Core, Full Body)
+- Include Active Recovery days focusing on low-intensity mobility, light cardio, or flexibility if desired.
+- Place rest or active recovery days strategically to allow proper recovery.
 
 Key principles:
-- Structure the 7-day week to include exactly {workout_days} workout days and {7 - int(workout_days)} rest/active recovery days
-- Allow proper recovery between similar muscle groups
-- Include a mix of workout types based on user's goals and fitness level
-- Ensure progressive overload by gradually increasing intensity or volume
-- Balance volume and intensity across the week
+- EXACTLY 7 days total.
+- {workout_days} days are workout or active recovery; {7 - workout_days_int} days are rest.
+- On workout days: include sets, reps, rest, form guidance, and goal-aligned exercises.
+- On active recovery days: provide duration, intensity, and focus on lighter activities that aid recovery.
+- On rest days: suggest optional light activities (e.g., walking, stretching, meditation).
+- Ensure exercises suit the user's fitness level and available equipment.
+- Gradually increase intensity over time and maintain balanced volume.
 """,
         """
 IMPORTANT REQUIREMENTS:
-1. MUST create exactly 7 days total:
-   - {workout_days} days must be either:
-     * Workout day: Full exercise routine
-     - Active recovery: Light exercises for recovery
-   - {7 - int(workout_days)} days must be:
-     * Rest day: Include suggestions for optional light activities
+1. MUST create exactly 7 days total.
+   - {workout_days} days must be workout or active recovery.
+   - {7 - int(workout_days)} days must be rest days with optional light activities.
 
-2. For workout days:
-   - Include a mix of exercises targeting different muscle groups
-   - Provide specific sets, reps, and rest periods
-   - Include proper form instructions and safety tips
+2. Workout Days:
+   - Provide a clear "workout_type" label (e.g., "Push Day", "Full Body Strength", "Light Cardio", "Mobility Session").
+   - Include exercises with sets, reps, rest intervals, and full instructions.
 
-3. For active recovery days:
-   - Include light exercises that promote recovery while maintaining movement
-   - Focus on mobility, flexibility, or very light cardio
-   - Include duration and intensity guidelines
+3. Active Recovery Days:
+   - Provide a "type": "active_recovery".
+   - Focus on low-intensity exercises (mobility, light cardio, or flexibility).
+   - Include duration and intensity details rather than sets/reps.
 
-4. For rest days:
-   - Include suggestions for optional light activities (e.g., walking, stretching)
-   - Emphasize that these activities are optional
-   - Provide tips for recovery and relaxation
+4. Rest Days:
+   - "type": "rest"
+   - Include "suggested_activities" (e.g., walking, light stretching).
+   - Emphasize these are optional and focus on relaxation and recovery.
 
-Create a detailed workout plan following this format:
+5. Instructions for each exercise must include "setup", "execution", and "form_tips".
+
+6. After listing all 7 days, include "additionalTips" for overarching guidance.
+
+Follow this JSON format strictly:
 {
     "workoutDays": [
         {
@@ -471,15 +459,16 @@ Create a detailed workout plan following this format:
 }
 
 Remember:
-1. Generate EXACTLY 7 days total
-2. Include {workout_days} workout/active recovery days
-3. Include {7 - int(workout_days)} rest days with optional activities
-4. Ensure exercises match the user's fitness level and available equipment
-5. Include proper form guidance and safety tips for each exercise
+- EXACTLY 7 total days.
+- {workout_days} workout/active_recovery days.
+- {7 - int(workout_days)} rest days.
+- Include proper form guidance and safety tips.
+- Return ONLY the JSON object, nothing else.
 """
     ]
 
-    return "\n".join(filter(None, sections))
+    # Filter out any None entries (in case feedback_section was None)
+    return "\n".join([s for s in sections if s])
 
 def generate_workout_plan(user_id, feedback_text=None):
     User = get_user_model()

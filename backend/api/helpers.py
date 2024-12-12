@@ -24,34 +24,95 @@ CACHE_TTL = 60 * 60 * 24 * 7 # cache for 7 days
 # In backend/api/helpers.py
 
 EXERCISE_NAME_MAPPING = {
+    # Basic exercises
     "push up": "push-up",
     "push_up": "push-up",
     "pushups": "push-up",
     "push_ups": "push-up",
-    "pushups": "push-up",
-    "push-up": "push-up",
     "push-ups": "push-up",
-    "squat": "squat",
+    
+    # Squats
+    "squat": "squat",  # Keep as simple squat
     "squats": "squat",
+    "barbell squat": "barbellsquats",
+    "barbell squats": "barbellsquats",
+    "barbell-squat": "barbellsquats",
+    "barbellsquat": "barbellsquats",
+    "barbellsquats": "barbellsquats",
+    
+    # Core
     "sit up": "sit-up",
     "sit_up": "sit-up",
     "situp": "sit-up",
     "sit-ups": "sit-up",
     "situps": "sit-up",
-    # Add more mappings as needed
+    "plank": "plank",
+    
+    # Back exercises
+    "bent over row": "bentoverrows",
+    "bentover row": "bentoverrows",
+    "bent-over row": "bentoverrows",
+    "barbell row": "barbellrows",
+    
+    # Chest exercises
+    "bench press": "barbellbenchpress",
+    "barbell bench": "barbellbenchpress",
+    "barbell bench press": "barbellbenchpress",
+    
+    # Arms
+    "bicep curl": "bicepcurls",
+    "bicep curls": "bicepcurls",
+    "tricep extension": "tricepoverheadextension",
+    "tricep extensions": "tricepoverheadextension",
+    
+    # Shoulders
+    "shoulder press": "shoulderpress",
+    "overhead press": "shoulderpress",
+    "military press": "shoulderpress",
+    
+    # Legs
+    "deadlift": "deadlifts",
+    "deadlifts": "deadlifts",
+    "leg press": "legpress",
+    "lunge": "lunges",
+    "lunges": "lunges",
 }
-
-MAX_CONCURRENT_CALLS = 5  # Adjust based on rate limits
-MAX_THREADS = getattr(settings, 'MAX_THREADS', 10)  # Default to 10 if not set
 
 def standardize_exercise_name(exercise_name):
     """
     Standardizes the exercise name by removing non-alphanumeric characters,
-    converting to lowercase, and removing spaces.
+    converting to lowercase, and checking against the mapping dictionary.
     """
-    # Remove all non-alphanumeric characters and convert to lowercase
-    normalized_name = re.sub(r'\W+', '', exercise_name).lower()
-    return EXERCISE_NAME_MAPPING.get(normalized_name, normalized_name)
+    if not exercise_name:
+        return exercise_name
+        
+    # Convert to lowercase and remove extra whitespace
+    exercise_name = exercise_name.lower().strip()
+    
+    # Try direct lookup first
+    if exercise_name in EXERCISE_NAME_MAPPING:
+        return EXERCISE_NAME_MAPPING[exercise_name]
+        
+    # Try with spaces replaced by hyphens
+    hyphenated = exercise_name.replace(' ', '-')
+    if hyphenated in EXERCISE_NAME_MAPPING:
+        return EXERCISE_NAME_MAPPING[hyphenated]
+        
+    # Try with spaces removed
+    normalized = re.sub(r'[^a-z]', '', exercise_name)
+    if normalized in EXERCISE_NAME_MAPPING:
+        return EXERCISE_NAME_MAPPING[normalized]
+        
+    # Try with spaces replaced by nothing
+    nospaces = exercise_name.replace(' ', '')
+    if nospaces in EXERCISE_NAME_MAPPING:
+        return EXERCISE_NAME_MAPPING[nospaces]
+    
+    # If no mapping found, normalize the name by removing special characters and spaces
+    return re.sub(r'[^a-z]', '', exercise_name)
+
+MAX_CONCURRENT_CALLS = 5  # Adjust based on rate limits
+MAX_THREADS = getattr(settings, 'MAX_THREADS', 10)  # Default to 10 if not set
 
 def fetch_youtube_video_from_api(query):
     """
@@ -104,50 +165,40 @@ def get_video_id(exercise_name):
     """
     Synchronously fetch the video ID for an exercise from the database, cache, or YouTube API.
     """
-    standard_name = standardize_exercise_name(exercise_name)
-
-    # First, check the database
+    logger.info(f"Getting video ID for exercise: {exercise_name}")
+    
+    # First standardize the exercise name
+    standardized_name = standardize_exercise_name(exercise_name)
+    logger.info(f"Standardized exercise name: {standardized_name}")
+    
+    # Try to get from cache first
+    cache_key = f"exercise_video_{standardized_name}"
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        logger.info(f"Found cached video ID for {standardized_name}: {cached_data}")
+        return cached_data
+        
     try:
-        video = YouTubeVideo.objects.get(exercise_name=standard_name)
-        logger.info(f"Retrieved video for '{standard_name}' from database.")
-        return standard_name, video.video_id
-    except YouTubeVideo.DoesNotExist:
-        logger.info(f"Video for '{standard_name}' not found in database. Checking cache.")
-
-    # Then check the cache
-    cache_key = f'youtube_video_{standard_name}'
-    video_data = cache.get(cache_key)
-
-    if video_data:
-        logger.info(f"Retrieved video for '{standard_name}' from cache.")
-        return standard_name, video_data.get('video_id')
-
-    logger.info(f"Cache MISS for '{standard_name}'. Making API call.")
-
-    # Proceed with API call
-    video_data = fetch_youtube_video_from_api(exercise_name)
-    if video_data:
-        # Save to cache
-        cache.set(cache_key, video_data, CACHE_TTL)
-        logger.info(f"Cached video for '{standard_name}' with video ID '{video_data['video_id']}'.")
-
-        # Save to database
-        YouTubeVideo.objects.update_or_create(
-            exercise_name=standard_name,
-            defaults={
-                'video_id': video_data['video_id'],
-                'title': video_data['title'],
-                'thumbnail_url': video_data['thumbnail_url'],
-                'video_url': video_data['video_url'],
-                'cached_at': video_data['cached_at']
-            }
-        )
-        logger.info(f"Saved video for '{standard_name}' to the database.")
-
-        return standard_name, video_data['video_id']
-    else:
-        logger.warning(f"No video found for '{exercise_name}'.")
-        return standard_name, None
+        # Try to get from database
+        video = YouTubeVideo.objects.filter(exercise_name=standardized_name).first()
+        if video:
+            logger.info(f"Found video ID in database for {standardized_name}: {video.video_id}")
+            # Cache the result
+            cache.set(cache_key, video.video_id, CACHE_TTL)
+            return video.video_id
+            
+        # If not in database, fetch from YouTube API
+        logger.info(f"Fetching video from YouTube API for {standardized_name}")
+        video_data = get_youtube_video(standardized_name)
+        if video_data:
+            logger.info(f"Got video data from API: {video_data}")
+            return video_data.get('video_id')
+            
+    except Exception as e:
+        logger.error(f"Error getting video ID for {standardized_name}: {str(e)}")
+        
+    return None
 
 def get_cached_youtube_video(video_id):
     """

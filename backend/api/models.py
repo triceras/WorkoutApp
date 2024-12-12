@@ -102,46 +102,59 @@ class Exercise(models.Model):
     exercise_type = models.CharField(
         max_length=20,
         choices=EXERCISE_TYPE_CHOICES,
-        default='strength',  # Default type
+        default='strength'
     )
-
-    def extract_youtube_id(self, url):
-        """Extract YouTube video ID from various URL formats."""
-        if not url:
-            return None
-
-        youtube_regex = (
-            r'(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)'
-            r'([^"&?/ ]{11})'
-        )
-        match = re.search(youtube_regex, url)
-        return match.group(1) if match else None
-
-    def save(self, *args, **kwargs):
-        if self.video_url:
-            self.videoId = self.extract_youtube_id(self.video_url)
-            if self.videoId:
-                cache_key = f'exercise_video_{self.id}'
-                cache.set(cache_key, self.videoId, timeout=86400)  # Cache for 24 hours
-        super().save(*args, **kwargs)
-
-    def get_cached_video_id(self):
-        """Get cached video ID or extract from URL if not cached."""
-        if not self.id:
-            return None
-
-        cache_key = f'exercise_video_{self.id}'
-        video_id = cache.get(cache_key)
-
-        if video_id is None and self.video_url:
-            video_id = self.extract_youtube_id(self.video_url)
-            if video_id:
-                cache.set(cache_key, video_id, timeout=86400)
-
-        return video_id
 
     def __str__(self):
         return self.name
+
+    def extract_youtube_id(self, url):
+        """Extract the video ID from a YouTube URL."""
+        if not url:
+            return None
+            
+        patterns = [
+            r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&\n?#]+)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                return match.group(1)
+        return None
+
+    def get_cached_video_id(self):
+        """Get cached video ID or extract from URL if not cached."""
+        from .helpers import get_video_id, standardize_exercise_name
+        
+        # First try to get from videoId field
+        if self.videoId:
+            return self.videoId
+            
+        # Then try to get from YouTubeVideo model
+        try:
+            standardized_name = standardize_exercise_name(self.name)
+            video = YouTubeVideo.objects.get(exercise_name=standardized_name)
+            self.videoId = video.video_id
+            self.save(update_fields=['videoId'])
+            return video.video_id
+        except YouTubeVideo.DoesNotExist:
+            pass
+            
+        # Finally, try to get from video_url
+        if self.video_url:
+            video_id = self.extract_youtube_id(self.video_url)
+            if video_id:
+                self.videoId = video_id
+                self.save(update_fields=['videoId'])
+                return video_id
+                
+        # If all else fails, try to get from the helper function
+        video_id = get_video_id(self.name)
+        if video_id:
+            self.videoId = video_id
+            self.save(update_fields=['videoId'])
+        return video_id
 
 class WorkoutPlan(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

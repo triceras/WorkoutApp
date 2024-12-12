@@ -1,337 +1,293 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import {
+  Card,
   CardMedia,
+  CardContent,
   Typography,
   Box,
-  Paper,
+  Grid,
 } from '@mui/material';
-import './ExerciseCard.css';
 
-/**
- * Generates YouTube thumbnail URL based on video ID.
- * @param {string} videoId - The YouTube video ID.
- * @returns {string} - The thumbnail URL.
- */
-const getYoutubeThumbnailUrl = (videoId) => {
-  return `https://img.youtube.com/vi/${videoId}/0.jpg`;
-};
+const ExerciseCard = ({ exercise, openVideoModal }) => {
+  const getYoutubeThumbnailUrl = (videoId) => {
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  };
 
-// Helper function to parse instructions if they're in string format
-const parseInstructions = (instructions) => {
-  if (typeof instructions === 'string') {
-    try {
-      // Clean up the string before parsing
-      const cleanedString = instructions
-        .replace(/'/g, '"')
-        .replace(/\s+/g, ' ')
-        .trim();
-      
-      const parsed = JSON.parse(cleanedString);
-
-      // Split form tips if they contain 'Avoid'
-      const formTips = Array.isArray(parsed.form_tips) ? parsed.form_tips : [parsed.form_tips];
-      const processedFormTips = formTips.flatMap(tip => {
-        if (typeof tip === 'string' && tip.includes('Avoid')) {
-          return tip.split('Avoid').map((part, index) => {
-            part = part.trim();
-            return index === 0 ? part : `Avoid ${part}`;
-          }).filter(part => part.length > 0);
-        }
-        return [tip];
-      });
-      
-      return {
-        setup: Array.isArray(parsed.setup) ? parsed.setup : [parsed.setup],
-        execution: Array.isArray(parsed.execution) ? parsed.execution : [parsed.execution],
-        form_tips: processedFormTips
-      };
-    } catch (e) {
-      console.warn('Failed to parse instructions:', e);
-      return {
-        setup: [],
-        execution: [],
-        form_tips: []
-      };
+  const parseInstructions = (instructions) => {
+    if (typeof instructions === 'string') {
+      try {
+        return JSON.parse(instructions.replace(/'/g, '"'));
+      } catch (e) {
+        console.warn('Failed to parse instructions:', e);
+        return null;
+      }
     }
-  }
-  return instructions || { setup: [], execution: [], form_tips: [] };
-};
-
-function ExerciseCard({ exercise, openVideoModal }) {
-  console.log('ExerciseCard received exercise:', exercise);
+    return instructions;
+  };
 
   const parsedInstructions = parseInstructions(exercise.instructions);
 
-  // Determine if exercise is cardio/time-based or strength/weight-based
-  const isCardio = exercise.name?.toLowerCase().includes('jogging') || 
-                  exercise.name?.toLowerCase().includes('running') ||
-                  exercise.exercise_type === 'cardio' || 
-                  exercise.tracking_type === 'time_based' || 
-                  exercise.type === 'active_recovery';
-
-  console.log('ExerciseCard isCardio check:', {
-    name: exercise.name,
-    exerciseType: exercise.exercise_type,
-    trackingType: exercise.tracking_type,
-    isCardio
-  });
-
-  // Conditions for displaying info
-  const showCardioInfo = isCardio;
-  const showStrengthInfo = !isCardio && Boolean(exercise.sets) && Boolean(exercise.reps);
-
   return (
-    <Paper elevation={0} sx={{
+    <Card sx={{ 
       height: '100%',
-      background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-      border: '1px solid rgba(0, 0, 0, 0.1)',
-      borderRadius: '20px',
-      overflow: 'hidden',
-      transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-      '&:hover': {
-        transform: 'translateY(-4px)',
-        boxShadow: '0 12px 28px rgba(0, 0, 0, 0.1)',
-      }
-    }} className="exercise-card">
+      borderRadius: '16px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      overflow: 'visible'
+    }}>
       {exercise.videoId && (
-        <Box sx={{
-          position: 'relative',
-          '&:hover': {
-            '& .play-overlay': {
-              opacity: 1,
-            }
-          }
-        }}>
+        <Box 
+          sx={{ 
+            position: 'relative',
+            cursor: 'pointer',
+            borderRadius: '16px 16px 0 0',
+            overflow: 'hidden',
+          }}
+          onClick={() => openVideoModal(exercise.videoId)}
+        >
           <CardMedia
             component="img"
-            height="200"
             image={getYoutubeThumbnailUrl(exercise.videoId)}
             alt={`${exercise.name} video`}
             sx={{
+              height: 200,
               objectFit: 'cover',
-              cursor: 'pointer',
+              transition: 'transform 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.05)'
+              }
             }}
-            onClick={() => openVideoModal(exercise.videoId)}
           />
-          <Box className="play-overlay" sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0, 0, 0, 0.4)',
-            opacity: 0,
-            transition: 'opacity 0.2s ease-in-out',
-          }}>
-            <Box sx={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              background: 'white',
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: 'rgba(0,0,0,0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-            }}>
-              <span style={{ fontSize: '24px' }}>▶️</span>
-            </Box>
+              transition: 'background-color 0.3s ease',
+              '&:hover': {
+                bgcolor: 'rgba(0,0,0,0.5)'
+              }
+            }}
+          >
+            <Typography variant="h4" sx={{ color: 'white' }}>▶️</Typography>
           </Box>
         </Box>
       )}
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2, color: '#7b1fa2', display: 'flex', alignItems: 'center', gap: 1 }}>
-          🏋️‍♂️ {exercise.name}
-        </Typography>
 
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
-          {showCardioInfo && (
-            <>
-              <Paper elevation={0} sx={{
-                backgroundColor: '#fff3e0',
-                p: 2,
-                borderRadius: 2,
-                mb: 2
-              }}>
-                <Typography sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  color: '#f57c00',
-                  fontWeight: 600,
-                  mb: 1
-                }}>
-                  ⏳ DURATION
-                </Typography>
-                <Typography variant="body1" sx={{ color: '#f57c00' }}>
-                  {exercise.duration || '30 minutes'}
-                </Typography>
-              </Paper>
-
-              <Paper elevation={0} sx={{
-                backgroundColor: '#e3f2fd',
-                p: 2,
-                borderRadius: 2,
-                mb: 2
-              }}>
-                <Typography sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  color: '#0288d1',
-                  fontWeight: 600,
-                  mb: 1
-                }}>
-                  🔥 INTENSITY
-                </Typography>
-                <Typography variant="body1" sx={{ color: '#0288d1', textTransform: 'capitalize' }}>
-                  {exercise.intensity || 'low'}
-                </Typography>
-              </Paper>
-            </>
-          )}
-
-          {showStrengthInfo && (
-            <>
-              {/* Sets & Reps for Strength */}
-              {Boolean(exercise.sets) && Boolean(exercise.reps) && (
-                <Paper elevation={0} sx={{
-                  backgroundColor: '#e8f5e9',
-                  p: 2,
-                  borderRadius: 2,
-                  flex: '1 1 auto',
-                  minWidth: '200px'
-                }}>
-                  <Typography sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    color: '#2e7d32',
-                    fontWeight: 600,
-                    mb: 1
-                  }}>
-                    🎯 SETS & REPS
-                  </Typography>
-                  <Typography variant="body1" sx={{ color: '#2e7d32' }}>
-                    {`${exercise.sets} sets × ${exercise.reps} reps`}
-                  </Typography>
-                </Paper>
-              )}
-
-              {/* Rest Interval if provided */}
-              {exercise.rest_time && (
-                <Paper elevation={0} sx={{
-                  backgroundColor: '#e8f5e9',
-                  p: 2,
-                  borderRadius: 2,
-                  flex: '1 1 auto',
-                  minWidth: '200px'
-                }}>
-                  <Typography sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    color: '#2e7d32',
-                    fontWeight: 600,
-                    mb: 1,
-                    textTransform: 'uppercase'
-                  }}>
-                    ⏱️ REST INTERVAL
-                  </Typography>
-                  <Typography variant="body1" sx={{ color: '#2e7d32' }}>
-                    {Number(exercise.rest_time) > 0 ? `${exercise.rest_time} seconds` : 'Not specified'}
-                  </Typography>
-                </Paper>
-              )}
-            </>
-          )}
+      <CardContent sx={{ p: 3 }}>
+        {/* Exercise Title */}
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h5" component="h2" sx={{ 
+            fontWeight: 'bold',
+            color: '#2C3E50',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}>
+            🏋️‍♂️ {exercise.name}
+          </Typography>
         </Box>
 
-        {parsedInstructions && (
-          <Paper elevation={0} sx={{
-            backgroundColor: '#fce4ec',
-            p: 2,
+        {/* Exercise Details Cards */}
+        <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Sets & Reps Card */}
+          <Box sx={{
+            bgcolor: '#f0f7ff',
             borderRadius: 2,
+            p: 2,
+            width: '100%',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            transition: 'transform 0.2s ease',
+            '&:hover': {
+              transform: 'translateY(-2px)'
+            }
           }}>
-            <Typography sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              color: '#d81b60',
-              fontWeight: 600,
-              mb: 2
+            <Typography 
+              variant="overline" 
+              sx={{ 
+                color: '#1976d2',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
+            >
+              💪 SETS & REPS
+            </Typography>
+            <Typography variant="body1" sx={{ 
+              color: '#1976d2',
+              fontWeight: 500,
+              mt: 1
             }}>
+              {exercise.sets} sets of {exercise.reps} reps
+            </Typography>
+          </Box>
+
+          {/* Equipment/Weight Card */}
+          <Box sx={{
+            bgcolor: '#fff0f3',
+            borderRadius: 2,
+            p: 2,
+            width: '100%',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            transition: 'transform 0.2s ease',
+            '&:hover': {
+              transform: 'translateY(-2px)'
+            }
+          }}>
+            <Typography 
+              variant="overline" 
+              sx={{ 
+                color: '#d81b60',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
+            >
+              🔧 EQUIPMENT
+            </Typography>
+            <Typography variant="body1" sx={{ 
+              color: '#d81b60',
+              fontWeight: 500,
+              mt: 1
+            }}>
+              {exercise.weight || 'bodyweight'}
+            </Typography>
+          </Box>
+
+          {/* Interval Time Card */}
+          <Box sx={{
+            bgcolor: '#f3faf7',
+            borderRadius: 2,
+            p: 2,
+            width: '100%',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            transition: 'transform 0.2s ease',
+            '&:hover': {
+              transform: 'translateY(-2px)'
+            }
+          }}>
+            <Typography 
+              variant="overline" 
+              sx={{ 
+                color: '#2e7d32',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
+            >
+              ⏱️ REST INTERVAL
+            </Typography>
+            <Typography variant="body1" sx={{ 
+              color: '#2e7d32',
+              fontWeight: 500,
+              mt: 1
+            }}>
+              {exercise.name.toLowerCase() === 'squats' ? '90 seconds' : (exercise.rest_time ? `${exercise.rest_time} seconds` : '60-90 seconds')} between sets
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Instructions Section */}
+        {parsedInstructions && (
+          <Box 
+            sx={{ 
+              bgcolor: '#fdf7ff',
+              borderRadius: 2,
+              p: 2,
+              mt: 2
+            }}
+          >
+            <Typography 
+              variant="overline" 
+              sx={{ 
+                color: '#7b1fa2',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
+            >
               📝 INSTRUCTIONS
             </Typography>
 
-            {parsedInstructions.setup?.length > 0 && (
-              <div className="instruction-subsection">
-                <Typography variant="subtitle1" sx={{ color: '#d81b60', fontWeight: 600, mb: 1 }}>
-                  Setup:
-                </Typography>
-                <Typography variant="body1" sx={{ color: '#d81b60', ml: 2 }}>
-                  {parsedInstructions.setup}
-                </Typography>
-              </div>
-            )}
+            <Box sx={{ color: '#4a148c', mt: 1 }}>
+              {parsedInstructions.setup && (
+                <>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    Setup:
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 2, pl: 2 }}>
+                    {parsedInstructions.setup}
+                  </Typography>
+                </>
+              )}
 
-            {parsedInstructions.execution?.length > 0 && (
-              <div className="instruction-subsection">
-                <Typography variant="subtitle1" sx={{ color: '#d81b60', fontWeight: 600, mb: 1 }}>
-                  Execution:
-                </Typography>
-                <Typography variant="body1" sx={{ color: '#d81b60', ml: 2 }}>
-                  {parsedInstructions.execution}
-                </Typography>
-              </div>
-            )}
-
-            {parsedInstructions.form_tips?.length > 0 && (
-              <div className="instruction-subsection">
-                <Typography variant="subtitle1" sx={{ color: '#d81b60', fontWeight: 600, mb: 1 }}>
-                  Form Tips:
-                </Typography>
-                <ul style={{ listStyle: 'none', paddingLeft: '16px', margin: 0 }}>
-                  {parsedInstructions.form_tips.map((tip, index) => (
-                    <li key={index} style={{ marginBottom: index < parsedInstructions.form_tips.length - 1 ? '8px' : 0 }}>
-                      <Typography variant="body1" sx={{ color: '#d81b60' }}>
-                        {tip}
+              {parsedInstructions.execution && (
+                <>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    Execution:
+                  </Typography>
+                  {Array.isArray(parsedInstructions.execution) ? (
+                    parsedInstructions.execution.map((step, index) => (
+                      <Typography key={index} variant="body2" sx={{ mb: 1, pl: 2 }}>
+                        {step}
                       </Typography>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </Paper>
+                    ))
+                  ) : (
+                    <Typography variant="body2" sx={{ mb: 2, pl: 2 }}>
+                      {parsedInstructions.execution}
+                    </Typography>
+                  )}
+                </>
+              )}
+
+              {parsedInstructions.form_tips && (
+                <>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    Form Tips:
+                  </Typography>
+                  {Array.isArray(parsedInstructions.form_tips) ? (
+                    parsedInstructions.form_tips.map((tip, index) => (
+                      <Typography key={index} variant="body2" sx={{ mb: 1, pl: 2 }}>
+                        • {tip}
+                      </Typography>
+                    ))
+                  ) : (
+                    <Typography variant="body2" sx={{ mb: 1, pl: 2 }}>
+                      • {parsedInstructions.form_tips}
+                    </Typography>
+                  )}
+                </>
+              )}
+            </Box>
+          </Box>
         )}
-      </Box>
-    </Paper>
+      </CardContent>
+    </Card>
   );
-}
+};
 
 ExerciseCard.propTypes = {
   exercise: PropTypes.shape({
     name: PropTypes.string.isRequired,
     sets: PropTypes.string,
     reps: PropTypes.string,
-    rest_time: PropTypes.string,
-    duration: PropTypes.string,
-    intensity: PropTypes.string,
-    exercise_type: PropTypes.string,
-    workout_type: PropTypes.string,
-    tracking_type: PropTypes.string,
+    weight: PropTypes.string,
+    videoId: PropTypes.string,
     instructions: PropTypes.oneOfType([
       PropTypes.string,
-      PropTypes.shape({
-        setup: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
-        execution: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
-        form_tips: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)])
-      })
+      PropTypes.object
     ]),
-    videoId: PropTypes.string,
+    rest_time: PropTypes.string
   }).isRequired,
   openVideoModal: PropTypes.func.isRequired
 };

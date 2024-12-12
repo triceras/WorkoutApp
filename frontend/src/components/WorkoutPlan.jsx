@@ -76,30 +76,26 @@ function WorkoutPlan() {
           
           const isActiveRecovery = todayPlan.type === 'active_recovery';
           const isCardioDay = todayPlan.workout_type?.toLowerCase().includes('cardio');
-          const isCardioExercise = exercise.exercise_type === 'cardio';
-          const isTimeBasedExercise = exercise.tracking_type === 'time_based' || exercise.exercise_type === 'core';
-          const isCardio = isCardioDay || isActiveRecovery || isCardioExercise || isTimeBasedExercise;
-
-          console.log('Exercise conditions:', {
-            isActiveRecovery,
-            isCardioDay,
-            isCardioExercise,
-            isTimeBasedExercise,
-            isCardio
-          });
+          const isCardioExercise = exercise.exercise_type === 'cardio' || 
+                                 exercise.name?.toLowerCase().includes('jogging') || 
+                                 exercise.name?.toLowerCase().includes('running');
+          const isTimeBasedExercise = exercise.tracking_type === 'time_based';
 
           const processedExercise = {
             ...exercise,
-            tracking_type: 'time_based',
-            exercise_type: 'cardio',
-            duration: todayPlan.duration,
-            intensity: 'low',
             workout_type: todayPlan.workout_type,
             type: todayPlan.type,
-            // Clear strength-related fields
-            sets: null,
-            reps: null,
-            setsReps: null
+            // Only modify if it's explicitly a cardio exercise
+            ...(isCardioExercise ? {
+              tracking_type: 'time_based',
+              exercise_type: 'cardio',
+              duration: todayPlan.duration,
+              intensity: 'low'
+            } : {
+              // Preserve original exercise properties
+              tracking_type: exercise.tracking_type || 'weight_based',
+              exercise_type: exercise.exercise_type || 'strength'
+            })
           };
 
           console.log('Processed exercise:', processedExercise);
@@ -128,11 +124,13 @@ function WorkoutPlan() {
   }, [fullWeeklyPlan]);
 
   const openVideoModal = (videoId) => {
+    console.log('Opening video modal with ID:', videoId);
     setCurrentVideoId(videoId);
     setModalIsOpen(true);
   };
 
   const closeVideoModal = () => {
+    console.log('Closing video modal');
     setModalIsOpen(false);
     setCurrentVideoId(null);
   };
@@ -409,6 +407,21 @@ function WorkoutPlan() {
             {todayWorkout.exercises && todayWorkout.exercises.length > 0 ? (
               todayWorkout.exercises.map((exercise, index) => {
                 console.log('Raw Exercise Data:', exercise);
+                // Update video ID for squats to a better barbell tutorial
+                if (exercise.name.toLowerCase().includes('squat')) {
+                  exercise.videoId = 'Uv_DKDl7EjA';  // Comprehensive barbell squat tutorial
+                }
+                // Determine exercise type based on the workout type if not provided
+                const exerciseType = exercise.exercise_type || 
+                                   (todayWorkout.workout_type?.toLowerCase().includes('cardio') ? 'cardio' : 'strength');
+                
+                console.log('Exercise type determined:', {
+                  name: exercise.name,
+                  originalType: exercise.exercise_type,
+                  workoutType: todayWorkout.workout_type,
+                  determinedType: exerciseType
+                });
+
                 return (
                   <Grid item xs={12} sm={6} md={4} key={`${exercise.name}-${index}`}>
                     <ExerciseCard
@@ -416,14 +429,7 @@ function WorkoutPlan() {
                         ...exercise,
                         workout_type: todayWorkout.workout_type,
                         type: todayWorkout.type,
-                        tracking_type: 'time_based',
-                        exercise_type: 'cardio',
-                        duration: todayWorkout.duration,
-                        intensity: 'low',
-                        sets: null,
-                        reps: null,
-                        setsReps: null,
-                        rest_time: null
+                        exercise_type: exerciseType
                       }}
                       openVideoModal={openVideoModal}
                     />

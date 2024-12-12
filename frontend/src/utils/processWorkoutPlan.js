@@ -79,28 +79,30 @@ export const processWorkoutPlan = (plan) => {
       day.exercises = day.exercises.map(exercise => {
         console.log('Processing exercise:', exercise);
         
-        const isCardioDay = day.workout_type?.toLowerCase().includes('cardio');
-        const isActiveRecovery = day.type === 'active_recovery';
-        const isCardioExercise = exercise.name?.toLowerCase().includes('jogging') || 
-                                exercise.name?.toLowerCase().includes('running') ||
-                                exercise.exercise_type === 'cardio';
+        // Preserve original exercise properties
+        const processedExercise = {
+          ...exercise,
+          type: day.type,
+          workout_type: day.workout_type
+        };
 
-        if (isCardioDay || isActiveRecovery || isCardioExercise) {
-          console.log('Converting to cardio exercise:', exercise.name);
+        // Only modify tracking type based on exercise type
+        if (exercise.exercise_type === 'cardio' || 
+            exercise.name?.toLowerCase().includes('jogging') || 
+            exercise.name?.toLowerCase().includes('running')) {
           return {
-            ...exercise,
+            ...processedExercise,
             tracking_type: 'time_based',
-            exercise_type: 'cardio',
             duration: day.duration || '30 minutes',
-            intensity: 'low',
-            type: day.type,
-            workout_type: day.workout_type,
-            sets: null,
-            reps: null,
-            setsReps: null
+            intensity: exercise.intensity || 'low'
           };
         }
-        return exercise;
+
+        // For strength exercises, ensure proper tracking type
+        return {
+          ...processedExercise,
+          tracking_type: 'weight_based'
+        };
       });
     }
 

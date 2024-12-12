@@ -142,6 +142,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class ExerciseSerializer(serializers.ModelSerializer):
     video_id = serializers.SerializerMethodField()
+    videoId = serializers.SerializerMethodField()
 
     class Meta:
         model = Exercise
@@ -149,12 +150,14 @@ class ExerciseSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'description': {'required': False, 'allow_null': True},
             'video_url': {'required': False, 'allow_null': True},
-            'videoId': {'required': False, 'allow_null': True},
             'exercise_type': {'required': False},
         }
 
     def get_video_id(self, obj):
         return obj.get_cached_video_id()
+
+    def get_videoId(self, obj):
+        return self.get_video_id(obj)
 
 
 class NestedExerciseSerializer(serializers.Serializer):
@@ -166,6 +169,12 @@ class NestedExerciseSerializer(serializers.Serializer):
     videoId = serializers.CharField(required=False, allow_blank=True)
     description = serializers.DictField(required=False, allow_null=True)
     video_url = serializers.URLField(required=False, allow_null=True)
+    exercise_type = serializers.CharField(required=False, allow_blank=True)
+    tracking_type = serializers.CharField(required=False, allow_blank=True)
+    sets = serializers.CharField(required=False, allow_blank=True)
+    reps = serializers.CharField(required=False, allow_blank=True)
+    weight = serializers.CharField(required=False, allow_blank=True)
+    rest_time = serializers.CharField(required=False, allow_blank=True)
 
 
 class WorkoutPlanSerializer(serializers.ModelSerializer):
