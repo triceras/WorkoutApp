@@ -19,12 +19,14 @@ from .models import (
     ExerciseLog,
     WorkoutSession,
     TrainingSession,
+    TrainingSessionExercise,
     StrengthGoal,
     Equipment,
     YouTubeVideo
 )
 from .tasks import process_feedback_submission_task, generate_workout_plan_task, process_negative_feedback
 from .helpers import get_video_data_by_id
+from .services.analysis import calculate_progression_metrics
 from .serializers import (
     ExerciseSerializer,
     WorkoutPlanSerializer,
@@ -341,107 +343,46 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class TrainingSessionViewSet(viewsets.ModelViewSet):
-    queryset = TrainingSession.objects.all()
+    """ViewSet for managing training sessions."""
     serializer_class = TrainingSessionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        """Get both completed and scheduled training sessions"""
-        user = self.request.user
-        
-        queryset = TrainingSession.objects.filter(user=user)
+        """Get queryset filtered by user."""
+        queryset = TrainingSession.objects.filter(user=self.request.user)
         
         # Get query parameters
-        date = self.request.query_params.get('date')
-        workout_plan_id = self.request.query_params.get('workout_plan_id')
+        date_str = self.request.query_params.get('date', None)
+        workout_type = self.request.query_params.get('workout_type', None)
         
-        # Apply date filter if provided
-        if date:
-            queryset = queryset.filter(date=date)
-            
-        # Apply workout plan filter if provided
-        if workout_plan_id:
-            queryset = queryset.filter(workout_plan_id=workout_plan_id)
-            
-        # If no filters are applied, include scheduled sessions
-        if not (date or workout_plan_id):
+        if date_str:
             try:
-                workout_plan = WorkoutPlan.objects.get(user=user)
-                today = timezone.now().date()
-                
-                # Convert workout plan days into training session format
-                scheduled_sessions = []
-                for day in workout_plan.workoutDays:
-                    scheduled_sessions.append({
-                        'id': f"scheduled_{day.get('day')}",
-                        'user': user,
-                        'date': today,
-                        'workout_plan': workout_plan,
-                        'session_name': day.get('day'),
-                        'workout_type': day.get('workout_type', ''),
-                        'exercises': day.get('exercises', []),
-                        'is_scheduled': True
-                    })
-                
-                # Combine both completed and scheduled sessions
-                return list(queryset) + scheduled_sessions
-            except WorkoutPlan.DoesNotExist:
-                pass
-                
-        return queryset
+                # Convert date string to datetime with time set to start of day
+                date = timezone.datetime.strptime(date_str, '%Y-%m-%d')
+                date = timezone.make_aware(date)  # Make timezone-aware
+                next_day = date + timezone.timedelta(days=1)
+                queryset = queryset.filter(date__gte=date, date__lt=next_day)
+            except ValueError:
+                raise serializers.ValidationError({'date': 'Invalid date format. Use YYYY-MM-DD'})
+        
+        if workout_type:
+            queryset = queryset.filter(workout_type=workout_type)
+        
+        return queryset.order_by('-date')
 
-    @action(detail=False, methods=['get'])
-    def current_plan(self, request):
-        """Get the current workout plan's training sessions"""
+    def perform_create(self, serializer):
+        """Create a new training session."""
         try:
-            workout_plan = WorkoutPlan.objects.get(user=request.user)
-            return Response({
-                'workoutDays': workout_plan.workoutDays
-            })
-        except WorkoutPlan.DoesNotExist:
-            return Response({
-                'workoutDays': []
-            })
-
-    def create(self, request, *args, **kwargs):
-        try:
-            # Add user to request data
-            data = request.data.copy()
-            data['user'] = request.user.id
-            
-            print("Creating training session with data:", data)
-            
-            serializer = self.get_serializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            session = serializer.save()
-            
-            print(f"Successfully created training session: ID={session.id}, Date={session.date}, Source={session.source}")
-            
-            # Check if feedback is negative and needs processing
-            emoji_feedback = data.get('emoji_feedback')
-            if emoji_feedback is not None and int(emoji_feedback) <= 2:  # 0, 1, or 2 are negative ratings
-                # Trigger the feedback processing task
-                process_negative_feedback.delay(session.id)
-            
-            headers = self.get_success_headers(serializer.data)
-            return Response(
-                serializer.data, 
-                status=status.HTTP_201_CREATED, 
-                headers=headers
-            )
+            # Set the user before saving
+            serializer.save(user=self.request.user)
         except Exception as e:
-            print(f"Error creating training session: {str(e)}")
             logger.error(f"Error creating training session: {str(e)}", exc_info=True)
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            raise serializers.ValidationError(f"Failed to create training session: {str(e)}")
 
     @action(detail=False, methods=['get'])
-    def today(self, request):
-        """Get today's training sessions"""
-        today = timezone.now().date()
-        sessions = self.get_queryset().filter(date=today)
+    def completed(self, request):
+        """Get all completed training sessions."""
+        sessions = self.get_queryset().filter(source='completed')
         serializer = self.get_serializer(sessions, many=True)
         return Response(serializer.data)
 
@@ -455,6 +396,7 @@ def log_training_session(request):
     try:
         data = request.data.copy()
         data['user'] = request.user.id
+        data['source'] = 'completed'  # Set source to 'completed'
         
         serializer = TrainingSessionSerializer(data=data)
         if serializer.is_valid():
@@ -488,60 +430,76 @@ class EquipmentViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class UserProgressionView(APIView):
-    permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get user progression data including training sessions and workout plan."""
+        """Get progression metrics for the user."""
         try:
-            user = request.user
-            logger.info(f"Fetching progression data for user: {user.username}")
-
-            # Serialize user data
-            user_serializer = UserSerializer(user, context={'request': request})
-
-            # Retrieve the user's workout plan
-            try:
-                workout_plan = WorkoutPlan.objects.get(user=user)
-                workout_plan_data = WorkoutPlanSerializer(workout_plan, context={'request': request}).data
-                logger.info(f"Found workout plan: {workout_plan.id}")
-            except WorkoutPlan.DoesNotExist:
-                workout_plan_data = {}
-                logger.info("No workout plan found")
-
-            # Retrieve the user's completed training sessions
-            training_sessions = TrainingSession.objects.filter(
-                user=user,
-                source='completed'  # Only get completed sessions
-            ).order_by('-date')
+            logger.info(f"Fetching progression metrics for user {request.user.id}")
             
-            logger.info(f"Found {training_sessions.count()} training sessions")
-            # Print details of each session for debugging
-            for session in training_sessions:
-                logger.info(f"Session ID: {session.id}, Date: {session.date}, Type: {session.workout_type}, Source: {session.source}")
+            # Get all completed training sessions for the user with related exercises
+            training_sessions = TrainingSession.objects.filter(
+                user=request.user,
+                source='completed'  # Only include completed sessions
+            ).order_by('-date').select_related('user').prefetch_related(
+                'trainingsessionexercise_set',
+                'trainingsessionexercise_set__exercise'
+            )
+            
+            total_sessions = training_sessions.count()
+            logger.info(f"Found {total_sessions} total training sessions")
 
-            training_sessions_data = TrainingSessionSerializer(
-                training_sessions,
-                many=True,
-                context={'request': request}
-            ).data
+            if total_sessions == 0:
+                logger.info("No training sessions found, returning empty metrics")
+                return Response({
+                    'total_sessions': 0,
+                    'recent_sessions': 0,
+                    'older_sessions': 0,
+                    'workout_types': {'recent': {}, 'previous': {}},
+                    'strength_progress': {},
+                    'cardio_progress': {},
+                    'total_duration': 0,
+                    'avg_duration': 0,
+                    'total_calories': 0,
+                    'sessions': []
+                })
 
-            logger.info(f"Serialized {len(training_sessions_data)} sessions")
-            logger.info(f"Sample session data: {training_sessions_data[0] if training_sessions_data else 'No sessions'}")
+            # Calculate time periods
+            today = timezone.now().date()
+            thirty_days_ago = today - timezone.timedelta(days=30)
+            ninety_days_ago = today - timezone.timedelta(days=90)
 
-            # Compile the progression data
-            progression_data = {
-                "user": user_serializer.data,
-                "workout_plan": workout_plan_data,
-                "training_sessions": training_sessions_data,
-            }
+            # Get recent sessions (last 30 days)
+            recent_sessions = list(training_sessions.filter(date__gte=thirty_days_ago))
+            logger.info(f"Found {len(recent_sessions)} recent sessions")
+            
+            # Get older sessions (30-90 days ago)
+            older_sessions = list(training_sessions.filter(
+                date__lt=thirty_days_ago,
+                date__gte=ninety_days_ago
+            ))
+            logger.info(f"Found {len(older_sessions)} older sessions")
 
-            logger.info(f"Returning progression data with {len(training_sessions_data)} sessions")
-            return Response(progression_data, status=status.HTTP_200_OK)
+            # Calculate metrics
+            try:
+                metrics = calculate_progression_metrics(
+                    recent_sessions,
+                    older_sessions,
+                    request.user
+                )
+                logger.info("Successfully calculated progression metrics")
+                return Response(metrics)
+            except Exception as calc_error:
+                logger.error(f"Error calculating metrics: {str(calc_error)}", exc_info=True)
+                return Response(
+                    {"error": "Failed to calculate progression metrics", "detail": str(calc_error)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
             
         except Exception as e:
-            logger.error(f"Error in UserProgressionView: {str(e)}", exc_info=True)
+            logger.error(f"Error in progression view: {str(e)}", exc_info=True)
             return Response(
-                {"error": "Failed to fetch progression data"},
+                {"error": "Failed to fetch progression data", "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

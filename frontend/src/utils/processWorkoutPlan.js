@@ -1,8 +1,7 @@
 export const processWorkoutPlan = (plan) => {
   console.group('Processing Workout Plan');
-  console.log('Original Plan:', JSON.stringify(plan, null, 2)); // Detailed logging
+  console.log('Original Plan:', JSON.stringify(plan, null, 2));
 
-  // Validate plan input
   if (!plan) {
     console.warn('Plan is undefined or null');
     console.groupEnd();
@@ -18,18 +17,6 @@ export const processWorkoutPlan = (plan) => {
   const processedPlan = { ...plan };
   const processedWorkoutDays = [];
 
-  // Map day numbers to weekday numbers (1 = Monday, 7 = Sunday)
-  const dayNumberToWeekdayNumber = {
-    1: 1, // Day 1 -> Monday
-    2: 2, // Day 2 -> Tuesday
-    3: 3, // Day 3 -> Wednesday
-    4: 4, // Day 4 -> Thursday
-    5: 5, // Day 5 -> Friday
-    6: 6, // Day 6 -> Saturday
-    7: 7, // Day 7 -> Sunday
-  };
-
-  // Map weekday numbers to names
   const weekdayNumberToName = {
     1: 'Monday',
     2: 'Tuesday',
@@ -40,7 +27,6 @@ export const processWorkoutPlan = (plan) => {
     7: 'Sunday',
   };
 
-  // Detailed logging for each day
   plan.workoutDays.forEach((day, index) => {
     console.log(`Processing Day ${index + 1}:`, day);
     
@@ -49,85 +35,74 @@ export const processWorkoutPlan = (plan) => {
       return;
     }
 
+    // Process day name and number
     const dayString = day.day || '';
     const dayRegex = /Day\s*(\d+):\s*(.*)/i;
     const match = dayString.match(dayRegex);
-    let dayNumber = index + 1; // Default day number (1-7)
+    let dayNumber = index + 1;
     let dayName = dayString;
 
     if (match) {
       const dayNum = parseInt(match[1], 10);
       const dayDescription = match[2];
-
-      // Map plan day number to weekday number
-      const weekdayNumber =
-        dayNumberToWeekdayNumber[dayNum] || ((dayNum - 1) % 7) + 1;
-
-      // Get the weekday name
+      const weekdayNumber = ((dayNum - 1) % 7) + 1;
       const weekdayName = weekdayNumberToName[weekdayNumber];
-
-      // Detailed logging for day parsing
-      console.log(`Parsed Day: Number=${dayNum}, Description=${dayDescription}`);
-      console.log(`Mapped Day: Number=${weekdayNumber}, Name=${weekdayName}`);
-
       dayNumber = weekdayNumber;
       dayName = `${weekdayName}: ${dayDescription}`;
     }
 
-    // Process exercises
-    if (day.exercises) {
-      day.exercises = day.exercises.map(exercise => {
-        console.log('Processing exercise:', exercise);
-        
-        // Preserve original exercise properties
-        const processedExercise = {
-          ...exercise,
-          type: day.type,
-          workout_type: day.workout_type
-        };
+    // Process exercises while preserving their original data
+    const processedExercises = day.exercises?.map(exercise => {
+      console.log('Processing exercise:', exercise);
+      
+      // Create base exercise object with all original properties
+      const processedExercise = {
+        ...exercise,
+        // Only add day-level properties if they don't exist in exercise
+        type: exercise.exercise_type || exercise.type || day.type,
+        workout_type: exercise.workout_type || day.workout_type
+      };
 
-        // Only modify tracking type based on exercise type
-        if (exercise.exercise_type === 'cardio' || 
-            exercise.name?.toLowerCase().includes('jogging') || 
-            exercise.name?.toLowerCase().includes('running')) {
-          return {
-            ...processedExercise,
-            tracking_type: 'time_based',
-            duration: day.duration || '30 minutes',
-            intensity: exercise.intensity || 'low'
+      // Handle tracking type based on exercise type
+      if (exercise.exercise_type === 'cardio' || 
+          exercise.name?.toLowerCase().includes('cardio') ||
+          exercise.name?.toLowerCase().includes('jogging') || 
+          exercise.name?.toLowerCase().includes('running')) {
+        processedExercise.tracking_type = 'time_based';
+        processedExercise.duration = exercise.duration || day.duration || '30 minutes';
+        processedExercise.intensity = exercise.intensity || 'moderate';
+      } else {
+        processedExercise.tracking_type = 'reps_based';
+        processedExercise.sets = exercise.sets || 3;
+        processedExercise.reps = exercise.reps || 10;
+        processedExercise.weight = exercise.weight || 0;
+        processedExercise.rest_time = exercise.rest_time || 60;
+      }
+
+      // Ensure instructions are properly formatted
+      if (typeof processedExercise.instructions === 'string') {
+        try {
+          processedExercise.instructions = JSON.parse(processedExercise.instructions);
+        } catch (e) {
+          processedExercise.instructions = {
+            steps: [processedExercise.instructions]
           };
         }
+      }
 
-        // For strength exercises, ensure proper tracking type
-        return {
-          ...processedExercise,
-          tracking_type: 'weight_based'
-        };
-      });
-    }
+      return processedExercise;
+    }) || [];
 
-    // Determine if it's a workout or rest day
-    const isRestDay = day.exercises.length === 0 || day.type === 'rest';
-
-    const processedDay = {
+    processedWorkoutDays.push({
       ...day,
-      dayNumber: dayNumber,
-      dayName: dayName,
-      type: isRestDay ? 'rest' : 'workout',
-    };
-
-    console.log('Processed Day:', JSON.stringify(processedDay, null, 2)); // Detailed logging
-
-    processedWorkoutDays.push(processedDay);
+      dayNumber,
+      dayName,
+      exercises: processedExercises,
+    });
   });
 
-  // Sort the days by dayNumber to ensure correct order
-  processedPlan.workoutDays = processedWorkoutDays.sort(
-    (a, b) => a.dayNumber - b.dayNumber
-  );
-
+  processedPlan.workoutDays = processedWorkoutDays;
   console.log('Processed Plan:', JSON.stringify(processedPlan, null, 2));
   console.groupEnd();
-
   return processedPlan;
 };

@@ -12,7 +12,9 @@ import {
   Paper,
   Chip,
   Container,
-  Grid
+  Grid,
+  Card,
+  CardContent
 } from '@mui/material';
 import { makeStyles } from '@mui/styles';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -62,7 +64,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { authToken, user, loading: authLoading } = useContext(AuthContext);
-  const { latestWorkoutPlan } = useWebSocket();
+  const { latestWorkoutPlan, latestFeedbackAnalysis } = useWebSocket();
 
   // State
   const [userData, setUserData] = useState(null);
@@ -73,6 +75,14 @@ function Dashboard() {
   const [error, setError] = useState(null);
   const [progressData, setProgressData] = useState(null);
   const [isLoadingWorkoutPlan, setIsLoadingWorkoutPlan] = useState(true);
+  const [sessionFeedback, setSessionFeedback] = useState(null);
+
+
+  const openVideoModal = (videoUrl) => {
+    window.open(videoUrl, '_blank');
+    console.log('Opening video modal:', videoUrl);
+  };
+
 
   // Error handling
   const handleFetchError = useCallback(
@@ -113,25 +123,25 @@ function Dashboard() {
   const fetchWorkoutPlan = useCallback(async () => {
     try {
       console.log('Dashboard: Fetching workout plan from API');
-      const response = await axiosInstance.get('workout-plans/');
+      const response = await axiosInstance.get('workout-plans/current/');
       
-      if (response.data && response.data.length > 0) {
-        console.log('Dashboard: Workout plans fetched successfully:', response.data);
-        setWorkoutPlans(response.data);
+      if (response.data) {
+        console.log('Dashboard: Workout plan fetched successfully:', response.data);
+        const processedPlan = processWorkoutPlan(response.data);
+        console.log('Dashboard: Processed workout plan:', processedPlan);
+        setWorkoutPlans([processedPlan]);
         setIsLoadingWorkoutPlan(false);
       } else {
-        console.log('Dashboard: No workout plans found, waiting for WebSocket update...');
-        // Don't navigate away immediately, wait for WebSocket updates
+        console.log('Dashboard: No workout plan found, waiting for WebSocket update...');
         setWorkoutPlans([]);
       }
     } catch (error) {
-      console.error('Error fetching workout plans:', error);
+      console.error('Error fetching workout plan:', error);
       if (error.response?.status === 404) {
-        console.log('Dashboard: No workout plans found (404)');
-        // Don't navigate away immediately, wait for WebSocket updates
+        console.log('Dashboard: No workout plan found (404)');
         setWorkoutPlans([]);
       } else {
-        setError('Failed to fetch workout plans');
+        setError('Failed to fetch workout plan');
         setIsLoadingWorkoutPlan(false);
       }
     }
@@ -153,6 +163,45 @@ function Dashboard() {
       setIsLoadingWorkoutPlan(false);
     }
   }, [latestWorkoutPlan]);
+
+  // Listen for feedback analysis updates
+  useEffect(() => {
+    const handleFeedbackAnalysis = (event) => {
+      const { sessionId, feedbackData } = event.detail;
+      setSessionFeedback(feedbackData);
+      toast.success('Workout feedback analysis updated');
+    };
+
+    window.addEventListener('workoutFeedbackAnalyzed', handleFeedbackAnalysis);
+    return () => {
+      window.removeEventListener('workoutFeedbackAnalyzed', handleFeedbackAnalysis);
+    };
+  }, []);
+
+  // Update feedback when received through WebSocket context
+  useEffect(() => {
+    if (latestFeedbackAnalysis) {
+      setSessionFeedback(latestFeedbackAnalysis);
+    }
+  }, [latestFeedbackAnalysis]);
+
+  // Process workout plans and set current workout
+  useEffect(() => {
+    if (workoutPlans && workoutPlans.length > 0) {
+      const today = DateTime.now().setZone('Australia/Sydney');
+      const currentPlan = workoutPlans[0];  // Get most recent plan
+      
+      if (currentPlan.workouts) {
+        const todayWorkout = currentPlan.workouts.find(workout => {
+          const workoutDate = DateTime.fromISO(workout.date);
+          return workoutDate.hasSame(today, 'day');
+        });
+
+        console.log('Setting current workout:', todayWorkout);
+        setCurrentWorkout(todayWorkout);
+      }
+    }
+  }, [workoutPlans]);
 
   // Workout helpers
   const getTodayWorkout = useCallback((workoutPlan) => {
@@ -228,13 +277,20 @@ function Dashboard() {
   }, [authToken, user, authLoading, fetchUserData, fetchWorkoutPlan, fetchProgressData]);
 
   // Session logging
-  const handleSessionLoggedCallback = useCallback(
-    (sessionData) => {
-      console.log('Session logged:', sessionData);
-      fetchProgressData();
-    },
-    [fetchProgressData]
-  );
+  const handleSessionLogged = (sessionData) => {
+    // Dispatch a custom event when a session is logged
+    const event = new CustomEvent('session-logged', { detail: sessionData });
+    window.dispatchEvent(event);
+    console.log('Session logged event dispatched:', sessionData);
+    
+    // Show success message or update UI as needed
+    // You can add a snackbar or toast notification here
+    console.log('Session logged:', sessionData);
+    // Refresh progress data
+    fetchProgressData();
+    // Show success message
+    toast.success('Workout session logged successfully!');
+  };
 
   // Handle loading and error states
   if (loading) {
@@ -299,6 +355,34 @@ function Dashboard() {
                 <Typography variant="h4" gutterBottom>
                   Welcome {userData?.first_name || userData?.username}!
                 </Typography>
+
+                {sessionFeedback && (
+                  <Card sx={{ mb: 4 }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Latest Workout Analysis
+                      </Typography>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="subtitle1" color="primary">
+                          Rating: {sessionFeedback.rating}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body1" paragraph>
+                        {sessionFeedback.analysis}
+                      </Typography>
+                      {sessionFeedback.recommendations && (
+                        <>
+                          <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
+                            Recommendations for Next Workout:
+                          </Typography>
+                          <Typography variant="body1">
+                            {sessionFeedback.recommendations}
+                          </Typography>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {currentWorkout && (
                   <React.Fragment>
@@ -443,6 +527,7 @@ function Dashboard() {
                     <WorkoutCard
                       workouts={currentWorkout.exercises}
                       userName={userData?.first_name || userData?.username}
+                      openVideoModal={openVideoModal}
                     />
                   </React.Fragment>
                 )}
@@ -469,8 +554,9 @@ function Dashboard() {
                     {workoutPlans && workoutPlans.length > 0 ? (
                       <LogSessionForm
                         workoutPlans={workoutPlans}
+                        currentWorkout={currentWorkout}
                         source="dashboard"
-                        onSessionLogged={handleSessionLoggedCallback}
+                        onSessionLogged={handleSessionLogged}
                         isLoading={isLoadingWorkoutPlan}
                       />
                     ) : (

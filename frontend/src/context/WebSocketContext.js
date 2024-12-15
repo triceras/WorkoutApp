@@ -20,6 +20,7 @@ export const WebSocketProvider = ({ children }) => {
   const [wsConnected, setWsConnected] = useState(false);
   const [wsReconnecting, setWsReconnecting] = useState(false);
   const [latestWorkoutPlan, setLatestWorkoutPlan] = useState(null);
+  const [latestFeedbackAnalysis, setLatestFeedbackAnalysis] = useState(null);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
 
@@ -122,6 +123,23 @@ export const WebSocketProvider = ({ children }) => {
               toast.info(data.message);
               break;
 
+            case 'workout_feedback_analyzed':
+              console.log('WebSocket: Feedback analysis received:', data);
+              // Update the training session with the feedback analysis
+              if (data.feedback_data) {
+                toast.success('Workout feedback analysis is ready');
+                // Emit an event that the dashboard can listen to
+                const feedbackEvent = new CustomEvent('workoutFeedbackAnalyzed', {
+                  detail: {
+                    sessionId: data.session_id,
+                    feedbackData: data.feedback_data
+                  }
+                });
+                window.dispatchEvent(feedbackEvent);
+                setLatestFeedbackAnalysis(data.feedback_data);
+              }
+              break;
+
             case 'error':
               console.error('WebSocket: Server error:', data.message);
               toast.error(data.message || 'An error occurred');
@@ -161,6 +179,12 @@ export const WebSocketProvider = ({ children }) => {
       };
     };
 
+    console.log('Attempting WebSocket connection with:', {
+      url: window.location.href,
+      userId: user?.id,
+      token: authToken ? 'Token present' : 'No token',
+    });
+
     connectWebSocket();
 
     return () => {
@@ -176,7 +200,13 @@ export const WebSocketProvider = ({ children }) => {
     reconnecting: wsReconnecting,
     latestWorkoutPlan,
     socket: wsInstance.current,
-    clearLatestWorkoutPlan: () => setLatestWorkoutPlan(null)
+    clearLatestWorkoutPlan: () => setLatestWorkoutPlan(null),
+    latestFeedbackAnalysis,
+    setLatestFeedbackAnalysis: (feedbackData) => {
+      if (mountedRef.current) {
+        setLatestFeedbackAnalysis(feedbackData);
+      }
+    }
   };
 
   return (

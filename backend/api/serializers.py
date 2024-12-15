@@ -11,8 +11,13 @@ from rest_framework.validators import UniqueValidator
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError
 from datetime import timedelta
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 UserModel = get_user_model()
+
 
 class NullableIntegerField(serializers.IntegerField):
     def to_internal_value(self, data):
@@ -141,40 +146,55 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ExerciseSerializer(serializers.ModelSerializer):
+    instructions = serializers.JSONField(required=False)
+    sets = serializers.IntegerField(required=False)
+    reps = serializers.IntegerField(required=False)
+    weight = serializers.FloatField(required=False)
+    rest_time = serializers.IntegerField(required=False)
+    duration = serializers.CharField(required=False)
+    intensity = serializers.CharField(required=False)
+    exercise_type = serializers.CharField(required=False)
+    tracking_type = serializers.CharField(required=False)
     video_id = serializers.SerializerMethodField()
-    videoId = serializers.SerializerMethodField()
-
+    thumbnail_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = Exercise
-        fields = ['id', 'name', 'description', 'video_url', 'videoId', 'video_id', 'exercise_type']
-        extra_kwargs = {
-            'description': {'required': False, 'allow_null': True},
-            'video_url': {'required': False, 'allow_null': True},
-            'exercise_type': {'required': False},
-        }
+        fields = ['id', 'name', 'description', 'instructions', 'sets', 'reps', 
+                 'weight', 'rest_time', 'duration', 'intensity', 'exercise_type', 
+                 'tracking_type', 'muscle_group', 'video_id',
+                 'thumbnail_url', 'video_url']
 
     def get_video_id(self, obj):
-        return obj.get_cached_video_id()
+        if hasattr(obj, 'videoId') and obj.videoId:
+            return obj.videoId
+        elif hasattr(obj, 'video_url') and obj.video_url:
+            try:
+                return obj.extract_youtube_id(obj.video_url)
+            except:
+                return None
+        return None
 
-    def get_videoId(self, obj):
-        return self.get_video_id(obj)
+    def get_thumbnail_url(self, obj):
+        video_id = self.get_video_id(obj)
+        if video_id:
+            return f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Ensure instructions is properly parsed from JSON if stored as string
+        if isinstance(data.get('instructions'), str):
+            try:
+                data['instructions'] = json.loads(data['instructions'])
+            except (json.JSONDecodeError, TypeError):
+                data['instructions'] = {'steps': [data.get('instructions', '')]}
+        return data
 
 
-class NestedExerciseSerializer(serializers.Serializer):
-    id = serializers.IntegerField(required=False)
-    name = serializers.CharField(required=True)
-    setsReps = serializers.CharField(required=False, allow_blank=True)
-    equipment = serializers.CharField(required=False, allow_blank=True)
-    instructions = serializers.CharField(required=False, allow_blank=True)
-    videoId = serializers.CharField(required=False, allow_blank=True)
-    description = serializers.DictField(required=False, allow_null=True)
-    video_url = serializers.URLField(required=False, allow_null=True)
-    exercise_type = serializers.CharField(required=False, allow_blank=True)
-    tracking_type = serializers.CharField(required=False, allow_blank=True)
-    sets = serializers.CharField(required=False, allow_blank=True)
-    reps = serializers.CharField(required=False, allow_blank=True)
-    weight = serializers.CharField(required=False, allow_blank=True)
-    rest_time = serializers.CharField(required=False, allow_blank=True)
+class NestedExerciseSerializer(ExerciseSerializer):
+    class Meta(ExerciseSerializer.Meta):
+        fields = ExerciseSerializer.Meta.fields
 
 
 class WorkoutPlanSerializer(serializers.ModelSerializer):
@@ -198,36 +218,101 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
         Extracts 'workoutDays' from the 'plan_data' JSONField.
         Returns a list of workout days with exercises.
         """
-        workout_days_data = obj.plan_data.get('workoutDays', [])
-        serialized_workout_days = []
-        for day in workout_days_data:
-            exercises = day.get('exercises', [])
-            serialized_exercises = NestedExerciseSerializer(exercises, many=True).data
-            day_type = day.get('type', 'workout')
-            serialized_day = {
-                'day': day.get('day', ''),
-                'type': day_type,
-                'workout_type': day.get('workout_type', ''),
-                'duration': day.get('duration', '') if day_type in ['workout', 'active_recovery'] else '',
-                'exercises': serialized_exercises if day_type in ['workout', 'active_recovery'] else [],
-                'notes': day.get('notes', '') if day_type == 'rest' else '',
-            }
-            serialized_workout_days.append(serialized_day)
-        return serialized_workout_days
+        try:
+            plan_data = obj.plan_data
+            if isinstance(plan_data, str):
+                plan_data = json.loads(plan_data)
+            
+            workout_days_data = plan_data.get('workoutDays', [])
+            serialized_workout_days = []
+            
+            for day in workout_days_data:
+                exercises = day.get('exercises', [])
+                serialized_exercises = []
+                
+                for exercise in exercises:
+                    # Get or create Exercise instance to access video methods
+                    exercise_obj = Exercise.objects.filter(name__iexact=exercise.get('name', '')).first()
+                    
+                    # Process instructions
+                    instructions = exercise.get('instructions', {})
+                    if isinstance(instructions, str):
+                        try:
+                            instructions = json.loads(instructions)
+                        except json.JSONDecodeError:
+                            instructions = {'steps': [instructions]}
+                    
+                    # Format instructions properly
+                    formatted_instructions = {
+                        'setup': instructions.get('setup', ''),
+                        'execution': instructions.get('execution', []),
+                        'form_tips': instructions.get('form_tips', [])
+                    }
+                    
+                    processed_exercise = {
+                        'name': exercise.get('name', ''),
+                        'exercise_type': exercise.get('exercise_type', exercise.get('type', 'strength')),
+                        'tracking_type': exercise.get('tracking_type', 'reps_based'),
+                        'sets': exercise.get('sets', 3),
+                        'reps': exercise.get('reps', 10),
+                        'weight': exercise.get('weight', 0),
+                        'rest_time': exercise.get('rest_time', 60),
+                        'duration': exercise.get('duration', '30 minutes'),
+                        'intensity': exercise.get('intensity', 'moderate'),
+                        'instructions': formatted_instructions,
+                        'muscle_group': exercise.get('muscle_group', '')
+                    }
+                    
+                    # Add video information if exercise exists in database
+                    if exercise_obj:
+                        video_id = None
+                        if hasattr(exercise_obj, 'videoId') and exercise_obj.videoId:
+                            video_id = exercise_obj.videoId
+                        elif hasattr(exercise_obj, 'video_url') and exercise_obj.video_url:
+                            try:
+                                video_id = exercise_obj.extract_youtube_id(exercise_obj.video_url)
+                            except:
+                                pass
+                        
+                        if video_id:
+                            processed_exercise.update({
+                                'video_id': video_id,
+                                'video_url': exercise_obj.video_url,
+                                'thumbnail_url': f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+                            })
+                    
+                    serialized_exercises.append(processed_exercise)
+                
+                day_type = day.get('type', 'workout')
+                serialized_day = {
+                    'day': day.get('day', ''),
+                    'type': day_type,
+                    'workout_type': day.get('workout_type', ''),
+                    'duration': day.get('duration', '') if day_type in ['workout', 'active_recovery'] else '',
+                    'exercises': serialized_exercises if day_type in ['workout', 'active_recovery'] else [],
+                    'notes': day.get('notes', '') if day_type == 'rest' else '',
+                }
+                serialized_workout_days.append(serialized_day)
+                
+            return serialized_workout_days
+        except Exception as e:
+            logger.error(f"Error processing workout days: {str(e)}")
+            return []
 
     def get_additionalTips(self, obj):
         """
         Extracts 'additionalTips' from the 'plan_data' JSONField.
         Returns a list of tips.
         """
-        return obj.plan_data.get('additionalTips', [])
-    
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        # Capitalize 'workout_type' if necessary
-        if 'workout_type' in representation and representation['workout_type']:
-            representation['workout_type'] = representation['workout_type'].capitalize()
-        return representation
+        try:
+            plan_data = obj.plan_data
+            if isinstance(plan_data, str):
+                plan_data = json.loads(plan_data)
+            return plan_data.get('additionalTips', [])
+        except Exception as e:
+            logger.error(f"Error processing additional tips: {str(e)}")
+            return []
+
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     class Meta:
@@ -413,7 +498,6 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         required=True,
         help_text="Primary key of the associated WorkoutPlan."
     )
-    workout_type = serializers.ChoiceField(choices=TrainingSession.WORKOUT_TYPE_CHOICES)
     emoji_feedback = serializers.ChoiceField(
         choices=TrainingSession.EMOJI_FEEDBACK_CHOICES, 
         required=False
@@ -448,7 +532,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         allow_null=True, 
         help_text="Maximum heart rate reached during the workout."
     )
-    source = serializers.CharField(required=False)  
+    source = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = TrainingSession
@@ -516,34 +600,16 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        """Create a new training session with exercises."""
-        # Get the user from the context
-        user = self.context['request'].user
         exercises_data = validated_data.pop('training_session_exercises', [])
-        source = validated_data.pop('source', 'completed')  
+        # Remove source field as it's not part of the model
+        validated_data.pop('source', None)
+        training_session = TrainingSession.objects.create(**validated_data)
 
-        # Create the training session with the user and source
-        training_session = TrainingSession.objects.create(
-            user=user,
-            source=source,  
-            **validated_data
-        )
-
-        # Create exercises for the training session
         for exercise_data in exercises_data:
-            exercise = exercise_data.pop('exercise')
-            exercise_instance = TrainingSessionExercise.objects.create(
+            TrainingSessionExercise.objects.create(
                 training_session=training_session,
-                exercise=exercise,
                 **exercise_data
             )
-            
-            # For cardio workouts, copy the exercise duration to the session's time field
-            if (training_session.workout_type.lower() in ['cardio', 'light cardio'] and 
-                exercise_instance.duration and 
-                not training_session.time):
-                training_session.time = exercise_instance.duration
-                training_session.save()
 
         return training_session
 

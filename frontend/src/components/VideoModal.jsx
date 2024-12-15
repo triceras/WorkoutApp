@@ -2,11 +2,14 @@
 
 import React from 'react';
 import Modal from 'react-modal';
+import PropTypes from 'prop-types';
 import './VideoModal.css';
 
 Modal.setAppElement('#root'); // Important for accessibility
 
 const VideoModal = ({ isOpen, onRequestClose, videoId }) => {
+    if (!videoId) return null;
+    
     return (
         <Modal
             isOpen={isOpen}
@@ -14,6 +17,8 @@ const VideoModal = ({ isOpen, onRequestClose, videoId }) => {
             contentLabel="Exercise Video"
             className="video-modal"
             overlayClassName="video-overlay"
+            shouldCloseOnOverlayClick={true}
+            shouldCloseOnEsc={true}
         >
             <button onClick={onRequestClose} className="close-button">&times;</button>
             <div className="video-container">
@@ -29,6 +34,12 @@ const VideoModal = ({ isOpen, onRequestClose, videoId }) => {
             </div>
         </Modal>
     );
+};
+
+VideoModal.propTypes = {
+    isOpen: PropTypes.bool.isRequired,
+    onRequestClose: PropTypes.func.isRequired,
+    videoId: PropTypes.string
 };
 
 export default VideoModal;

@@ -56,70 +56,33 @@ function WorkoutPlan() {
   }, []);
 
   useEffect(() => {
-    if (!fullWeeklyPlan || fullWeeklyPlan.length === 0) {
-      console.error('Full weekly plan is empty or undefined.');
-      setError('Weekly workout plan is unavailable.');
-      return;
-    }
-
-    const todayWeekday = DateTime.local().weekday;
-    const todayPlan = fullWeeklyPlan.find((day) => day.dayNumber === todayWeekday);
-    
-    if (todayPlan) {
-      console.log('Original todayPlan:', todayPlan);
-      console.log('Original exercise data:', todayPlan.exercises);
-
-      const processedPlan = {
-        ...todayPlan,
-        exercises: todayPlan.exercises?.map((exercise) => {
-          console.log('Processing exercise:', exercise);
-          
-          const isActiveRecovery = todayPlan.type === 'active_recovery';
-          const isCardioDay = todayPlan.workout_type?.toLowerCase().includes('cardio');
-          const isCardioExercise = exercise.exercise_type === 'cardio' || 
-                                 exercise.name?.toLowerCase().includes('jogging') || 
-                                 exercise.name?.toLowerCase().includes('running');
-          const isTimeBasedExercise = exercise.tracking_type === 'time_based';
-
-          const processedExercise = {
-            ...exercise,
-            workout_type: todayPlan.workout_type,
-            type: todayPlan.type,
-            // Only modify if it's explicitly a cardio exercise
-            ...(isCardioExercise ? {
-              tracking_type: 'time_based',
-              exercise_type: 'cardio',
-              duration: todayPlan.duration,
-              intensity: 'low'
-            } : {
-              // Preserve original exercise properties
-              tracking_type: exercise.tracking_type || 'weight_based',
-              exercise_type: exercise.exercise_type || 'strength'
-            })
-          };
-
-          console.log('Processed exercise:', processedExercise);
-          return processedExercise;
-        }) || []
+    if (fullWeeklyPlan.length > 0) {
+      // Get current day of week (1-7, where 1 is Monday)
+      const today = DateTime.now().weekday;
+      
+      // Map weekday number to name
+      const weekdayNames = {
+        1: 'Monday',
+        2: 'Tuesday',
+        3: 'Wednesday',
+        4: 'Thursday',
+        5: 'Friday',
+        6: 'Saturday',
+        7: 'Sunday'
       };
-
-      console.log('Final processed plan:', processedPlan);
-
-      if (processedPlan.type === 'workout') {
-        setTodayWorkout(processedPlan);
-        setIsRestDay(false);
-      } else if (processedPlan.type === 'rest' || processedPlan.type === 'active_recovery') {
-        setTodayWorkout(processedPlan);
-        setIsRestDay(processedPlan.type === 'rest');
+      
+      const todayName = weekdayNames[today];
+      
+      // Find today's workout
+      const todaysWorkout = fullWeeklyPlan.find(day => day.day === todayName);
+      
+      if (todaysWorkout) {
+        setTodayWorkout(todaysWorkout);
+        setIsRestDay(todaysWorkout.type === 'rest');
       } else {
         setTodayWorkout(null);
         setIsRestDay(true);
       }
-      setError(null);
-    } else {
-      setTodayWorkout(null);
-      setIsRestDay(true);
-      setError(null);
     }
   }, [fullWeeklyPlan]);
 

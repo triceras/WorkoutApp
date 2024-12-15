@@ -5,16 +5,13 @@ import {
   CardContent,
   Grid,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  List,
+  ListItem,
+  ListItemText,
   Paper,
   Chip,
-  IconButton,
-  Tooltip,
+  CircularProgress,
+  alpha
 } from '@mui/material';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -38,7 +35,19 @@ const MetricCard = ({ title, value, icon }) => (
 );
 
 const ProgressionMetrics = () => {
-  const [trainingSessions, setTrainingSessions] = useState([]);
+  const [metrics, setMetrics] = useState({
+    totalSessions: 0,
+    recentSessions: 0,
+    totalDuration: 0,
+    averageDuration: 0,
+    totalCalories: 0,
+    workoutTypes: {},
+    strengthProgress: {},
+    cardioProgress: {},
+    completionRate: 0,
+    averageRating: 0,
+    sessions: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -46,148 +55,211 @@ const ProgressionMetrics = () => {
     try {
       setLoading(true);
       setError(null);
+      
       const response = await axiosInstance.get('user/progression/');
+      const data = response.data;
       
-      if (!response.data) {
-        throw new Error('No data received from server');
+      if (data) {
+        setMetrics({
+          totalSessions: data.total_sessions || 0,
+          recentSessions: data.recent_sessions || 0,
+          totalDuration: data.total_duration || 0,
+          averageDuration: data.avg_duration || 0,
+          totalCalories: data.total_calories || 0,
+          workoutTypes: data.workout_types || {},
+          strengthProgress: data.strength_progress || {},
+          cardioProgress: data.cardio_progress || {},
+          completionRate: ((data.recent_sessions || 0) / 30 * 100).toFixed(0),
+          averageRating: 0,
+          sessions: data.sessions || []
+        });
       }
-
-      const { training_sessions } = response.data;
-      
-      if (!Array.isArray(training_sessions)) {
-        throw new Error('Invalid training sessions data');
-      }
-      
-      const completedSessions = training_sessions
-        .filter(session => session.source === 'completed')
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
-      
-      setTrainingSessions(completedSessions);
     } catch (err) {
-      setError('Failed to load progression metrics');
-      console.error('Error fetching progression metrics:', err);
+      console.error('Error fetching metrics:', err);
+      setError('Unable to fetch progress data. Please try again later.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshMetrics = () => {
+    fetchMetrics();
   };
 
   useEffect(() => {
     fetchMetrics();
   }, []);
 
-  const getWorkoutTypeColor = (type) => {
-    const colors = {
-      'Light Cardio': '#4caf50',
-      'Cardio': '#2196f3',
-      'Strength': '#ff9800',
-      'HIIT': '#f44336',
+  useEffect(() => {
+    const handleSessionLogged = () => {
+      refreshMetrics();
     };
-    return colors[type] || '#757575';
+
+    window.addEventListener('session-logged', handleSessionLogged);
+    return () => {
+      window.removeEventListener('session-logged', handleSessionLogged);
+    };
+  }, []);
+
+  const renderSessionExercises = (session) => {
+    if (!session.exercises || session.exercises.length === 0) {
+      return <Typography color="text.secondary">No exercises recorded</Typography>;
+    }
+
+    return (
+      <List dense>
+        {session.exercises.map((exercise, index) => {
+          const isCardio = exercise.exercise_type === 'cardio' || 
+                          exercise.exercise_name.toLowerCase().includes('cardio') ||
+                          exercise.exercise_name.toLowerCase().includes('bike');
+          
+          let details = '';
+          if (isCardio) {
+            details = `duration: ${exercise.duration} mins`;
+            if (exercise.intensity) {
+              details += ` • ${exercise.intensity} intensity`;
+            }
+          } else {
+            if (exercise.sets && exercise.reps) {
+              details = `sets: ${exercise.sets}, reps: ${exercise.reps}`;
+              if (exercise.weight) {
+                details += ` @ ${exercise.weight}kg`;
+              }
+            }
+          }
+
+          return (
+            <ListItem key={index}>
+              <ListItemText
+                primary={exercise.exercise_name}
+                secondary={
+                  <Typography variant="body2" color="text.secondary">
+                    {details}
+                  </Typography>
+                }
+              />
+            </ListItem>
+          );
+        })}
+      </List>
+    );
   };
 
-  const getEmojiForRating = (rating) => {
-    const emojis = {
-      1: '😢',
-      2: '😕',
-      3: '😐',
-      4: '🙂',
-      5: '😄'
-    };
-    return emojis[rating] || 'N/A';
-  };
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-  const averageRating = trainingSessions.length > 0
-    ? trainingSessions.reduce((acc, session) => acc + (session.emoji_feedback || 0), 0) / trainingSessions.length
-    : 'N/A';
+  if (error) {
+    return (
+      <Box 
+        display="flex" 
+        justifyContent="center" 
+        alignItems="center" 
+        minHeight="200px"
+        color="error.main"
+      >
+        <Typography>{error}</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ width: '100%', p: 3 }}>
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={4}>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Your Progress
+      </Typography>
+      
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={4}>
           <MetricCard
             title="Total Sessions"
-            value={trainingSessions.length}
-            icon={<FitnessCenterIcon sx={{ color: '#1976d2' }} />}
+            value={metrics.totalSessions}
+            icon={<FitnessCenterIcon color="primary" />}
           />
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <MetricCard
-            title="Average Rating"
-            value={typeof averageRating === 'number' ? averageRating.toFixed(1) : 'N/A'}
-            icon={<TrendingUpIcon sx={{ color: '#4caf50' }} />}
+            title="Recent Sessions (30 days)"
+            value={metrics.recentSessions}
+            icon={<TrendingUpIcon color="secondary" />}
           />
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <MetricCard
-            title="Feedback Count"
-            value={trainingSessions.filter(s => s.emoji_feedback !== null).length}
-            icon={<EmojiEventsIcon sx={{ color: '#ff9800' }} />}
+            title="Completion Rate"
+            value={`${metrics.completionRate}%`}
+            icon={<EmojiEventsIcon sx={{ color: 'success.main' }} />}
           />
         </Grid>
       </Grid>
 
-      <Typography variant="h5" component="h2" mb={3} fontWeight="medium">
-        Training Sessions History
-      </Typography>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Workout Statistics
+              </Typography>
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body1">
+                  Total Duration: {Math.round(metrics.totalDuration)} minutes
+                </Typography>
+                <Typography variant="body1">
+                  Average Duration: {metrics.averageDuration} minutes
+                </Typography>
+                <Typography variant="body1">
+                  Total Calories: {metrics.totalCalories} kcal
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
 
-      <TableContainer component={Paper} sx={{ boxShadow: 2 }}>
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead>
-            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-              <TableCell>Date</TableCell>
-              <TableCell>Workout Type</TableCell>
-              <TableCell>Exercise</TableCell>
-              <TableCell>Duration</TableCell>
-              <TableCell>Rating</TableCell>
-              <TableCell>Comments</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {trainingSessions.map((session) => (
-              <TableRow 
-                key={session.id}
-                sx={{ '&:hover': { bgcolor: '#fafafa' } }}
-              >
-                <TableCell>
-                  {new Date(session.date).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Workout Types
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+                {Object.entries(metrics.workoutTypes).map(([type, count]) => (
                   <Chip
-                    label={session.workout_type}
-                    size="small"
-                    sx={{
-                      bgcolor: getWorkoutTypeColor(session.workout_type),
-                      color: 'white',
-                    }}
+                    key={type}
+                    label={`${type}: ${count}`}
+                    color="primary"
+                    variant="outlined"
                   />
-                </TableCell>
-                <TableCell>
-                  {session.exercises?.map((exercise, index) => (
-                    <div key={index}>
-                      {exercise.exercise_name}
-                    </div>
-                  ))}
-                </TableCell>
-                <TableCell>
-                  {session.workout_type.toLowerCase().includes('cardio') ? 
-                    `${session.time || session.duration || 'N/A'} min` : 
-                    `${session.duration || 'N/A'} min`}
-                </TableCell>
-                <TableCell>
-                  <Tooltip title={`Rating: ${session.emoji_feedback || 'N/A'}`}>
-                    <span style={{ fontSize: '1.2rem' }}>
-                      {session.emoji_feedback !== null ? getEmojiForRating(session.emoji_feedback) : 'N/A'}
-                    </span>
-                  </Tooltip>
-                </TableCell>
-                <TableCell>
-                  {session.comments || 'No comments'}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Typography variant="h6" component="h2" sx={{ mt: 4, mb: 2 }}>
+        Recent Training Sessions
+      </Typography>
+      
+      {metrics.sessions.map((session, index) => (
+        <Card key={index} sx={{ mb: 2, bgcolor: '#f8f9fa' }}>
+          <CardContent>
+            <Typography variant="h6" component="div">
+              {session.session_name || `Day ${session.week_number}: Workout`} - {new Date(session.date).toLocaleTimeString()}
+            </Typography>
+            <Typography color="text.secondary" gutterBottom>
+              Date: {new Date(session.date).toLocaleDateString()}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1, mb: 2 }}>
+              Exercises:
+            </Typography>
+            {renderSessionExercises(session)}
+          </CardContent>
+        </Card>
+      ))}
     </Box>
   );
 };

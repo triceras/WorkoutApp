@@ -14,11 +14,29 @@ import {
 import VideoModal from './VideoModal';
 import ExerciseCard from './ExerciseCard';
 
-function WorkoutCard({ workouts, userName }) {
+const WorkoutCard = ({ workouts = [] }) => {
+  console.log('WorkoutCard received workouts:', workouts);
+
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState(null);
 
+  const getWorkoutTypeIcon = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'strength':
+        return '🏋️';
+      case 'cardio':
+        return '🏃';
+      case 'hiit':
+        return '⚡';
+      case 'flexibility':
+        return '🧘';
+      default:
+        return '💪';
+    }
+  };
+
   const openVideoModal = (videoId) => {
+    if (!videoId) return;
     setCurrentVideoId(videoId);
     setModalIsOpen(true);
   };
@@ -35,23 +53,6 @@ function WorkoutCard({ workouts, userName }) {
       </Typography>
     );
   }
-
-  const getWorkoutTypeIcon = (type) => {
-    switch (type?.toLowerCase()) {
-      case 'legs':
-        return '💪';
-      case 'arms':
-        return '🦾';
-      case 'chest':
-        return '🏋️‍♂️';
-      case 'back':
-        return '🏋️‍♀️';
-      case 'cardio':
-        return '🏃‍♂️';
-      default:
-        return '🏋️';
-    }
-  };
 
   return (
     <div>
@@ -142,73 +143,27 @@ function WorkoutCard({ workouts, userName }) {
 
       <Grid container spacing={3}>
         {workouts.map((exercise, index) => {
-          if (exercise.type === 'rest') {
-            return (
-              <Grid item xs={12} key={index}>
-                <Paper 
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    bgcolor: '#e8f5e9',
-                    border: '1px solid #81c784',
-                    borderRadius: 2,
-                    textAlign: 'center'
-                  }}
-                >
-                  <Typography variant="h6" color="#2e7d32" gutterBottom>
-                    Rest Day
-                  </Typography>
-                  {exercise.suggested_activities && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="subtitle2" color="#1b5e20" gutterBottom>
-                        Suggested Activities:
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                        {exercise.suggested_activities.map((activity, idx) => (
-                          <Chip 
-                            key={idx}
-                            label={activity}
-                            size="small"
-                            sx={{ 
-                              bgcolor: '#c8e6c9',
-                              color: '#1b5e20',
-                              '&:hover': { bgcolor: '#a5d6a7' }
-                            }}
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-            );
-          }
+          const isCardio = exercise.exercise_type === 'cardio' || exercise.type === 'cardio';
+          const exerciseData = {
+            ...exercise,
+            // For cardio exercises
+            ...(isCardio ? {
+              duration: exercise.duration || '30',
+              intensity: exercise.intensity || 'Moderate',
+              exercise_type: 'cardio'
+            } : {
+              // For strength exercises
+              sets: exercise.sets || '3',
+              reps: exercise.reps || '12',
+              weight: exercise.weight || 'bodyweight',
+              exercise_type: 'strength'
+            })
+          };
 
           return (
             <Grid item xs={12} sm={6} md={4} key={exercise.id || index}>
-              <ExerciseCard 
-                exercise={{
-                  ...exercise,
-                  type: exercise.exercise_type || exercise.type,
-                  tracking_type: exercise.tracking_type || 'weight_based',
-                  instructions: typeof exercise.instructions === 'string' 
-                    ? exercise.instructions  
-                    : exercise.instructions 
-                    ? {
-                        setup: exercise.instructions.setup || '',
-                        execution: Array.isArray(exercise.instructions.execution) 
-                          ? exercise.instructions.execution 
-                          : typeof exercise.instructions.execution === 'string'
-                          ? [exercise.instructions.execution]
-                          : [],
-                        form_tips: Array.isArray(exercise.instructions.form_tips)
-                          ? exercise.instructions.form_tips
-                          : typeof exercise.instructions.form_tips === 'string'
-                          ? [exercise.instructions.form_tips]
-                          : []
-                      }
-                    : null
-                }} 
+              <ExerciseCard
+                exercise={exerciseData}
                 openVideoModal={openVideoModal}
               />
             </Grid>
@@ -218,13 +173,12 @@ function WorkoutCard({ workouts, userName }) {
 
       <VideoModal
         isOpen={modalIsOpen}
-        onRequestClose={closeVideoModal}
-        contentLabel="Watch Video"
         videoId={currentVideoId}
+        onRequestClose={closeVideoModal}
       />
     </div>
   );
-}
+};
 
 WorkoutCard.propTypes = {
   workouts: PropTypes.arrayOf(
@@ -257,10 +211,12 @@ WorkoutCard.propTypes = {
         })
       ]),
       videoId: PropTypes.string,
+      video_id: PropTypes.string,
       suggested_activities: PropTypes.arrayOf(PropTypes.string)
     })
   ),
-  userName: PropTypes.string.isRequired
+  userName: PropTypes.string.isRequired,
+  openVideoModal: PropTypes.func.isRequired
 };
 
 export default WorkoutCard;

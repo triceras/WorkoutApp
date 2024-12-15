@@ -6,7 +6,6 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.cache import cache
 from django.db import IntegrityError
-from .models import YouTubeVideo  # Ensure you have this model defined
 import logging
 from channels.layers import get_channel_layer
 import re
@@ -14,6 +13,8 @@ import ssl
 from threading import Semaphore
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from asgiref.sync import async_to_sync
+import time
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ EXERCISE_NAME_MAPPING = {
     "push-ups": "push-up",
     
     # Squats
-    "squat": "squat",  # Keep as simple squat
+    "squat": "squat",
     "squats": "squat",
     "barbell squat": "barbellsquats",
     "barbell squats": "barbellsquats",
@@ -69,6 +70,10 @@ EXERCISE_NAME_MAPPING = {
     "shoulder press": "shoulderpress",
     "overhead press": "shoulderpress",
     "military press": "shoulderpress",
+    "lateral raises": "lateralraises",
+    "lateral raise": "lateralraises",
+    "side raises": "lateralraises",
+    "side raise": "lateralraises",
     
     # Legs
     "deadlift": "deadlifts",
@@ -165,84 +170,84 @@ def get_video_id(exercise_name):
     """
     Synchronously fetch the video ID for an exercise from the database, cache, or YouTube API.
     """
-    logger.info(f"Getting video ID for exercise: {exercise_name}")
+    from .models import YouTubeVideo  # Import here to avoid circular imports
     
-    # First standardize the exercise name
-    standardized_name = standardize_exercise_name(exercise_name)
-    logger.info(f"Standardized exercise name: {standardized_name}")
-    
-    # Try to get from cache first
-    cache_key = f"exercise_video_{standardized_name}"
-    cached_data = cache.get(cache_key)
-    
-    if cached_data:
-        logger.info(f"Found cached video ID for {standardized_name}: {cached_data}")
-        return cached_data
-        
-    try:
-        # Try to get from database
-        video = YouTubeVideo.objects.filter(exercise_name=standardized_name).first()
-        if video:
-            logger.info(f"Found video ID in database for {standardized_name}: {video.video_id}")
-            # Cache the result
-            cache.set(cache_key, video.video_id, CACHE_TTL)
-            return video.video_id
-            
-        # If not in database, fetch from YouTube API
-        logger.info(f"Fetching video from YouTube API for {standardized_name}")
-        video_data = get_youtube_video(standardized_name)
-        if video_data:
-            logger.info(f"Got video data from API: {video_data}")
-            return video_data.get('video_id')
-            
-    except Exception as e:
-        logger.error(f"Error getting video ID for {standardized_name}: {str(e)}")
-        
-    return None
+    standard_name = standardize_exercise_name(exercise_name)
 
-def get_cached_youtube_video(video_id):
-    """
-    Retrieves cached YouTube video data from the cache.
-    """
-    cache_key = f'youtube_video_{video_id}'
+    # First, check the database
+    try:
+        video = YouTubeVideo.objects.get(exercise_name=standard_name)
+        logger.info(f"Retrieved video for '{standard_name}' from database.")
+        return standard_name, video.video_id
+    except YouTubeVideo.DoesNotExist:
+        logger.info(f"Video for '{standard_name}' not found in database. Checking cache.")
+
+    # Then check the cache
+    cache_key = f'youtube_video_{standard_name}'
     video_data = cache.get(cache_key)
+
     if video_data:
-        logger.info(f"Retrieved video ID {video_id} from cache.")
-        return video_data
-    logger.info(f"Video ID {video_id} not found in cache.")
-    return None
+        logger.info(f"Retrieved video for '{standard_name}' from cache.")
+        return standard_name, video_data.get('video_id')
+
+    logger.info(f"Cache MISS for '{standard_name}'. Making API call.")
+
+    # Proceed with API call
+    video_data = fetch_youtube_video_from_api(exercise_name)
+    if video_data:
+        # Save to cache
+        cache.set(cache_key, video_data, CACHE_TTL)
+        logger.info(f"Cached video for '{standard_name}' with video ID '{video_data['video_id']}'.")
+
+        # Save to database
+        video_data['exercise_name'] = standard_name  # Add exercise name to video data
+        cache_youtube_video(video_data)  # Use the cache function to save to DB
+        logger.info(f"Saved video for '{standard_name}' to the database.")
+
+        return standard_name, video_data['video_id']
+    else:
+        logger.warning(f"No video found for '{exercise_name}'.")
+        return standard_name, None
 
 def cache_youtube_video(video_data):
     """
     Caches YouTube video data both in the cache and the database.
     """
+    from .models import YouTubeVideo  # Import here to avoid circular imports
+    
     if not video_data:
-        return
+        return None
+
     cache_key = f'youtube_video_{video_data["video_id"]}'
     cache.set(cache_key, video_data, CACHE_TTL)
     logger.info(f"Cached video ID {video_data['video_id']} with TTL of 24 hours.")
     
-    # Save to the database
     try:
-        YouTubeVideo.objects.update_or_create(
+        video, created = YouTubeVideo.objects.get_or_create(
             video_id=video_data['video_id'],
             defaults={
-                'title': video_data['title'],
-                'thumbnail_url': video_data['thumbnail_url'],
-                'video_url': video_data['video_url'],
-                'cached_at': video_data['cached_at']
+                'exercise_name': video_data.get('exercise_name', ''),
+                'title': video_data.get('title', ''),
+                'thumbnail_url': video_data.get('thumbnail_url', ''),
+                'video_url': video_data.get('video_url', '')
             }
         )
-        logger.info(f"Saved video ID {video_data['video_id']} to the database.")
-    except IntegrityError as e:
-        logger.error(f"Database error while saving video ID {video_data['video_id']}: {e}", exc_info=True)
-
-
+        
+        if not created and video.exercise_name != video_data.get('exercise_name'):
+            video.exercise_name = video_data['exercise_name']
+            video.save()
+            
+        return video_data
+    except Exception as e:
+        logger.error(f"Error caching video data: {str(e)}")
+        return None
 
 def get_youtube_video(query):
     """
     Retrieves YouTube video data for a given query from the database, cache, or API.
     """
+    from .models import YouTubeVideo  # Import here to avoid circular imports
+    
     standard_name = standardize_exercise_name(query)
     logger.info(f"Looking for video data for '{standard_name}'")
 
@@ -252,6 +257,7 @@ def get_youtube_video(query):
         logger.info(f"Retrieved video for '{standard_name}' from database.")
         return {
             'video_id': video.video_id,
+            'exercise_name': standard_name,
             'title': video.title,
             'thumbnail_url': video.thumbnail_url,
             'video_url': video.video_url,
@@ -297,6 +303,74 @@ def get_youtube_video(query):
         logger.warning(f"Failed to retrieve video data for '{standard_name}' from YouTube API.")
         return None
 
+
+def get_video_data_by_id(video_id):
+    """
+    Retrieves video data for a given video_id, checking cache and database before making an API call.
+    """
+    if not video_id:
+        return None
+
+    # Try to get from cache first
+    cache_key = f'youtube_video_data_{video_id}'
+    video_data = cache.get(cache_key)
+    if video_data:
+        logger.info(f"Retrieved video data for ID '{video_id}' from cache.")
+        return video_data
+
+    try:
+        # Get from database, using first() instead of get() to handle duplicates
+        video = YouTubeVideo.objects.filter(video_id=video_id).order_by('-cached_at').first()
+        if video:
+            video_data = {
+                'video_id': video.video_id,
+                'title': video.title,
+                'thumbnail_url': video.thumbnail_url,
+                'video_url': video.video_url,
+                'cached_at': video.cached_at
+            }
+            # Cache the result
+            cache.set(cache_key, video_data, timeout=CACHE_TTL)
+            logger.info(f"Retrieved video data for ID '{video_id}' from database.")
+            return video_data
+
+        # If not in database, fetch from YouTube API
+        video_data = fetch_youtube_video_by_id(video_id)
+        if video_data:
+            # Cache the result
+            cache.set(cache_key, video_data, timeout=CACHE_TTL)
+            logger.info(f"Retrieved and cached video data for ID '{video_id}' from YouTube API.")
+            return video_data
+
+    except Exception as e:
+        logger.error(f"Error getting video data for ID '{video_id}': {str(e)}")
+
+    return None
+
+def cache_youtube_video_by_id(video_data):
+    """
+    Caches YouTube video data both in the cache and the database.
+    """
+    if not video_data:
+        return
+    cache_key = f'youtube_video_id_{video_data["video_id"]}'
+    cache.set(cache_key, video_data, CACHE_TTL)
+    logger.info(f"Cached video data for video_id '{video_data["video_id"]}' with TTL of {CACHE_TTL} seconds.")
+
+    # Save to the database
+    try:
+        YouTubeVideo.objects.update_or_create(
+            video_id=video_data['video_id'],
+            defaults={
+                'title': video_data['title'],
+                'thumbnail_url': video_data['thumbnail_url'],
+                'video_url': video_data['video_url'],
+                'cached_at': video_data['cached_at']
+            }
+        )
+        logger.info(f"Saved video data for video_id '{video_data['video_id']}' to the database.")
+    except IntegrityError as e:
+        logger.error(f"Database error while saving video data for video_id '{video_data['video_id']}': {e}", exc_info=True)
 
 def get_youtube_video_id(url):
     """
@@ -381,46 +455,57 @@ def assign_video_ids_to_exercise_list(exercise_list):
     # Process each unique standardized exercise name
     for standardized_name, exercises in exercise_standard_name_map.items():
         # Get video data
-        _, video_id = get_video_id(exercises[0]['name'])  # Use the first original name for API query
+        video_data = get_youtube_video(standardized_name)
+        video_id = video_data.get('video_id') if video_data else None
 
         # Assign video ID to all exercises with this standardized name
         for exercise in exercises:
-            exercise['videoId'] = video_id
-            logger.info(f"Assigned videoId '{video_id}' to exercise '{exercise['name']}'.")
-
+            if video_id:
+                exercise['videoId'] = video_id
+                logger.info(f"Assigned videoId '{video_id}' to exercise '{exercise['name']}'.")
+            else:
+                # Explicitly set to null if no video ID is found
+                exercise['videoId'] = None
+                logger.warning(f"No video ID found for exercise '{exercise['name']}'.")
 
 
 def assign_video_ids_to_exercises(workout_plan_data):
     """
-    Assigns YouTube video IDs to all exercises in the workout plan concurrently with rate limiting.
+    Assigns YouTube video IDs to all exercises in the workout plan.
     """
+    if not workout_plan_data or 'workoutDays' not in workout_plan_data:
+        logger.warning("No workout days found in plan data")
+        return workout_plan_data
+
     all_exercises = []
     for day in workout_plan_data.get('workoutDays', []):
-        exercises = day.get('exercises', [])
-        all_exercises.extend(exercises)
+        if day.get('type') == 'workout':  # Only process workout days
+            exercises = day.get('exercises', [])
+            all_exercises.extend(exercises)
 
-    semaphore = Semaphore(MAX_CONCURRENT_CALLS)
+    # Process exercises in batches to respect rate limits
+    batch_size = MAX_CONCURRENT_CALLS
+    for i in range(0, len(all_exercises), batch_size):
+        batch = all_exercises[i:i + batch_size]
+        assign_video_ids_to_exercise_list(batch)
+        # Add a small delay between batches to respect rate limits
+        if i + batch_size < len(all_exercises):
+            time.sleep(1)  # 1 second delay between batches
 
-    def fetch_and_assign(exercise):
-        with semaphore:
-            try:
-                if 'name' not in exercise:
-                    logger.warning("Exercise name is missing.")
-                    exercise['videoId'] = None
-                    return
+    # Verify all exercises have videoId
+    for day in workout_plan_data.get('workoutDays', []):
+        if day.get('type') == 'workout':
+            for exercise in day.get('exercises', []):
+                if not exercise.get('videoId'):
+                    # Try to get video ID one more time
+                    video_data = get_youtube_video(exercise.get('name', ''))
+                    if video_data and video_data.get('video_id'):
+                        exercise['videoId'] = video_data['video_id']
+                        logger.info(f"Successfully assigned videoId for exercise {exercise.get('name')}")
+                    else:
+                        logger.warning(f"Could not assign videoId for exercise {exercise.get('name')}")
 
-                standardized_name, video_id = get_video_id(exercise['name'])
-                exercise['videoId'] = video_id
-                logger.info(f"Assigned videoId '{video_id}' to exercise '{exercise['name']}'.")
-            except Exception as e:
-                logger.error(f"Error fetching videoId for exercise '{exercise.get('name', 'Unknown')}': {e}", exc_info=True)
-                exercise['videoId'] = None
-
-    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
-        futures = [executor.submit(fetch_and_assign, exercise) for exercise in all_exercises]
-        for future in as_completed(futures):
-            future.result()
-
+    return workout_plan_data
 
 def assign_video_ids_to_session(session_data):
     assign_video_ids_to_exercise_list(session_data.get('exercises', []))
@@ -458,66 +543,3 @@ def fetch_youtube_video_by_id(video_id):
     except requests.RequestException as e:
         logger.error(f"Error fetching YouTube video data for video_id '{video_id}': {e}", exc_info=True)
         return None
-
-def get_video_data_by_id(video_id):
-    """
-    Retrieves video data for a given video_id, checking cache and database before making an API call.
-    """
-    cache_key = f'youtube_video_id_{video_id}'
-    video_data = cache.get(cache_key)
-    if video_data:
-        logger.info(f"Retrieved video data for video_id '{video_id}' from cache.")
-        return video_data
-
-    # Check database
-    try:
-        video = YouTubeVideo.objects.get(video_id=video_id)
-        video_data = {
-            'video_id': video.video_id,
-            'title': video.title,
-            'thumbnail_url': video.thumbnail_url,
-            'video_url': video.video_url,
-            'cached_at': video.cached_at,
-        }
-        cache.set(cache_key, video_data, CACHE_TTL)
-        logger.info(f"Retrieved video data for video_id '{video_id}' from database and cached it.")
-        return video_data
-    except YouTubeVideo.DoesNotExist:
-        logger.info(f"No video found in database for video_id '{video_id}'. Fetching from YouTube API.")
-
-    # Fetch from API
-    video_data = fetch_youtube_video_by_id(video_id)
-    if video_data:
-        # Cache and store in database
-        cache.set(cache_key, video_data, CACHE_TTL)
-        cache_youtube_video_by_id(video_data)
-        logger.info(f"Cached and stored video data for video_id '{video_id}'")
-        return video_data
-    else:
-        logger.warning(f"No video data found for video_id '{video_id}'.")
-        return None
-
-def cache_youtube_video_by_id(video_data):
-    """
-    Caches YouTube video data both in the cache and the database.
-    """
-    if not video_data:
-        return
-    cache_key = f'youtube_video_id_{video_data["video_id"]}'
-    cache.set(cache_key, video_data, CACHE_TTL)
-    logger.info(f"Cached video data for video_id '{video_data["video_id"]}' with TTL of {CACHE_TTL} seconds.")
-
-    # Save to the database
-    try:
-        YouTubeVideo.objects.update_or_create(
-            video_id=video_data['video_id'],
-            defaults={
-                'title': video_data['title'],
-                'thumbnail_url': video_data['thumbnail_url'],
-                'video_url': video_data['video_url'],
-                'cached_at': video_data['cached_at']
-            }
-        )
-        logger.info(f"Saved video data for video_id '{video_data['video_id']}' to the database.")
-    except IntegrityError as e:
-        logger.error(f"Database error while saving video data for video_id '{video_data['video_id']}': {e}", exc_info=True)

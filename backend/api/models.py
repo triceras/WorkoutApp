@@ -9,6 +9,7 @@ from django.dispatch import receiver
 import uuid
 import re
 from django.core.cache import cache
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class User(AbstractUser):
     username = models.CharField(max_length=150, unique=True)
@@ -95,8 +96,21 @@ class Exercise(models.Model):
         ('cardio', 'Cardio'),
     ]
 
+    MUSCLE_GROUP_CHOICES = [
+        ('chest', 'Chest'),
+        ('back', 'Back'),
+        ('shoulders', 'Shoulders'),
+        ('arms', 'Arms'),
+        ('legs', 'Legs'),
+        ('core', 'Core'),
+        ('abs', 'Abs'),
+        ('full_body', 'Full Body'),
+        ('cardio', 'Cardio'),
+    ]
+
     name = models.CharField(max_length=100)
     description = models.JSONField()
+    instructions = models.JSONField(default=dict, help_text="Structured instructions including setup, execution steps, and form tips")
     video_url = models.URLField(null=True, blank=True)
     videoId = models.CharField(max_length=50, null=True, blank=True)
     exercise_type = models.CharField(
@@ -104,6 +118,7 @@ class Exercise(models.Model):
         choices=EXERCISE_TYPE_CHOICES,
         default='strength'
     )
+    muscle_group = models.CharField(max_length=50, choices=MUSCLE_GROUP_CHOICES, default='full_body')
 
     def __str__(self):
         return self.name
@@ -123,38 +138,16 @@ class Exercise(models.Model):
                 return match.group(1)
         return None
 
-    def get_cached_video_id(self):
-        """Get cached video ID or extract from URL if not cached."""
-        from .helpers import get_video_id, standardize_exercise_name
-        
-        # First try to get from videoId field
-        if self.videoId:
-            return self.videoId
-            
-        # Then try to get from YouTubeVideo model
-        try:
-            standardized_name = standardize_exercise_name(self.name)
-            video = YouTubeVideo.objects.get(exercise_name=standardized_name)
-            self.videoId = video.video_id
-            self.save(update_fields=['videoId'])
-            return video.video_id
-        except YouTubeVideo.DoesNotExist:
-            pass
-            
-        # Finally, try to get from video_url
-        if self.video_url:
-            video_id = self.extract_youtube_id(self.video_url)
-            if video_id:
-                self.videoId = video_id
-                self.save(update_fields=['videoId'])
-                return video_id
-                
-        # If all else fails, try to get from the helper function
-        video_id = get_video_id(self.name)
-        if video_id:
-            self.videoId = video_id
-            self.save(update_fields=['videoId'])
-        return video_id
+    def save(self, *args, **kwargs):
+        # Extract and save video ID from URL if URL is provided and no ID exists
+        if self.video_url and not self.videoId:
+            extracted_id = self.extract_youtube_id(self.video_url)
+            if extracted_id:
+                self.videoId = extracted_id
+        # If URL is removed, also remove the video ID
+        elif not self.video_url:
+            self.videoId = None
+        super().save(*args, **kwargs)
 
 class WorkoutPlan(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -193,123 +186,81 @@ class WorkoutSession(models.Model):
         return f"{self.user.username} - {self.date.strftime('%Y-%m-%d %H:%M')}"
 
 class TrainingSession(models.Model):
-    WORKOUT_TYPE_CHOICES = [
-        ('Cardio', 'Cardio'),
-        ('Light Cardio', 'Light Cardio'),
-        ('Strength', 'Strength'),
-        ('Flexibility', 'Flexibility'),
-        ('Balance', 'Balance'),
-        ('Endurance', 'Endurance'),
-        ('Power', 'Power'),
-        ('Speed', 'Speed'),
-        ('Agility', 'Agility'),
-        ('Plyometric', 'Plyometric'),
-        ('Core', 'Core'),
-    ]
-    
+    """Model for training sessions."""
     EMOJI_FEEDBACK_CHOICES = [
-        (0, '😞 Terrible'),
-        (1, '😟 Very Bad'),
-        (2, '😐 Bad'),
-        (3, '🙂 Okay'),
-        (4, '😃 Good'),
-        (5, '😄 Awesome'),
+        ('😀', 'Great'),
+        ('🙂', 'Good'),
+        ('😐', 'Okay'),
+        ('😕', 'Not Good'),
+        ('😞', 'Bad'),
     ]
 
-    SOURCE_CHOICES = [
-        ('scheduled', 'Scheduled'),
-        ('completed', 'Completed'),
-        ('manual', 'Manual'),
-    ]
-
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    date = models.DateField(default=timezone.now)
-    workout_plan = models.ForeignKey('WorkoutPlan', on_delete=models.CASCADE)
-    comments = models.TextField(blank=True, null=True)
-    session_name = models.CharField(max_length=100, blank=True, null=True)
-    week_number = models.PositiveIntegerField(null=True, blank=True)
-    emoji_feedback = models.IntegerField(choices=EMOJI_FEEDBACK_CHOICES, null=True, blank=True)
-    duration = models.PositiveIntegerField(null=True, blank=True)  # in minutes
-    calories_burned = models.PositiveIntegerField(null=True, blank=True)
-    heart_rate_pre = models.PositiveIntegerField(null=True, blank=True)
-    heart_rate_post = models.PositiveIntegerField(null=True, blank=True)
-    
-    # Remove unique_together temporarily
-    # class Meta:
-    #     unique_together = ('user', 'date', 'workout_type')
-
-    # New Field
-    workout_type = models.CharField(max_length=20, choices=WORKOUT_TYPE_CHOICES)
-
-    # New Aerobic Fields
-    time = models.PositiveIntegerField(null=True, blank=True)  # in minutes
-    average_heart_rate = models.PositiveIntegerField(null=True, blank=True)
-    max_heart_rate = models.PositiveIntegerField(null=True, blank=True)
-    intensity = models.CharField(max_length=50, null=True, blank=True)
-    exercises = models.ManyToManyField('Exercise', through='TrainingSessionExercise')
-
-    # Source field to track where the session came from
-    source = models.CharField(
-        max_length=20,
-        choices=SOURCE_CHOICES,
-        default='completed'  # Changed from 'manual' to 'completed'
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    workout_plan = models.ForeignKey(
+        WorkoutPlan,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='training_sessions'
     )
-
-    def save(self, *args, **kwargs):
-        if self.workout_type != 'aerobic':
-            # Clear aerobic-specific fields if workout is not aerobic
-            self.time = None
-            self.average_heart_rate = None
-            self.max_heart_rate = None
-            self.intensity = None
-        super().save(*args, **kwargs)
+    session_name = models.CharField(max_length=255, null=True, blank=True)
+    date = models.DateTimeField()
+    workout_type = models.CharField(max_length=50, blank=True, null=True)
+    duration = models.IntegerField(null=True, blank=True)
+    calories_burned = models.IntegerField(null=True, blank=True)
+    heart_rate_pre = models.IntegerField(null=True, blank=True)
+    heart_rate_post = models.IntegerField(null=True, blank=True)
+    average_heart_rate = models.IntegerField(null=True, blank=True)
+    intensity = models.CharField(max_length=50, null=True, blank=True)
+    feedback_rating = models.IntegerField(null=True, blank=True)
+    emoji_feedback = models.CharField(max_length=2, choices=EMOJI_FEEDBACK_CHOICES, null=True, blank=True)
+    comments = models.TextField(null=True, blank=True)
+    source = models.CharField(max_length=50, default='manual')  # 'manual', 'completed', 'scheduled'
+    is_scheduled = models.BooleanField(default=False)
+    week_number = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"TrainingSession({self.user.username}, {self.date}, {self.workout_type})"
-
-    class Meta:
-        unique_together = ('user', 'date', 'workout_type')
-
-# backend/api/models.py
+        return f"{self.session_name} - {self.date}"
 
 class TrainingSessionExercise(models.Model):
-    training_session = models.ForeignKey(
-        TrainingSession, 
-        on_delete=models.CASCADE, 
-        related_name='training_session_exercises'
-    )
+    training_session = models.ForeignKey(TrainingSession, on_delete=models.CASCADE)
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
-    
-    # Fields for strength exercises
     sets = models.PositiveIntegerField(null=True, blank=True)
     reps = models.PositiveIntegerField(null=True, blank=True)
     weight = models.FloatField(null=True, blank=True)
-    
-    # Fields for cardio exercises
     duration = models.PositiveIntegerField(null=True, blank=True)
     calories_burned = models.PositiveIntegerField(null=True, blank=True)
     average_heart_rate = models.PositiveIntegerField(null=True, blank=True)
     max_heart_rate = models.PositiveIntegerField(null=True, blank=True)
     intensity = models.CharField(
-        max_length=50,
+        max_length=20,
         choices=[('Low', 'Low'), ('Moderate', 'Moderate'), ('High', 'High')],
         null=True,
         blank=True
     )
 
-    class Meta:
-        unique_together = ('training_session', 'exercise')
-
     def __str__(self):
-        return f"{self.exercise.name} - {self.training_session}"
+        return f"{self.exercise.name} in {self.training_session}"
+
+    class Meta:
+        verbose_name = "Training Session Exercise"
+        verbose_name_plural = "Training Session Exercises"
 
 class YouTubeVideo(models.Model):
-    exercise_name = models.CharField(max_length=255, unique=True)
-    video_id = models.CharField(max_length=20)
+    exercise_name = models.CharField(max_length=255)
+    video_id = models.CharField(max_length=20, unique=True)
     title = models.CharField(max_length=255)
     thumbnail_url = models.URLField()
     video_url = models.URLField()
     cached_at = models.DateTimeField(auto_now=True)  # Timestamp for TTL
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['exercise_name']),
+            models.Index(fields=['video_id']),
+        ]
+
     def __str__(self):
-        return self.title
+        return f"{self.exercise_name} - {self.title}"

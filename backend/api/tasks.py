@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from .models import WorkoutPlan, TrainingSession
-from .services import generate_workout_plan, generate_profile_picture
+from .services.workout_plan import generate_workout_plan
+from .services.profile import generate_profile_picture
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
@@ -315,7 +316,7 @@ def generate_profile_picture_task(user_id):
         User = get_user_model()
         user = User.objects.get(id=user_id)
         
-        from .services import generate_profile_picture
+        from .services.profile import generate_profile_picture
         success = generate_profile_picture(user)
         
         if success:
