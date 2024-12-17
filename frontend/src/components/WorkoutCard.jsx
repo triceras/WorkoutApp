@@ -188,7 +188,7 @@ WorkoutCard.propTypes = {
       type: PropTypes.string,
       exercise_type: PropTypes.string,
       tracking_type: PropTypes.string,
-      weight: PropTypes.string,
+      weight: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
       sets: PropTypes.string,
       reps: PropTypes.string,
       duration: PropTypes.string,
