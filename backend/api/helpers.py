@@ -81,6 +81,16 @@ EXERCISE_NAME_MAPPING = {
     "leg press": "legpress",
     "lunge": "lunges",
     "lunges": "lunges",
+    
+    # Cardio exercises
+    "light jogging": "lightjogging",
+    "jogging": "lightjogging",
+    "light jog": "lightjogging",
+    "treadmill jog": "lightjogging",
+    "running": "running",
+    "treadmill run": "running",
+    "sprinting": "sprinting",
+    "sprint": "sprinting",
 }
 
 def standardize_exercise_name(exercise_name):
@@ -470,40 +480,53 @@ def assign_video_ids_to_exercise_list(exercise_list):
 
 
 def assign_video_ids_to_exercises(workout_plan_data):
-    """
-    Assigns YouTube video IDs to all exercises in the workout plan.
-    """
+    """Assigns YouTube video IDs to all exercises in the workout plan."""
     if not workout_plan_data or 'workoutDays' not in workout_plan_data:
         logger.warning("No workout days found in plan data")
         return workout_plan_data
 
     all_exercises = []
     for day in workout_plan_data.get('workoutDays', []):
-        if day.get('type') == 'workout':  # Only process workout days
+        # Include both workout and active_recovery days
+        if day.get('type') in ['workout', 'active_recovery']:
             exercises = day.get('exercises', [])
             all_exercises.extend(exercises)
+            logger.debug(f"Found {len(exercises)} exercises in {day.get('type')} day")
 
-    # Process exercises in batches to respect rate limits
+    # Process exercises in batches
     batch_size = MAX_CONCURRENT_CALLS
     for i in range(0, len(all_exercises), batch_size):
         batch = all_exercises[i:i + batch_size]
-        assign_video_ids_to_exercise_list(batch)
-        # Add a small delay between batches to respect rate limits
+        try:
+            assign_video_ids_to_exercise_list(batch)
+            logger.debug(f"Processed batch of {len(batch)} exercises")
+        except Exception as e:
+            logger.error(f"Error processing exercise batch: {str(e)}")
+        
         if i + batch_size < len(all_exercises):
-            time.sleep(1)  # 1 second delay between batches
+            time.sleep(1)
 
-    # Verify all exercises have videoId
+    # Verify and retry failed exercises
     for day in workout_plan_data.get('workoutDays', []):
-        if day.get('type') == 'workout':
+        if day.get('type') in ['workout', 'active_recovery']:
             for exercise in day.get('exercises', []):
                 if not exercise.get('videoId'):
-                    # Try to get video ID one more time
-                    video_data = get_youtube_video(exercise.get('name', ''))
-                    if video_data and video_data.get('video_id'):
-                        exercise['videoId'] = video_data['video_id']
-                        logger.info(f"Successfully assigned videoId for exercise {exercise.get('name')}")
-                    else:
-                        logger.warning(f"Could not assign videoId for exercise {exercise.get('name')}")
+                    try:
+                        # Enhance search term for cardio exercises
+                        exercise_name = exercise.get('name', '')
+                        search_term = (f"{exercise_name} proper form technique"
+                                     if exercise.get('exercise_type') == 'cardio'
+                                     else exercise_name)
+                        
+                        video_data = get_youtube_video(search_term)
+                        if video_data and video_data.get('video_id'):
+                            exercise['videoId'] = video_data['video_id']
+                            exercise['thumbnail_url'] = f"https://img.youtube.com/vi/{video_data['video_id']}/hqdefault.jpg"
+                            logger.info(f"Assigned videoId for {exercise_name}")
+                        else:
+                            logger.warning(f"No video found for {exercise_name}")
+                    except Exception as e:
+                        logger.error(f"Error assigning video for {exercise_name}: {str(e)}")
 
     return workout_plan_data
 

@@ -14,6 +14,7 @@ import logging
 from django.core.cache import cache
 from django.utils import timezone
 from django.conf import settings
+from redis.exceptions import LockNotOwnedError
 
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,8 @@ def format_json_log(data):
     except Exception as e:
         return str(data)
 
-@shared_task
-def generate_workout_plan_task(user_id):
+@shared_task(bind=True, max_retries=3)
+def generate_workout_plan_task(self, user_id):
     """
     Celery task to generate a workout plan for a user.
     """
@@ -36,6 +37,7 @@ def generate_workout_plan_task(user_id):
     # Get a lock for this user
     lock_id = f'workout_plan_lock_{user_id}'
     lock = cache.lock(lock_id, timeout=300)  # 5 minutes timeout
+    have_lock = False
     
     try:
         # Try to acquire the lock
@@ -55,17 +57,21 @@ def generate_workout_plan_task(user_id):
             
             # Send the workout plan to the user via WebSocket
             if plan and plan.plan_data:
-                # Log the generated plan in a formatted way
-                logger.info(f"Generated workout plan for user {user_id}:\n{format_json_log(plan.plan_data)}")
+                logger.info(f"Generated workout plan for user {user_id}")
                 send_workout_plan_to_group(user, plan.plan_data)
                 logger.info(f"Workout plan sent to user {user_id}")
+                return plan.id
             else:
-                logger.error(f"No workout plan data generated for user {user_id}")
+                error_msg = f"No workout plan data generated for user {user_id}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
                 
         except User.DoesNotExist:
             logger.error(f"User {user_id} does not exist")
+            raise
         except Exception as e:
             logger.error(f"Error in generate_workout_plan_task: {str(e)}", exc_info=True)
+            
             # Send error message to user via WebSocket
             try:
                 channel_layer = get_channel_layer()
@@ -80,10 +86,21 @@ def generate_workout_plan_task(user_id):
                 )
             except Exception as ws_error:
                 logger.error(f"Error sending WebSocket error message: {str(ws_error)}")
+            
+            # Retry for certain errors
+            if isinstance(e, (OperationalError, TimeoutError)):
+                raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
+            raise
+            
     finally:
-        if 'lock' in locals() and have_lock:
-            lock.release()
-            logger.info(f"Lock released for user_id {user_id}")
+        try:
+            if have_lock and lock.owned():
+                lock.release()
+        except LockNotOwnedError:
+            logger.warning("Lock for user %s was already released", user_id)
+        except (ValueError, RuntimeError) as e:
+            logger.error("Error releasing lock: %s", str(e))
+            logger.error(f"Error releasing lock: {str(e)}")
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=600, soft_time_limit=550)

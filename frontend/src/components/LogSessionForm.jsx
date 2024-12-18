@@ -109,6 +109,12 @@ const LogSessionForm = ({
     fetchExercises();
   }, []);
 
+  const normalizeIntensity = (value) => {
+    if (!value) return 'Moderate';
+    const normalized = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+    return INTENSITY_OPTIONS.includes(normalized) ? normalized : 'Moderate';
+  };
+
   const getInitialFormValues = () => {
     const today = new Date().toISOString().split('T')[0];
     const dayNumber = new Date().getDay();
@@ -124,33 +130,37 @@ const LogSessionForm = ({
       exercises: []
     };
 
-    // Filter out yoga exercises
-    const filteredExercises = currentWorkout?.exercises?.filter(ex => !ex.name.toLowerCase().includes('yoga')) || [];
+    // Get all exercises from current workout
+    const workoutExercises = currentWorkout?.exercises || [];
+    console.log('Available workout exercises:', workoutExercises);
 
-    if (filteredExercises.length > 0 && availableExercises.length > 0) {
-      initialValues.exercises = filteredExercises.map(exercise => {
-        const exerciseType = exercise.exercise_type ||
+    if (workoutExercises.length > 0 && availableExercises.length > 0) {
+      initialValues.exercises = workoutExercises.map(exercise => {
+        const exerciseType = exercise.exercise_type || 
           (exercise.name.toLowerCase().includes('bike') ? 'cardio' : 'strength');
         const isCardio = exerciseType === 'cardio';
 
+        // Convert instructions object to string if needed
         let instructionsValue = exercise.instructions;
         if (instructionsValue && typeof instructionsValue === 'object') {
           instructionsValue = JSON.stringify(instructionsValue);
         }
 
-        // Attempt to find matching exercise in availableExercises by name
-        const matchedExercise = availableExercises.find(ex => ex.name.toLowerCase() === exercise.name.toLowerCase());
-        const exerciseId = matchedExercise ? matchedExercise.id : null;
+        // Find matching exercise in available exercises
+        const matchedExercise = availableExercises.find(ex => 
+          ex.name.toLowerCase() === exercise.name.toLowerCase()
+        );
+        console.log(`Matching exercise ${exercise.name}:`, matchedExercise);
 
         return {
           name: exercise.name,
-          exercise_id: exerciseId,
+          exercise_id: matchedExercise?.id || null,
           exercise_type: exerciseType,
           sets: isCardio ? '' : (exercise.sets || '3'),
           reps: isCardio ? '' : (exercise.reps || '10'),
           weight: isCardio ? '' : (exercise.weight || ''),
           duration: isCardio ? (exercise.duration || '30') : '',
-          intensity: isCardio ? (exercise.intensity || 'Moderate') : '',
+          intensity: isCardio ? normalizeIntensity(exercise.intensity) : '',
           avg_heart_rate: exercise.avg_heart_rate || '',
           max_heart_rate: exercise.max_heart_rate || '',
           tracking_type: isCardio ? 'time_based' : 'weight_based',
@@ -159,25 +169,6 @@ const LogSessionForm = ({
           equipment: exercise.equipment || '',
           isPrePopulated: !!matchedExercise
         };
-      });
-    } else if (!currentWorkout || filteredExercises.length === 0) {
-      // Add a default blank exercise row if none provided
-      initialValues.exercises.push({
-        name: '',
-        exercise_id: null,
-        exercise_type: 'strength',
-        sets: '3',
-        reps: '10',
-        weight: '',
-        duration: '',
-        intensity: 'Moderate',
-        avg_heart_rate: '',
-        max_heart_rate: '',
-        tracking_type: 'weight_based',
-        videoId: '',
-        instructions: '',
-        equipment: '',
-        isPrePopulated: false
       });
     }
 
@@ -473,8 +464,11 @@ const LogSessionForm = ({
                                             <InputLabel>Intensity</InputLabel>
                                             <Select
                                               name={`exercises.${index}.intensity`}
-                                              value={exercise.intensity}
-                                              onChange={formik.handleChange}
+                                              value={exercise.intensity || 'Moderate'}  // Provide default
+                                              onChange={(e) => {
+                                                const value = e.target.value;
+                                                formik.setFieldValue(`exercises.${index}.intensity`, value);
+                                              }}
                                               error={formik.touched.exercises?.[index]?.intensity && Boolean(formik.errors.exercises?.[index]?.intensity)}
                                             >
                                               {INTENSITY_OPTIONS.map((option) => (
