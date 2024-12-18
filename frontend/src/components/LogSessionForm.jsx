@@ -242,7 +242,7 @@ const LogSessionForm = ({
         heart_rate_post: values.heart_rate_post || null,
         calories_burned: values.calories_burned || null,
         feedback_rating: values.feedback_rating,
-        comments: values.comments || '',
+        comments: values.comments,
         exercises: exercisesData
       };
 

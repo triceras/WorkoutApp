@@ -45,7 +45,7 @@ const ProgressionMetrics = () => {
     cardioProgress: {},
     completionRate: 0,
     averageRating: 0,
-    sessions: []
+    sessions: []  // Ensure this is initialized as an empty array
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,9 +55,7 @@ const ProgressionMetrics = () => {
       setLoading(true);
       setError(null);
 
-      // Add more detailed logging
       console.log('Fetching metrics...');
-
       const response = await axiosInstance.get('user/progression/');
       console.log('Response received:', response);
 
@@ -90,62 +88,60 @@ const ProgressionMetrics = () => {
       setLoading(false);
     }
   }, []);
-  
-  // Remove redundant refreshMetrics function
+
   useEffect(() => {
-    // Initial fetch
     fetchMetrics();
-  
+
     const handleSessionLogged = (event) => {
       console.log('Session logged event received:', event.detail);
       fetchMetrics();
     };
-  
+
     window.addEventListener('session-logged', handleSessionLogged);
     return () => window.removeEventListener('session-logged', handleSessionLogged);
   }, [fetchMetrics]);
 
   const renderSessionExercises = (session) => {
-    if (!session.exercises || session.exercises.length === 0) {
-        return (
-            <Typography color="text.secondary">
-                {session.source === 'scheduled' ? 'Scheduled session' : 'No exercises recorded'}
-            </Typography>
-        );
-    }
-
     return (
-        <List dense>
-            {session.exercises.map((exercise, index) => {
-                const isCardio = exercise.exercise_type === 'cardio';
+      <List dense>
+        {session.exercises.map((exercise, index) => {
+          const isCardio = exercise.exercise_type === 'cardio';
+          let details = '';
+          if (isCardio) {
+            details = `duration: ${exercise.duration} mins`;
+            if (exercise.intensity) {
+              details += ` • ${exercise.intensity} intensity`;
+            }
+          } else {
+            if (exercise.sets && exercise.reps) {
+              details = `sets: ${exercise.sets}, reps: ${exercise.reps}`;
+              if (exercise.weight) {
+                details += ` @ ${exercise.weight}kg`;
+              }
+            }
+          }
 
-                let details = '';
-                if (isCardio) {
-                    details = `duration: ${exercise.duration} mins`;
-                    if (exercise.intensity) {
-                        details += ` • ${exercise.intensity} intensity`;
-                    }
-                } else {
-                    if (exercise.sets && exercise.reps) {
-                        details = `sets: ${exercise.sets}, reps: ${exercise.reps}`;
-                        if (exercise.weight) {
-                            details += ` @ ${exercise.weight}kg`;
-                        }
-                    }
-                }
-
-                return (
-                    <ListItem key={index}>
-                        <ListItemText
-                            primary={exercise.exercise_name}
-                            secondary={details}
-                        />
-                    </ListItem>
-                );
-            })}
-        </List>
+          return (
+            <ListItem key={index}>
+              <ListItemText
+                primary={exercise.exercise_name}
+                secondary={details}
+              />
+            </ListItem>
+          );
+        })}
+        {/* Display session comments if available */}
+        {session.comments && (
+          <ListItem>
+            <ListItemText
+              primary="Comments"
+              secondary={session.comments}
+            />
+          </ListItem>
+        )}
+      </List>
     );
-};
+  };
 
   if (loading) {
     return (
@@ -157,10 +153,10 @@ const ProgressionMetrics = () => {
 
   if (error) {
     return (
-      <Box 
-        display="flex" 
-        justifyContent="center" 
-        alignItems="center" 
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
         minHeight="200px"
         color="error.main"
       >

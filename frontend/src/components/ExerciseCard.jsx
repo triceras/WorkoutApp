@@ -1,6 +1,5 @@
 // src/components/ExerciseCard.jsx
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Card,
@@ -8,17 +7,85 @@ import {
   CardContent,
   Typography,
   Box,
+  CircularProgress,
 } from '@mui/material';
+import axiosInstance from '../api/axiosInstance';
 
 const ExerciseCard = ({ exercise, openVideoModal }) => {
   console.log('Exercise data:', exercise);
   
   // Get videoId and thumbnailUrl from the exercise data
-  const videoId = exercise.videoId || exercise.video_id;
-  const thumbnailUrl = exercise.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null);
+  const [videoId, setVideoId] = useState(exercise.videoId || exercise.video_id);
+  const [thumbnailUrl, setThumbnailUrl] = useState(exercise.thumbnail_url);
+  const [isLoading, setIsLoading] = useState(false); // Define isLoading
+  const [error, setError] = useState(null); // Define error
   
   console.log('Using videoId:', videoId);
   console.log('Using thumbnailUrl:', thumbnailUrl);
+
+  // src/components/ExerciseCard.jsx
+useEffect(() => {
+  const fetchVideoDetails = async () => {
+    if (!videoId && exercise.name) {
+      try {
+        // Fetch exercise details from the database using the exercise name
+        const exerciseResponse = await axiosInstance.get(`exercises/`, {
+          params: { name: exercise.name },
+        });
+
+        // Check if any results were returned
+        if (exerciseResponse.data.length > 0) {
+          const fetchedExercise = exerciseResponse.data[0];
+
+          // Check if the fetched exercise has a videoId
+          if (fetchedExercise.videoId) {
+            setVideoId(fetchedExercise.videoId);
+            setThumbnailUrl(fetchedExercise.thumbnail_url);
+            console.log(
+              "Video details found in the database:",
+              fetchedExercise.videoId
+            );
+            return;
+          } else {
+            // Only proceed if fetchedExercise.id is available
+            if (fetchedExercise.id) {
+              // If not found or no videoId, then fetch from YouTube and update
+              const response = await axiosInstance.patch(
+                `exercises/${fetchedExercise.id}/fetch-video/`
+              );
+
+              if (response.data && response.data.video_id) {
+                setVideoId(response.data.video_id);
+                setThumbnailUrl(response.data.thumbnail_url);
+                console.log(
+                  "Video details fetched and updated:",
+                  response.data.video_id
+                );
+              } else {
+                console.warn(
+                  "Failed to fetch video details for exercise:",
+                  exercise.name
+                );
+              }
+            } else {
+              console.error(
+                "Exercise ID is undefined, cannot fetch video details."
+              );
+            }
+          }
+        } else {
+          console.warn(
+            `Exercise ${exercise.name} not found in the database.`
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching video details:", error);
+      }
+    }
+  };
+
+  fetchVideoDetails();
+}, [exercise.id, exercise.name, videoId]);
 
   const parseInstructions = (instructions) => {
     if (typeof instructions === 'string') {
@@ -116,23 +183,81 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
           }}
           onClick={() => videoId && openVideoModal && openVideoModal(videoId)}
         >
-          <CardMedia
-            component="img"
-            image={thumbnailUrl}
-            alt={`${exercise.name} demonstration`}
-            sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transition: 'transform 0.3s ease',
-              '&:hover': {
-                transform: videoId ? 'scale(1.05)' : 'none'
-              }
-            }}
-          />
+           {isLoading && ( // Use isLoading state
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'rgba(0, 0, 0, 0.1)',
+              }}
+            >
+              <CircularProgress /> {/* Use CircularProgress */}
+            </Box>
+          )}
+
+          {!isLoading && thumbnailUrl && (
+            <CardMedia
+              component="img"
+              image={thumbnailUrl}
+              alt={`${exercise.name} demonstration`}
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                transition: "transform 0.3s ease",
+                "&:hover": {
+                  transform: videoId ? "scale(1.05)" : "none",
+                },
+              }}
+            />
+          )}
+
+          {!isLoading && !thumbnailUrl && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: "rgba(0, 0, 0, 0.1)",
+              }}
+            >
+               <Typography variant="body1" color="text.secondary">
+                No thumbnail available
+              </Typography>
+            </Box>
+          )}
+
+          {!isLoading && error && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: "rgba(255, 0, 0, 0.1)",
+              }}
+            >
+             <Typography color="error">Error loading video</Typography>
+            </Box>
+          )}
           {videoId && (
             <Box
               sx={{
@@ -269,11 +394,13 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
 
 ExerciseCard.propTypes = {
   exercise: PropTypes.shape({
+    id: PropTypes.string,
     name: PropTypes.string.isRequired,
-    sets: PropTypes.string,
-    reps: PropTypes.string,
+    sets: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    reps: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     weight: PropTypes.string,
     videoId: PropTypes.string,
+    video_id: PropTypes.string,
     thumbnail_url: PropTypes.string,
     instructions: PropTypes.oneOfType([
       PropTypes.string,

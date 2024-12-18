@@ -511,6 +511,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
     calories_burned = NullableIntegerField(allow_null=True, required=False)
     heart_rate_pre = NullableIntegerField(allow_null=True, required=False)
     heart_rate_post = NullableIntegerField(allow_null=True, required=False)
+    comments = serializers.CharField(allow_blank=True, required=False)
     intensity = serializers.ChoiceField(
         choices=[('Low', 'Low'), ('Moderate', 'Moderate'), ('High', 'High')],
         allow_null=True,

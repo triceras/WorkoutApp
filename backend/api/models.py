@@ -113,6 +113,7 @@ class Exercise(models.Model):
     instructions = models.JSONField(default=dict, help_text="Structured instructions including setup, execution steps, and form tips")
     video_url = models.URLField(null=True, blank=True)
     videoId = models.CharField(max_length=50, null=True, blank=True)
+    thumbnail_url = models.URLField(null=True, blank=True)
     exercise_type = models.CharField(
         max_length=20,
         choices=EXERCISE_TYPE_CHOICES,
@@ -127,16 +128,22 @@ class Exercise(models.Model):
         """Extract the video ID from a YouTube URL."""
         if not url:
             return None
-            
+
         patterns = [
             r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&\n?#]+)',
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, url)
             if match:
                 return match.group(1)
         return None
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['videoId']),
+            models.Index(fields=['name']),
+        ]
 
     def save(self, *args, **kwargs):
         # Extract and save video ID from URL if URL is provided and no ID exists
@@ -144,6 +151,7 @@ class Exercise(models.Model):
             extracted_id = self.extract_youtube_id(self.video_url)
             if extracted_id:
                 self.videoId = extracted_id
+                self.thumbnail_url = f"https://img.youtube.com/vi/{extracted_id}/hqdefault.jpg"
         # If URL is removed, also remove the video ID
         elif not self.video_url:
             self.videoId = None

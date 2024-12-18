@@ -9,7 +9,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
-from django.db.models import Avg, Count, Sum
+from django.db.models import Avg, Count, Sum, Q
 from django.core.cache import cache
 from django.conf import settings
 from .models import (
@@ -25,7 +25,7 @@ from .models import (
     YouTubeVideo
 )
 from .tasks import process_feedback_submission_task, generate_workout_plan_task, process_negative_feedback
-from .helpers import get_video_data_by_id
+from .helpers import get_video_data_by_id, standardize_exercise_name, get_youtube_video
 from .services.analysis import calculate_progression_metrics
 from .serializers import (
     ExerciseSerializer,
@@ -43,6 +43,7 @@ from .serializers import (
 from django.utils import timezone
 from datetime import timedelta
 import logging
+from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -52,6 +53,29 @@ class ExerciseViewSet(viewsets.ModelViewSet):
     queryset = Exercise.objects.all()
     serializer_class = ExerciseSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']  # Enable search filtering on the 'name' field
+    
+    def list(self, request, *args, **kwargs):
+        try:
+            name = request.query_params.get('name')
+            if name:
+                # Use Q objects for case-insensitive search and handle variations
+                standardized_name = standardize_exercise_name(name)
+                queryset = self.queryset.filter(
+                    Q(name__iexact=name) |  # Case-insensitive exact match
+                    Q(name__iexact=standardized_name) | # Match against standardized name
+                    Q(name__icontains=name) # Case-insensitive partial match
+                )
+            else:
+                queryset = self.get_queryset()
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
 
     @action(detail=False, methods=['get'])
     def by_exercise_name(self, request):
@@ -370,29 +394,36 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-date')
 
     def perform_create(self, serializer):
-        """Set user when creating training session."""
-        serializer.save(user=self.request.user)
+        """Create a new training session."""
+        try:
+            # Set the user before saving
+            serializer.save(user=self.request.user)
+        except Exception as e:
+            logger.error(f"Error creating training session: {str(e)}", exc_info=True)
+            raise serializers.ValidationError(f"Failed to create training session: {str(e)}")
 
     def create(self, request, *args, **kwargs):
-        """Create training session with duplicate checking."""
+        """Create training session with duplicate checking and proper serialization."""
         try:
             # Check for existing session
             date = request.data.get('date')
-            workout_plan = request.data.get('workout_plan')
-            
-            existing = TrainingSession.objects.filter(
-                user=request.user,
-                date=date,
-                workout_plan=workout_plan
-            ).exists()
-            
-            if existing:
+            workout_plan_id = request.data.get('workout_plan_id')  # Ensure you are getting workout_plan_id
+
+            if TrainingSession.objects.filter(user=request.user, date=date, workout_plan_id=workout_plan_id).exists():
                 return Response(
                     {'error': 'Session already logged for this date and workout'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            return super().create(request, *args, **kwargs)
+            serializer = self.get_serializer(data=request.data)  # Use get_serializer
+            serializer.is_valid(raise_exception=True)
+
+            # Print the validated data for debugging
+            print("Validated data:", serializer.validated_data)
+
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
         except IntegrityError:
             return Response(
@@ -405,14 +436,6 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def perform_create(self, serializer):
-        """Create a new training session."""
-        try:
-            # Set the user before saving
-            serializer.save(user=self.request.user)
-        except Exception as e:
-            logger.error(f"Error creating training session: {str(e)}", exc_info=True)
-            raise serializers.ValidationError(f"Failed to create training session: {str(e)}")
 
     @action(detail=False, methods=['get'])
     def completed(self, request):
@@ -475,27 +498,28 @@ class UserProgressionView(APIView):
 
                 all_sessions = (
                     TrainingSession.objects.filter(user=user)
-                    .select_related('workout_plan')
+                    .select_related("workout_plan")
                     .prefetch_related(
-                        'session_exercises',
-                        'session_exercises__exercise'
+                        "session_exercises", "session_exercises__exercise"
                     )
-                    .order_by('-date')
+                    .order_by("-date")
                 )
 
                 logger.info(f"Found {all_sessions.count()} sessions")
 
                 if not all_sessions.exists():
-                    return Response({
-                        'total_sessions': 0,
-                        'recent_sessions': 0,
-                        'older_sessions': 0,
-                        'workout_types': {'recent': {}, 'previous': {}},
-                        'avg_duration': 0,
-                        'total_duration': 0,
-                        'total_calories': 0,
-                        'sessions': []
-                    })
+                    return Response(
+                        {
+                            "total_sessions": 0,
+                            "recent_sessions": 0,
+                            "older_sessions": 0,
+                            "workout_types": {"recent": {}, "previous": {}},
+                            "avg_duration": 0,
+                            "total_duration": 0,
+                            "total_calories": 0,
+                            "sessions": [],
+                        }
+                    )
 
                 sessions_data = []
                 for session in all_sessions[:10]:
@@ -503,43 +527,67 @@ class UserProgressionView(APIView):
                         exercises = []
                         for session_exercise in session.session_exercises.all():
                             exercise_data = {
-                                'exercise_name': session_exercise.exercise.name,
-                                'exercise_type': session_exercise.exercise.exercise_type,
-                                'sets': session_exercise.sets,
-                                'reps': session_exercise.reps,
-                                'weight': session_exercise.weight,
-                                'duration': session_exercise.duration,
-                                'intensity': session_exercise.intensity
+                                "exercise_name": session_exercise.exercise.name,
+                                "exercise_type": session_exercise.exercise.exercise_type,
+                                "sets": session_exercise.sets,
+                                "reps": session_exercise.reps,
+                                "weight": session_exercise.weight,
+                                "duration": session_exercise.duration,
+                                "intensity": session_exercise.intensity,
                             }
                             exercises.append(exercise_data)
-                            logger.info(f"Added session {session.id} with {len(exercises)} exercises")
+                            logger.info(
+                                f"Added session {session.id} with {len(exercises)} exercises"
+                            )
 
-                        sessions_data.append({
-                            'id': session.id,
-                            'date': session.date,
-                            'session_name': session.session_name,
-                            'workout_type': session.workout_type,
-                            'source': session.source,
-                            'exercises': exercises
-                        })
+                        sessions_data.append(
+                            {
+                                "id": session.id,
+                                "date": session.date,
+                                "session_name": session.session_name,
+                                "workout_type": session.workout_type,
+                                "source": session.source,
+                                "exercises": exercises,
+                                "comments": session.comments,
+                            }
+                        )
                     except Exception as e:
-                        logger.error(f"Error processing session {session.id}: {str(e)}")
+                        logger.error(
+                            f"Error processing session {session.id}: {str(e)}"
+                        )
 
                 thirty_days_ago = timezone.now() - timedelta(days=30)
                 recent_sessions = all_sessions.filter(date__gte=thirty_days_ago)
 
                 response_data = {
-                    'total_sessions': all_sessions.count(),
-                    'recent_sessions': recent_sessions.count(),
-                    'older_sessions': all_sessions.count() - recent_sessions.count(),
-                    'workout_types': {
-                        'recent': dict(recent_sessions.values_list('workout_type').annotate(Count('id'))),
-                        'previous': dict(all_sessions.exclude(id__in=recent_sessions).values_list('workout_type').annotate(Count('id')))
+                    "total_sessions": all_sessions.count(),
+                    "recent_sessions": recent_sessions.count(),
+                    "older_sessions": all_sessions.count() - recent_sessions.count(),
+                    "workout_types": {
+                        "recent": dict(
+                            recent_sessions.values_list("workout_type").annotate(
+                                Count("id")
+                            )
+                        ),
+                        "previous": dict(
+                            all_sessions.exclude(id__in=recent_sessions)
+                            .values_list("workout_type")
+                            .annotate(Count("id"))
+                        ),
                     },
-                    'avg_duration': all_sessions.aggregate(Avg('duration'))['duration__avg'] or 0,
-                    'total_duration': all_sessions.aggregate(Sum('duration'))['duration__sum'] or 0,
-                    'total_calories': all_sessions.aggregate(Sum('calories_burned'))['calories_burned__sum'] or 0,
-                    'sessions': sessions_data
+                    "avg_duration": all_sessions.aggregate(Avg("duration"))[
+                        "duration__avg"
+                    ]
+                    or 0,
+                    "total_duration": all_sessions.aggregate(Sum("duration"))[
+                        "duration__sum"
+                    ]
+                    or 0,
+                    "total_calories": all_sessions.aggregate(Sum("calories_burned"))[
+                        "calories_burned__sum"
+                    ]
+                    or 0,
+                    "sessions": sessions_data,
                 }
 
                 return Response(response_data)
@@ -547,8 +595,8 @@ class UserProgressionView(APIView):
         except Exception as e:
             logger.error(f"Error in UserProgressionView: {str(e)}", exc_info=True)
             return Response(
-                {'error': 'Failed to fetch progression data'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to fetch progression data"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 class CheckUsernameView(APIView):
@@ -615,3 +663,79 @@ class RegistrationOptionsView(APIView):
                 {"error": "Failed to fetch registration options"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+def update_workout_plan_with_video(exercise):
+    """
+    Updates the related WorkoutPlan with the new video ID for the given exercise.
+    """
+    # Find all workout plans that include this exercise
+    workout_plans = WorkoutPlan.objects.filter(plan_data__workoutDays__exercises__name=exercise.name)
+
+    for plan in workout_plans:
+        plan_data = plan.plan_data
+        updated = False
+        for day in plan_data.get('workoutDays', []):
+            for ex in day.get('exercises', []):
+                if ex['name'] == exercise.name:
+                    ex['video_id'] = exercise.videoId
+                    ex['thumbnail_url'] = exercise.thumbnail_url
+                    ex['video_url'] = exercise.video_url
+                    updated = True
+        
+        if updated:
+            plan.plan_data = plan_data
+            plan.save()
+            
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def fetch_video_for_exercise(request, exercise_id):
+    """
+    Fetches and assigns a video ID to an exercise if it doesn't already have one.
+    """
+    exercise = get_object_or_404(Exercise, pk=exercise_id)
+
+    # Even if videoId is present, allow updating for other fields
+    try:
+        # Use helper function to get video data
+        video_data = get_youtube_video(exercise.name)
+        
+        if video_data:
+            # Assign video ID, thumbnail URL, and video URL
+            exercise.videoId = video_data['video_id']
+            exercise.thumbnail_url = video_data['thumbnail_url']
+            exercise.video_url = video_data['video_url']
+            exercise.save()
+            
+            # Update related WorkoutPlan if needed
+            update_workout_plan_with_video(exercise)
+
+            serializer = ExerciseSerializer(exercise)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Could not fetch video details'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error fetching video for exercise {exercise_id}: {str(e)}", exc_info=True)
+        return Response({'error': 'An error occurred while fetching the video'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Add a helper function to fetch exercise details by name
+def get_exercise_details_by_name(exercise_name):
+    """
+    Fetches exercise details from the database based on the exercise name.
+    """
+    try:
+        # Use the helper function to standardize the exercise name
+        standardized_name = standardize_exercise_name(exercise_name)
+
+        # Try to get the exercise by the standardized name
+        exercise = Exercise.objects.get(name=standardized_name)
+
+        # Serialize the exercise object
+        serializer = ExerciseSerializer(exercise)
+        return serializer.data
+    except Exercise.DoesNotExist:
+        logger.warning(f"Exercise with name '{exercise_name}' not found in the database.")
+        return None
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while fetching exercise '{exercise_name}': {str(e)}", exc_info=True)
+        return None

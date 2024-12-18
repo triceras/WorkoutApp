@@ -16,6 +16,7 @@ from asgiref.sync import async_to_sync
 import time
 
 
+
 logger = logging.getLogger(__name__)
 
 YOUTUBE_API_KEY = settings.YOUTUBE_API_KEY  # Ensure this is set in your settings
@@ -132,6 +133,7 @@ MAX_THREADS = getattr(settings, 'MAX_THREADS', 10)  # Default to 10 if not set
 def fetch_youtube_video_from_api(query):
     """
     Fetches YouTube video details from the YouTube Data API based on a search query.
+    Returns None if no video is found or if an error occurs.
     """
     url = "https://www.googleapis.com/youtube/v3/search"
     params = {
@@ -142,23 +144,26 @@ def fetch_youtube_video_from_api(query):
         'type': 'video',
     }
     try:
-        # Log the API call details
         logger.info(f"Making YouTube API call: GET {url} with params {params}")
 
         response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-
-        # Optionally, log the response status
-        logger.info(f"YouTube API response status code: {response.status_code}")
+        response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
 
         data = response.json()
         items = data.get('items')
         if not items:
-            logger.warning(f"No data found for query: {query}")
+            logger.warning(f"No data found for query: '{query}'")
             return None
+
         item = items[0]
         snippet = item['snippet']
         video_id = item['id']['videoId']
+        
+        # Check if all required fields are present
+        if not video_id or 'title' not in snippet or 'thumbnails' not in snippet or 'high' not in snippet['thumbnails'] or 'url' not in snippet['thumbnails']['high']:
+            logger.error(f"Incomplete data received from YouTube API for query: '{query}'")
+            return None
+        
         video_data = {
             'video_id': video_id,
             'title': snippet['title'],
@@ -168,10 +173,25 @@ def fetch_youtube_video_from_api(query):
         }
         logger.info(f"Fetched video data from YouTube API for '{query}'.")
         return video_data
-    except requests.RequestException as e:
-        logger.error(f"Error fetching YouTube video data for query '{query}': {e}", exc_info=True)
+    
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error fetching YouTube video data for query '{query}': {e}")
         return None
-
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"Connection error fetching YouTube video data for query '{query}': {e}")
+        return None
+    except requests.exceptions.Timeout as e:
+        logger.error(f"Timeout error fetching YouTube video data for query '{query}': {e}")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error fetching YouTube video data for query '{query}': {e}")
+        return None
+    except KeyError as e:
+        logger.error(f"KeyError processing YouTube API response for query '{query}': {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error fetching YouTube video data for query '{query}': {e}")
+        return None
 
 # Create an SSL context that loads the default system certificates
 ssl_context = ssl.create_default_context()
@@ -566,3 +586,26 @@ def fetch_youtube_video_by_id(video_id):
     except requests.RequestException as e:
         logger.error(f"Error fetching YouTube video data for video_id '{video_id}': {e}", exc_info=True)
         return None
+
+
+def update_workout_plan_with_video(exercise):
+    """
+    Updates the related WorkoutPlan with the new video ID for the given exercise.
+    """
+    # Find all workout plans that include this exercise
+    workout_plans = WorkoutPlan.objects.filter(plan_data__workoutDays__exercises__name=exercise.name)
+
+    for plan in workout_plans:
+        plan_data = plan.plan_data
+        updated = False
+        for day in plan_data.get('workoutDays', []):
+            for ex in day.get('exercises', []):
+                if ex['name'] == exercise.name:
+                    ex['video_id'] = exercise.videoId
+                    ex['thumbnail_url'] = exercise.thumbnail_url
+                    ex['video_url'] = exercise.video_url
+                    updated = True
+        
+        if updated:
+            plan.plan_data = plan_data
+            plan.save()
