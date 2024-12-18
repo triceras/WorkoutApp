@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -10,8 +10,7 @@ import {
   ListItemText,
   Paper,
   Chip,
-  CircularProgress,
-  alpha
+  CircularProgress
 } from '@mui/material';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -51,14 +50,20 @@ const ProgressionMetrics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
+      // Add more detailed logging
+      console.log('Fetching metrics...');
+
       const response = await axiosInstance.get('user/progression/');
+      console.log('Response received:', response);
+
       const data = response.data;
-      
+      console.log('Metrics data:', data);
+
       if (data) {
         setMetrics({
           totalSessions: data.total_sessions || 0,
@@ -75,75 +80,72 @@ const ProgressionMetrics = () => {
         });
       }
     } catch (err) {
-      console.error('Error fetching metrics:', err);
-      setError('Unable to fetch progress data. Please try again later.');
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      setError(err.response?.data?.error || 'Unable to fetch progress data. Please try again later.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const refreshMetrics = () => {
-    fetchMetrics();
-  };
-
-  useEffect(() => {
-    fetchMetrics();
   }, []);
-
+  
+  // Remove redundant refreshMetrics function
   useEffect(() => {
-    const handleSessionLogged = () => {
-      refreshMetrics();
+    // Initial fetch
+    fetchMetrics();
+  
+    const handleSessionLogged = (event) => {
+      console.log('Session logged event received:', event.detail);
+      fetchMetrics();
     };
-
+  
     window.addEventListener('session-logged', handleSessionLogged);
-    return () => {
-      window.removeEventListener('session-logged', handleSessionLogged);
-    };
-  }, []);
+    return () => window.removeEventListener('session-logged', handleSessionLogged);
+  }, [fetchMetrics]);
 
   const renderSessionExercises = (session) => {
     if (!session.exercises || session.exercises.length === 0) {
-      return <Typography color="text.secondary">No exercises recorded</Typography>;
+        return (
+            <Typography color="text.secondary">
+                {session.source === 'scheduled' ? 'Scheduled session' : 'No exercises recorded'}
+            </Typography>
+        );
     }
 
     return (
-      <List dense>
-        {session.exercises.map((exercise, index) => {
-          const isCardio = exercise.exercise_type === 'cardio' || 
-                          exercise.exercise_name.toLowerCase().includes('cardio') ||
-                          exercise.exercise_name.toLowerCase().includes('bike');
-          
-          let details = '';
-          if (isCardio) {
-            details = `duration: ${exercise.duration} mins`;
-            if (exercise.intensity) {
-              details += ` • ${exercise.intensity} intensity`;
-            }
-          } else {
-            if (exercise.sets && exercise.reps) {
-              details = `sets: ${exercise.sets}, reps: ${exercise.reps}`;
-              if (exercise.weight) {
-                details += ` @ ${exercise.weight}kg`;
-              }
-            }
-          }
+        <List dense>
+            {session.exercises.map((exercise, index) => {
+                const isCardio = exercise.exercise_type === 'cardio';
 
-          return (
-            <ListItem key={index}>
-              <ListItemText
-                primary={exercise.exercise_name}
-                secondary={
-                  <Typography variant="body2" color="text.secondary">
-                    {details}
-                  </Typography>
+                let details = '';
+                if (isCardio) {
+                    details = `duration: ${exercise.duration} mins`;
+                    if (exercise.intensity) {
+                        details += ` • ${exercise.intensity} intensity`;
+                    }
+                } else {
+                    if (exercise.sets && exercise.reps) {
+                        details = `sets: ${exercise.sets}, reps: ${exercise.reps}`;
+                        if (exercise.weight) {
+                            details += ` @ ${exercise.weight}kg`;
+                        }
+                    }
                 }
-              />
-            </ListItem>
-          );
-        })}
-      </List>
+
+                return (
+                    <ListItem key={index}>
+                        <ListItemText
+                            primary={exercise.exercise_name}
+                            secondary={details}
+                        />
+                    </ListItem>
+                );
+            })}
+        </List>
     );
-  };
+};
 
   if (loading) {
     return (

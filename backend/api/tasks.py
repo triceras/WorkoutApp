@@ -15,6 +15,7 @@ from django.core.cache import cache
 from django.utils import timezone
 from django.conf import settings
 
+
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
@@ -305,38 +306,38 @@ def send_workout_plan_to_group(user, plan_data):
         )
 
 
-@shared_task
-def generate_profile_picture_task(user_id):
-    """
-    Celery task to generate a profile picture for a user.
-    """
-    logger.info(f"Starting profile picture generation task for user_id {user_id}")
+# @shared_task
+# def generate_profile_picture_task(user_id):
+#     """
+#     Celery task to generate a profile picture for a user.
+#     """
+#     logger.info(f"Starting profile picture generation task for user_id {user_id}")
     
-    try:
-        User = get_user_model()
-        user = User.objects.get(id=user_id)
+#     try:
+#         User = get_user_model()
+#         user = User.objects.get(id=user_id)
         
-        from .services.profile import generate_profile_picture
-        success = generate_profile_picture(user)
+#         from .services.profile import generate_profile_picture
+#         success = generate_profile_picture(user)
         
-        if success:
-            logger.info(f"Successfully generated profile picture for user {user_id}")
-            # Notify the user via WebSocket that their profile picture is ready
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                f"user_{user_id}",
-                {
-                    "type": "profile_picture_ready",
-                    "message": "Your profile picture has been generated successfully!"
-                }
-            )
-        else:
-            logger.error(f"Failed to generate profile picture for user {user_id}")
+#         if success:
+#             logger.info(f"Successfully generated profile picture for user {user_id}")
+#             # Notify the user via WebSocket that their profile picture is ready
+#             channel_layer = get_channel_layer()
+#             async_to_sync(channel_layer.group_send)(
+#                 f"user_{user_id}",
+#                 {
+#                     "type": "profile_picture_ready",
+#                     "message": "Your profile picture has been generated successfully!"
+#                 }
+#             )
+#         else:
+#             logger.error(f"Failed to generate profile picture for user {user_id}")
             
-    except User.DoesNotExist:
-        logger.error(f"User {user_id} not found")
-    except Exception as e:
-        logger.error(f"Error generating profile picture for user {user_id}: {str(e)}")
+#     except User.DoesNotExist:
+#         logger.error(f"User {user_id} not found")
+#     except Exception as e:
+#         logger.error(f"Error generating profile picture for user {user_id}: {str(e)}")
 
 
 @shared_task

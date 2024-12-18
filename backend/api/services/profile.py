@@ -8,6 +8,7 @@ import time
 from django.core.files.base import ContentFile
 from django.conf import settings
 from celery import shared_task
+import requests
 
 logger = logging.getLogger(__name__)
 

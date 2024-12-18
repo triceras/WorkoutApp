@@ -18,12 +18,12 @@ import {
   Tabs,
   Tab
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import SaveIcon from '@mui/icons-material/Save';
+// import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+// import SaveIcon from '@mui/icons-material/Save';
 import { styled } from '@mui/material/styles';
 import axiosInstance from '../api/axiosInstance';
 import ProgressionMetrics from '../components/ProgressionMetrics';
-import UploadProfilePicture from '../components/UploadProfilePicture';
+// import UploadProfilePicture from '../components/UploadProfilePicture';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   borderRadius: '15px',
@@ -87,7 +87,7 @@ const ProfilePage = () => {
     training_sessions: []
   });
 
-  const [selectedFile, setSelectedFile] = useState(null);
+  // const [selectedFile, setSelectedFile] = useState(null);
 
   // Helper function to extract day number from day string
   const extractDayNumber = (dayString) => {
@@ -143,6 +143,8 @@ const ProfilePage = () => {
     fetchWorkoutPlans();
   }, []);
 
+  /*
+
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0]);
   };
@@ -164,6 +166,8 @@ const ProfilePage = () => {
       console.error('Error uploading profile picture:', error);
     }
   };
+
+  */
 
   const TrainingSessionsTab = () => {
     const [sessions, setSessions] = useState([]);
@@ -408,8 +412,9 @@ const ProfilePage = () => {
                 }}
               />
               
-              {/* Profile Picture Container */}
-              <Box
+              
+              {/* Profile Picture Container /*}
+              {/* <Box
                 sx={{
                   width: '85%',
                   position: 'relative',
@@ -441,8 +446,11 @@ const ProfilePage = () => {
                 </Box>
               </Box>
 
-              {/* Upload Button */}
+       
+
+              {/* Comment out Upload Button section */}
               <Box sx={{ width: '100%', px: 2 }}>
+                {/* 
                 <Button
                   variant="contained"
                   component="label"
@@ -499,9 +507,15 @@ const ProfilePage = () => {
                     Save Changes
                   </Button>
                 )}
+                */}
+                <Typography variant="body2" color="text.secondary">
+                  Profile picture upload disabled during testing
+                </Typography>
               </Box>
             </Paper>
           </Grid>
+
+
 
           {/* Right Section - User Details */}
           <Grid item xs={12} sm={8} md={9}>

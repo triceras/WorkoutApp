@@ -8,8 +8,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticate
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError
-from django.db.models import Avg, Count
+from django.db import IntegrityError, transaction
+from django.db.models import Avg, Count, Sum
 from django.core.cache import cache
 from django.conf import settings
 from .models import (
@@ -357,9 +357,8 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
         
         if date_str:
             try:
-                # Convert date string to datetime with time set to start of day
                 date = timezone.datetime.strptime(date_str, '%Y-%m-%d')
-                date = timezone.make_aware(date)  # Make timezone-aware
+                date = timezone.make_aware(date)
                 next_day = date + timezone.timedelta(days=1)
                 queryset = queryset.filter(date__gte=date, date__lt=next_day)
             except ValueError:
@@ -369,6 +368,42 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(workout_type=workout_type)
         
         return queryset.order_by('-date')
+
+    def perform_create(self, serializer):
+        """Set user when creating training session."""
+        serializer.save(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Create training session with duplicate checking."""
+        try:
+            # Check for existing session
+            date = request.data.get('date')
+            workout_plan = request.data.get('workout_plan')
+            
+            existing = TrainingSession.objects.filter(
+                user=request.user,
+                date=date,
+                workout_plan=workout_plan
+            ).exists()
+            
+            if existing:
+                return Response(
+                    {'error': 'Session already logged for this date and workout'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            return super().create(request, *args, **kwargs)
+
+        except IntegrityError:
+            return Response(
+                {'error': 'Duplicate session detected'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def perform_create(self, serializer):
         """Create a new training session."""
@@ -433,76 +468,88 @@ class UserProgressionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get progression metrics for the user."""
         try:
-            logger.info(f"Fetching progression metrics for user {request.user.id}")
-            
-            # Get all completed training sessions for the user with related exercises
-            training_sessions = TrainingSession.objects.filter(
-                user=request.user,
-                source='completed'  # Only include completed sessions
-            ).order_by('-date').select_related('user').prefetch_related(
-                'trainingsessionexercise_set',
-                'trainingsessionexercise_set__exercise'
-            )
-            
-            total_sessions = training_sessions.count()
-            logger.info(f"Found {total_sessions} total training sessions")
+            with transaction.atomic():
+                user = request.user
+                logger.info(f"Starting progression fetch for user {user.id}")
 
-            if total_sessions == 0:
-                logger.info("No training sessions found, returning empty metrics")
-                return Response({
-                    'total_sessions': 0,
-                    'recent_sessions': 0,
-                    'older_sessions': 0,
-                    'workout_types': {'recent': {}, 'previous': {}},
-                    'strength_progress': {},
-                    'cardio_progress': {},
-                    'total_duration': 0,
-                    'avg_duration': 0,
-                    'total_calories': 0,
-                    'sessions': []
-                })
-
-            # Calculate time periods
-            today = timezone.now().date()
-            thirty_days_ago = today - timezone.timedelta(days=30)
-            ninety_days_ago = today - timezone.timedelta(days=90)
-
-            # Get recent sessions (last 30 days)
-            recent_sessions = list(training_sessions.filter(date__gte=thirty_days_ago))
-            logger.info(f"Found {len(recent_sessions)} recent sessions")
-            
-            # Get older sessions (30-90 days ago)
-            older_sessions = list(training_sessions.filter(
-                date__lt=thirty_days_ago,
-                date__gte=ninety_days_ago
-            ))
-            logger.info(f"Found {len(older_sessions)} older sessions")
-
-            # Calculate metrics
-            try:
-                metrics = calculate_progression_metrics(
-                    recent_sessions,
-                    older_sessions,
-                    request.user
+                all_sessions = (
+                    TrainingSession.objects.filter(user=user)
+                    .select_related('workout_plan')
+                    .prefetch_related(
+                        'session_exercises',
+                        'session_exercises__exercise'
+                    )
+                    .order_by('-date')
                 )
-                logger.info("Successfully calculated progression metrics")
-                return Response(metrics)
-            except Exception as calc_error:
-                logger.error(f"Error calculating metrics: {str(calc_error)}", exc_info=True)
-                return Response(
-                    {"error": "Failed to calculate progression metrics", "detail": str(calc_error)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-            
+
+                logger.info(f"Found {all_sessions.count()} sessions")
+
+                if not all_sessions.exists():
+                    return Response({
+                        'total_sessions': 0,
+                        'recent_sessions': 0,
+                        'older_sessions': 0,
+                        'workout_types': {'recent': {}, 'previous': {}},
+                        'avg_duration': 0,
+                        'total_duration': 0,
+                        'total_calories': 0,
+                        'sessions': []
+                    })
+
+                sessions_data = []
+                for session in all_sessions[:10]:
+                    try:
+                        exercises = []
+                        for session_exercise in session.session_exercises.all():
+                            exercise_data = {
+                                'exercise_name': session_exercise.exercise.name,
+                                'exercise_type': session_exercise.exercise.exercise_type,
+                                'sets': session_exercise.sets,
+                                'reps': session_exercise.reps,
+                                'weight': session_exercise.weight,
+                                'duration': session_exercise.duration,
+                                'intensity': session_exercise.intensity
+                            }
+                            exercises.append(exercise_data)
+                            logger.info(f"Added session {session.id} with {len(exercises)} exercises")
+
+                        sessions_data.append({
+                            'id': session.id,
+                            'date': session.date,
+                            'session_name': session.session_name,
+                            'workout_type': session.workout_type,
+                            'source': session.source,
+                            'exercises': exercises
+                        })
+                    except Exception as e:
+                        logger.error(f"Error processing session {session.id}: {str(e)}")
+
+                thirty_days_ago = timezone.now() - timedelta(days=30)
+                recent_sessions = all_sessions.filter(date__gte=thirty_days_ago)
+
+                response_data = {
+                    'total_sessions': all_sessions.count(),
+                    'recent_sessions': recent_sessions.count(),
+                    'older_sessions': all_sessions.count() - recent_sessions.count(),
+                    'workout_types': {
+                        'recent': dict(recent_sessions.values_list('workout_type').annotate(Count('id'))),
+                        'previous': dict(all_sessions.exclude(id__in=recent_sessions).values_list('workout_type').annotate(Count('id')))
+                    },
+                    'avg_duration': all_sessions.aggregate(Avg('duration'))['duration__avg'] or 0,
+                    'total_duration': all_sessions.aggregate(Sum('duration'))['duration__sum'] or 0,
+                    'total_calories': all_sessions.aggregate(Sum('calories_burned'))['calories_burned__sum'] or 0,
+                    'sessions': sessions_data
+                }
+
+                return Response(response_data)
+
         except Exception as e:
-            logger.error(f"Error in progression view: {str(e)}", exc_info=True)
+            logger.error(f"Error in UserProgressionView: {str(e)}", exc_info=True)
             return Response(
-                {"error": "Failed to fetch progression data", "detail": str(e)},
+                {'error': 'Failed to fetch progression data'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 class CheckUsernameView(APIView):
     authentication_classes = []  # Allow unauthenticated access

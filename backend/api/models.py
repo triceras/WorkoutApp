@@ -203,6 +203,11 @@ class TrainingSession(models.Model):
         blank=True,
         related_name='training_sessions'
     )
+    exercises = models.ManyToManyField(
+        'Exercise',
+        through='TrainingSessionExercise',
+        related_name='training_sessions'
+    )
     session_name = models.CharField(max_length=255, null=True, blank=True)
     date = models.DateTimeField()
     workout_type = models.CharField(max_length=50, blank=True, null=True)
@@ -223,10 +228,27 @@ class TrainingSession(models.Model):
 
     def __str__(self):
         return f"{self.session_name} - {self.date}"
+    
+    class Meta:
+        """Define constraints for the TrainingSession model."""
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'date', 'workout_plan'], 
+                name='unique_user_date_workout'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['user', 'date', 'workout_plan'])
+        ]
 
 class TrainingSessionExercise(models.Model):
-    training_session = models.ForeignKey(TrainingSession, on_delete=models.CASCADE)
-    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
+    """Model for linking exercises to training sessions."""
+    training_session = models.ForeignKey(
+        TrainingSession,
+        on_delete=models.CASCADE,
+        related_name='session_exercises'  # Add this related_name
+    )
+    exercise = models.ForeignKey('Exercise', on_delete=models.CASCADE)
     sets = models.PositiveIntegerField(null=True, blank=True)
     reps = models.PositiveIntegerField(null=True, blank=True)
     weight = models.FloatField(null=True, blank=True)
