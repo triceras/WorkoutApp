@@ -317,65 +317,73 @@ const ProfilePage = () => {
               )}
             </Box>
 
-            {session.type === 'rest' ? null : session.type === 'active_recovery' ? (
-              <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>DURATION</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>INTENSITY</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {Array.isArray(session.exercises) && session.exercises.map((exercise, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell component="th" scope="row">
-                          {exercise.name}
-                        </TableCell>
-                        <TableCell>{exercise.duration || '20-30 minutes'}</TableCell>
-                        <TableCell sx={{ textTransform: 'capitalize' }}>
-                          {exercise.intensity || 'Low'}
-                        </TableCell>
+            {session.type === 'rest' ? null : (
+              <>
+                {/* Table for Strength/Rep-Based Exercises */}
+              {session.exercises.filter(ex => ex.tracking_type === 'weight_based').length > 0 && (
+                <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent', mb: 2 }}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
+                        {['SET 1', 'SET 2', 'SET 3', 'SET 4'].map((set) => (
+                          <TableCell key={set} align="center" sx={{ fontWeight: 700 }}>
+                            {set}
+                          </TableCell>
+                        ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
-                      {['SET 1', 'SET 2', 'SET 3', 'SET 4'].map((set) => (
-                        <TableCell key={set} align="center" sx={{ fontWeight: 700 }}>
-                          {set}
-                        </TableCell>
+                    </TableHead>
+                    <TableBody>
+                      {session.exercises.filter(ex => ex.tracking_type === 'weight_based').map((exercise, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell component="th" scope="row">
+                            {exercise.name}
+                          </TableCell>
+                          <TableCell align="center">{exercise.sets >= 1 ? exercise.reps : '-'}</TableCell>
+                          <TableCell align="center">{exercise.sets >= 2 ? exercise.reps : '-'}</TableCell>
+                          <TableCell align="center">{exercise.sets >= 3 ? exercise.reps : '-'}</TableCell>
+                          <TableCell align="center">{exercise.sets >= 4 ? exercise.reps : '-'}</TableCell>
+                        </TableRow>
                       ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {Array.isArray(session.exercises) && session.exercises.map((exercise, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell component="th" scope="row">
-                          {exercise.name}
-                        </TableCell>
-                        <TableCell align="center">{exercise.sets >= 1 ? exercise.reps : '-'}</TableCell>
-                        <TableCell align="center">{exercise.sets >= 2 ? exercise.reps : '-'}</TableCell>
-                        <TableCell align="center">{exercise.sets >= 3 ? exercise.reps : '-'}</TableCell>
-                        <TableCell align="center">{exercise.sets >= 4 ? exercise.reps : '-'}</TableCell>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+
+              {/* Table for Cardio/Time-Based Exercises */}
+              {session.exercises.filter(ex => ex.tracking_type === 'time_based' || ex.exercise_type === 'cardio').length > 0 && (
+                <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>DURATION</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>INTENSITY</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </WorkoutCard>
-        ))}
-      </Box>
-    );
-  };
+                    </TableHead>
+                    <TableBody>
+                      {session.exercises.filter(ex => ex.tracking_type === 'time_based' || ex.exercise_type === 'cardio').map((exercise, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell component="th" scope="row">
+                            {exercise.name}
+                          </TableCell>
+                          <TableCell>{exercise.duration}</TableCell>
+                          <TableCell sx={{ textTransform: 'capitalize' }}>
+                            {exercise.intensity}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </>
+          )}
+        </WorkoutCard>
+      ))}
+    </Box>
+  );
+};
 
   return (
     <Box sx={{ maxWidth: 1200, margin: '0 auto', p: { xs: 2, sm: 3 } }}>

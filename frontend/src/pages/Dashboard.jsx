@@ -16,8 +16,8 @@ import {
   Card,
   CardContent
 } from '@mui/material';
-import { makeStyles } from '@mui/styles';
 import { useNavigate, useLocation } from 'react-router-dom';
+import './Dashboard.css';
 import WorkoutCard from '../components/WorkoutCard';
 import ProgressChart from '../components/ProgressChart';
 import ProgressionMetrics from '../components/ProgressionMetrics'; // Import ProgressionMetrics
@@ -30,37 +30,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { toast } from 'react-toastify';
 import RestDaySuggestions from '../components/RestDaySuggestions';
 
-const useStyles = makeStyles((theme) => ({
-  dashboardContainer: {
-    display: 'flex',
-  },
-  content: {
-    flexGrow: 1,
-    padding: theme.spacing(3),
-  },
-  welcomeMessage: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    marginTop: 40,
-    marginBottom: 20,
-  },
-  spinnerContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '60vh',
-    flexDirection: 'column',
-  },
-  loadingMessage: {
-    fontSize: '1.2rem',
-    color: '#555',
-    marginTop: '20px',
-  },
-}));
-
 function Dashboard() {
-  const classes = useStyles();
   const navigate = useNavigate();
   const location = useLocation();
   const { authToken, user, loading: authLoading } = useContext(AuthContext);
@@ -336,14 +306,14 @@ function Dashboard() {
   // Render
   return (
     <ErrorBoundary>
-      <div className={classes.dashboardContainer}>
+      <div className="dashboardContainer">
         <ToastContainer position="top-right" autoClose={5000} />
 
-        <main className={classes.content}>
+        <main className="content">
           {isLoadingWorkoutPlan ? (
-            <Box className={classes.spinnerContainer}>
+            <Box className="spinnerContainer">
               <CircularProgress />
-              <Typography variant="h6" className={classes.loadingMessage}>
+              <Typography variant="h6" className="loadingMessage">
                 {workoutPlans.length === 0 
                   ? "Generating your personalized workout plan..."
                   : "Loading workout plan..."}
@@ -600,7 +570,7 @@ function Dashboard() {
                 )}
 
                 {/* Progress Chart placed below the exercise cards */}
-                <Typography variant="h5" className={classes.sectionTitle}>
+                <Typography variant="h5" className="sectionTitle">
                   Your Progress
                 </Typography>
                 <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
@@ -614,25 +584,28 @@ function Dashboard() {
                 </Paper>
 
                 {/* Progression Metrics */}
-                <ProgressionMetrics />
+                <ProgressionMetrics isRestDay={currentWorkout?.type === 'rest'} />
 
-                <Box marginTop={4}>
-                  <Paper elevation={3} style={{ padding: '20px' }}>
-                    {workoutPlans && workoutPlans.length > 0 ? (
-                      <LogSessionForm
-                        workoutPlans={workoutPlans}
-                        currentWorkout={currentWorkout}
-                        source="dashboard"
-                        onSessionLogged={handleSessionLogged}
-                        isLoading={isLoadingWorkoutPlan}
-                      />
-                    ) : (
-                      <Typography variant="body1" color="textSecondary">
-                        No workout plans available. Generate a workout plan to start logging sessions.
-                      </Typography>
-                    )}
-                  </Paper>
-                </Box>
+                {/* Only show LogSessionForm if it's not a rest day */}
+                {currentWorkout && currentWorkout.type !== 'rest' && (
+                  <Box marginTop={4}>
+                    <Paper elevation={3} style={{ padding: '20px' }}>
+                      {workoutPlans && workoutPlans.length > 0 ? (
+                        <LogSessionForm
+                          workoutPlans={workoutPlans}
+                          currentWorkout={currentWorkout}
+                          source="dashboard"
+                          onSessionLogged={handleSessionLogged}
+                          isLoading={isLoadingWorkoutPlan}
+                        />
+                      ) : (
+                        <Typography variant="body1" color="textSecondary">
+                          No workout plans available. Generate a workout plan to start logging sessions.
+                        </Typography>
+                      )}
+                    </Paper>
+                  </Box>
+                )}
               </Container>
             </>
           )}

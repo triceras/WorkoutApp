@@ -10,7 +10,13 @@ import {
   ListItemText,
   Paper,
   Chip,
-  CircularProgress
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TableContainer
 } from '@mui/material';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -33,7 +39,7 @@ const MetricCard = ({ title, value, icon }) => (
   </Card>
 );
 
-const ProgressionMetrics = () => {
+const ProgressionMetrics = ({ isRestDay }) => {
   const [metrics, setMetrics] = useState({
     totalSessions: 0,
     recentSessions: 0,
@@ -102,44 +108,93 @@ const ProgressionMetrics = () => {
   }, [fetchMetrics]);
 
   const renderSessionExercises = (session) => {
-    return (
-      <List dense>
-        {session.exercises.map((exercise, index) => {
-          const isCardio = exercise.exercise_type === 'cardio';
-          let details = '';
-          if (isCardio) {
-            details = `duration: ${exercise.duration} mins`;
-            if (exercise.intensity) {
-              details += ` • ${exercise.intensity} intensity`;
-            }
-          } else {
-            if (exercise.sets && exercise.reps) {
-              details = `sets: ${exercise.sets}, reps: ${exercise.reps}`;
-              if (exercise.weight) {
-                details += ` @ ${exercise.weight}kg`;
-              }
-            }
-          }
+    // Separate exercises by type
+    const strengthExercises = session.exercises.filter(ex => 
+      ex.exercise_type === 'strength' || ex.tracking_type === 'weight_based'
+    );
+    const cardioExercises = session.exercises.filter(ex => 
+      ex.exercise_type === 'cardio' || ex.tracking_type === 'time_based'
+    );
 
-          return (
-            <ListItem key={index}>
-              <ListItemText
-                primary={exercise.exercise_name}
-                secondary={details}
-              />
-            </ListItem>
-          );
-        })}
+    const tableStyles = {
+      bgcolor: 'rgb(236, 252, 239)',
+      borderRadius: '4px',
+      '& .MuiTable-root': {
+        borderCollapse: 'collapse',
+      },
+      '& .MuiTableCell-root': {
+        borderBottom: '1px solid rgba(224, 224, 224, 1)',
+      }
+    };
+
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {strengthExercises.length > 0 && (
+          <TableContainer component={Paper} elevation={0} sx={tableStyles}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>SET 1</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>SET 2</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>SET 3</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>SET 4</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {strengthExercises.map((exercise, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell component="th" scope="row">
+                      {exercise.exercise_name || exercise.name}
+                    </TableCell>
+                    <TableCell align="center">{exercise.reps || '12'}</TableCell>
+                    <TableCell align="center">{exercise.reps || '12'}</TableCell>
+                    <TableCell align="center">{exercise.reps || '12'}</TableCell>
+                    <TableCell align="center">-</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
+        {cardioExercises.length > 0 && (
+          <TableContainer component={Paper} elevation={0} sx={tableStyles}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>DURATION</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>INTENSITY</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {cardioExercises.map((exercise, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell component="th" scope="row">
+                      {exercise.exercise_name || exercise.name}
+                    </TableCell>
+                    <TableCell>{exercise.duration || '5 minutes'}</TableCell>
+                    <TableCell sx={{ textTransform: 'capitalize' }}>
+                      {exercise.intensity || 'moderate'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
         {/* Display session comments if available */}
         {session.comments && (
-          <ListItem>
-            <ListItemText
-              primary="Comments"
-              secondary={session.comments}
-            />
-          </ListItem>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2">Comments</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {session.comments}
+            </Typography>
+          </Box>
         )}
-      </List>
+      </Box>
     );
   };
 
@@ -238,11 +293,13 @@ const ProgressionMetrics = () => {
         </Grid>
       </Grid>
 
-      <Typography variant="h6" component="h2" sx={{ mt: 4, mb: 2 }}>
-        Recent Training Sessions
-      </Typography>
-      
-      {metrics.sessions.map((session, index) => (
+      {!isRestDay && (
+        <>
+          <Typography variant="h6" component="h2" sx={{ mt: 4, mb: 2 }}>
+            Recent Training Sessions
+          </Typography>
+          
+          {metrics.sessions.map((session, index) => (
         <Card key={index} sx={{ mb: 2, bgcolor: '#f8f9fa' }}>
           <CardContent>
             <Typography variant="h6" component="div">
@@ -257,7 +314,9 @@ const ProgressionMetrics = () => {
             {renderSessionExercises(session)}
           </CardContent>
         </Card>
-      ))}
+          ))}
+        </>
+      )}
     </Box>
   );
 };
