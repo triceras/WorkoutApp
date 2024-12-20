@@ -8,7 +8,8 @@ from django.conf import settings
 from ..models import WorkoutPlan, YouTubeVideo
 from ..helpers import (
     get_video_id,
-    get_video_data_by_id
+    get_video_data_by_id,
+    standardize_exercise_name
 )
 from .day_mapping import map_days_to_weekdays
 from django.contrib.auth import get_user_model
@@ -236,8 +237,11 @@ Format Requirements:
 - Return a valid JSON object with 'workoutDays' array
 - Each day must have 'type' as one of: 'workout', 'active_recovery', or 'rest'
 - CRITICAL: Ensure EXACT number of workout days as specified
-- Include proper form guidance and safety tips
+- Keep form guidance and safety tips brief and focused
+- Use bullet points for instructions and tips
+- Limit descriptions to essential points only
 - Return ONLY the JSON object, nothing else
+- Keep exercise descriptions concise and focused
 """
     ]
 
@@ -264,6 +268,8 @@ def convert_numeric_to_string(workout_plan):
 
 def assign_video_ids_to_exercises(workout_plan):
     """Assign video IDs to exercises in the workout plan."""
+    from ..models import Exercise  # Import Exercise model at function level to avoid circular imports
+    
     processed_exercises = set()
     for day in workout_plan['workoutDays']:
         if 'exercises' not in day:
@@ -273,22 +279,49 @@ def assign_video_ids_to_exercises(workout_plan):
             if not exercise_name or exercise_name in processed_exercises:
                 continue
             try:
-                standardized_name, video_id = get_video_id(exercise_name)
-                if video_id:
-                    try:
-                        video = YouTubeVideo.objects.get(video_id=video_id)
-                    except YouTubeVideo.DoesNotExist:
-                        video = YouTubeVideo.objects.create(
-                            exercise_name=standardized_name,
-                            video_id=video_id,
-                            title=f"{exercise_name} Form Guide",
-                            video_url=f"https://www.youtube.com/watch?v={video_id}",
-                            thumbnail_url=f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
-                        )
-                    exercise['videoId'] = video.video_id
+                # Get the first matching exercise from the database
+                existing_exercise = Exercise.objects.filter(name__iexact=exercise_name).first()
+                if existing_exercise:
+                    # If exercise exists in database, use its video information
+                    exercise['videoId'] = existing_exercise.videoId
                     processed_exercises.add(exercise_name)
+                else:
+                    # If exercise doesn't exist, get video data and create the exercise
+                    try:
+                        video_data = get_video_id(exercise_name)
+                        if video_data and 'video_id' in video_data:
+                            try:
+                                video = YouTubeVideo.objects.get(video_id=video_data['video_id'])
+                            except YouTubeVideo.DoesNotExist:
+                                video = YouTubeVideo.objects.create(
+                                    exercise_name=standardize_exercise_name(exercise_name),
+                                    video_id=video_data['video_id'],
+                                    title=f"{exercise_name} Form Guide",
+                                    video_url=video_data.get('video_url', f"https://www.youtube.com/watch?v={video_data['video_id']}"),
+                                    thumbnail_url=video_data.get('thumbnail_url', f"https://i.ytimg.com/vi/{video_data['video_id']}/hqdefault.jpg")
+                                )
+                            
+                            # Create new exercise in database with video information
+                            new_exercise = Exercise.objects.create(
+                                name=exercise_name,
+                                description=json.dumps({"description": f"Description for {exercise_name}"}),
+                                instructions=json.dumps({
+                                    "setup": exercise['instructions']['setup'],
+                                    "execution": exercise['instructions']['execution'],
+                                    "form_tips": exercise['instructions']['form_tips']
+                                }),
+                                exercise_type=exercise['exercise_type'],
+                                videoId=video.video_id,
+                                video_url=video.video_url,
+                                thumbnail_url=video.thumbnail_url
+                            )
+                            exercise['videoId'] = new_exercise.videoId
+                            processed_exercises.add(exercise_name)
+                    except Exception as e:
+                        logger.error(f"Error fetching videoId for exercise '{exercise_name}': {str(e)}")
+                        exercise['videoId'] = None
             except Exception as e:
-                logger.error(f"Error fetching videoId for exercise '{exercise_name}': {str(e)}")
+                logger.error(f"Error processing exercise '{exercise_name}': {str(e)}")
                 exercise['videoId'] = None
     return workout_plan
 
@@ -328,15 +361,21 @@ def generate_workout_plan(user_id, feedback_text=None):
             'messages': [
                 {
                     'role': 'system',
-                    'content': 'You are a professional fitness trainer and exercise specialist. Generate detailed, safe, and effective workout plans based on user requirements. Always respond with valid JSON format.'
+                    'content': '''You are a professional fitness trainer and exercise specialist. Generate detailed, safe, and effective workout plans based on user requirements. Follow these guidelines:
+1. Always respond with valid JSON format
+2. Keep responses concise and focused on essential information
+3. For exercise instructions, provide only key points, not lengthy descriptions
+4. For form guidance and safety tips, use bullet points and keep them brief
+5. Avoid redundant information across exercises
+6. Use consistent, simple formatting for all exercises'''
                 },
                 {
                     'role': 'user',
                     'content': prompt
                 }
             ],
-            'temperature': 0.7,
-            'max_tokens': 4000,
+            'temperature': 0.5,  # Even lower temperature for more consistent responses
+            'max_tokens': 4096,  # Further reduced max tokens
             'response_format': { 'type': 'json_object' }
         }
         
@@ -367,18 +406,45 @@ def generate_workout_plan(user_id, feedback_text=None):
             logger.info("AI model response content:")
             logger.info(output)
             
+            # Clean up the output
             output = output.strip()
+            
+            # Remove any INFO prefixes that might be in the response
+            output = re.sub(r'^INFO\s*', '', output, flags=re.MULTILINE)
+            
+            # Remove code block markers
             if output.startswith('```json'):
                 output = output[7:]
             if output.endswith('```'):
                 output = output[:-3]
             output = output.strip()
             
+            # Try to extract valid JSON
             json_str = extract_json_from_text(output)
             if not json_str:
-                if output.strip().startswith('{') and output.strip().endswith('}'):
-                    json_str = output.strip()
-                else:
+                # Try to find a complete JSON object in the text
+                start_idx = output.find('{')
+                if start_idx >= 0:
+                    # Find matching closing brace
+                    brace_count = 0
+                    end_idx = -1
+                    for i, char in enumerate(output[start_idx:], start_idx):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                end_idx = i + 1
+                                break
+                    
+                    if end_idx > start_idx:
+                        json_str = output[start_idx:end_idx]
+                        try:
+                            json.loads(json_str)  # Validate it's valid JSON
+                        except json.JSONDecodeError:
+                            json_str = None
+                
+                if not json_str:
                     logger.error("Failed to extract valid JSON from AI response")
                     raise ValueError("Invalid response format from AI model")
             
@@ -444,50 +510,77 @@ def generate_workout_plan(user_id, feedback_text=None):
                         logger.warning(f"Skipping exercise with empty name in day {index}")
                         continue
 
+                    # Determine exercise type and tracking type
                     exercise_type = exercise_data.get('exercise_type', 'strength')
                     if exercise_type in ['cardio', 'recovery', 'yoga', 'stretching', 'flexibility']:
                         tracking_type = 'time_based'
-                    elif 'weight' in exercise_data or exercise_type in ['strength', 'power']:
+                    elif exercise_type in ['strength', 'power', 'compound']:
                         tracking_type = 'weight_based'
                     else:
                         tracking_type = 'reps_based'
 
-                    ai_instructions = exercise_data.get('instructions', {})
-                    if isinstance(ai_instructions, str):
-                        try:
-                            ai_instructions = json.loads(ai_instructions.replace("'", '"'))
-                        except json.JSONDecodeError:
-                            ai_instructions = {
-                                'setup': 'Get into position',
-                                'execution': [ai_instructions],
-                                'form_tips': []
-                            }
-                    elif not isinstance(ai_instructions, dict):
-                        ai_instructions = {
-                            'setup': 'Get into position',
-                            'execution': [],
-                            'form_tips': []
-                        }
+                    # Parse duration/sets/reps from the duration field
+                    duration_str = exercise_data.get('duration', '')
+                    sets = None
+                    reps = None
+                    duration = None
+
+                    if 'sets' in duration_str.lower():
+                        if 'reps' in duration_str.lower():
+                            # Parse "3 sets of 12 reps" format
+                            match = re.match(r'(\d+)\s*sets?\s*of\s*(\d+)\s*reps?', duration_str)
+                            if match:
+                                sets = match.group(1)
+                                reps = match.group(2)
+                                duration = None
+                        elif 'minute' in duration_str.lower() or 'second' in duration_str.lower():
+                            # Parse "3 sets of 5 minutes" format
+                            match = re.match(r'(\d+)\s*sets?\s*of\s*(\d+)\s*(minute|second)s?', duration_str)
+                            if match:
+                                sets = match.group(1)
+                                duration = f"{match.group(2)} {match.group(3)}s"
+                                reps = None
+                    else:
+                        # Handle simple time-based durations like "30 minutes"
+                        duration = duration_str
+                        sets = None
+                        reps = None
+
+                    # Create instructions from form guidance and safety tips
+                    form_guidance = day_data.get('form_guidance', [])
+                    safety_tips = day_data.get('safety_tips', [])
+                    
+                    # Combine form guidance and safety tips
+                    all_tips = []
+                    if form_guidance:
+                        all_tips.extend([tip.strip('* ') for tip in form_guidance])
+                    if safety_tips:
+                        all_tips.extend([tip.strip('* ') for tip in safety_tips])
+
+                    # Create execution steps based on duration type
+                    execution_steps = [f"Perform {exercise_name} with proper form"]
+                    if sets:
+                        if reps:
+                            execution_steps.append(f"Complete {sets} sets of {reps} repetitions")
+                        elif duration:
+                            execution_steps.append(f"Complete {sets} sets of {duration} each")
+                    else:
+                        execution_steps.append(f"Continue for {duration}")
 
                     instructions = {
-                        'setup': ai_instructions.get('setup', 'Get into position'),
-                        'execution': ai_instructions.get('execution', []),
-                        'form_tips': ai_instructions.get('form_tips', [])
+                        'setup': 'Get into position',
+                        'execution': execution_steps,
+                        'form_tips': all_tips if all_tips else ['Maintain proper form throughout']
                     }
-
-                    if not instructions['execution'] and exercise_data.get('form_guidance'):
-                        instructions['execution'] = [exercise_data['form_guidance']]
-                    if not instructions['form_tips'] and exercise_data.get('safety_tips'):
-                        instructions['form_tips'] = [exercise_data['safety_tips']]
 
                     transformed_exercise = {
                         'name': exercise_name,
                         'exercise_type': exercise_type,
                         'tracking_type': tracking_type,
                         'weight': exercise_data.get('weight'),
-                        'sets': str(exercise_data['sets']) if exercise_data.get('sets') else None,
-                        'reps': str(exercise_data['reps']) if exercise_data.get('reps') else None,
-                        'duration': exercise_data.get('duration'),
+                        'sets': sets,  # Use parsed sets value
+                        'reps': reps,  # Use parsed reps value
+                        'duration': duration,  # Use parsed duration value
                         'rest_time': exercise_data.get('rest_time'),
                         'intensity': exercise_data.get('intensity'),
                         'instructions': instructions
@@ -549,23 +642,71 @@ def generate_workout_plan(user_id, feedback_text=None):
 
 def extract_json_from_text(text):
     """
-    Extracts the JSON content from text, handling code blocks and triple backticks.
+    Extracts and attempts to repair JSON content from text, handling code blocks,
+    triple backticks, and incomplete JSON structures.
     """
     try:
+        # Remove code block markers and clean the text
         text = re.sub(r'^```[a-zA-Z]*\n?', '', text, flags=re.MULTILINE)
         text = text.replace('```', '')
         text = text.strip()
+
+        # Find the start of the JSON object
         start_index = text.find('{')
         if start_index == -1:
+            logger.error("No JSON object found")
             return None
-        end_index = text.rfind('}')
-        if end_index == -1:
+
+        # Extract from the start to either the last complete closing brace or the end
+        json_str = text[start_index:]
+        
+        # Count opening and closing braces
+        open_count = json_str.count('{')
+        close_count = json_str.count('}')
+
+        # If we have more opening braces than closing, try to complete the structure
+        if open_count > close_count:
+            # Add missing closing braces
+            json_str += '}' * (open_count - close_count)
+            logger.info(f"Added {open_count - close_count} closing braces to complete JSON structure")
+
+        # Try to parse the JSON
+        try:
+            # First try parsing as is
+            json.loads(json_str)
+            return json_str
+        except json.JSONDecodeError as e:
+            # If that fails, try to find the last valid JSON object
+            stack = []
+            last_valid_end = -1
+            
+            for i, char in enumerate(json_str):
+                if char == '{':
+                    stack.append(i)
+                elif char == '}':
+                    if stack:
+                        start = stack.pop()
+                        if not stack:  # This means we've found a complete top-level object
+                            try:
+                                # Try to parse this substring
+                                test_str = json_str[start:i+1]
+                                json.loads(test_str)
+                                last_valid_end = i + 1
+                            except json.JSONDecodeError:
+                                continue
+
+            if last_valid_end != -1:
+                json_str = json_str[:last_valid_end]
+                try:
+                    json.loads(json_str)  # Final validation
+                    logger.info("Successfully extracted partial but valid JSON object")
+                    return json_str
+                except json.JSONDecodeError:
+                    pass
+
+            logger.error(f"Could not extract valid JSON: {str(e)}")
             return None
-        json_str = text[start_index:end_index+1]
-        if json_str.count('{') != json_str.count('}'):
-            logger.error("Braces are not balanced in JSON string.")
-            return None
-        return json_str
+
     except Exception as e:
-        logger.error(f"Error extracting JSON: {e}")
+        logger.error(f"Error processing JSON text: {str(e)}")
         return None

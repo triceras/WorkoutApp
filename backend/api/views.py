@@ -43,6 +43,8 @@ from .serializers import (
 from django.utils import timezone
 from datetime import timedelta
 import logging
+import time
+from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
@@ -693,30 +695,58 @@ def fetch_video_for_exercise(request, exercise_id):
     """
     Fetches and assigns a video ID to an exercise if it doesn't already have one.
     """
+    start_time = time.time()
+    logger.info(f"Starting video fetch for exercise_id={exercise_id}")
+    
     exercise = get_object_or_404(Exercise, pk=exercise_id)
+    logger.debug(f"Exercise found: name='{exercise.name}', type='{exercise.exercise_type}'")
 
-    # Even if videoId is present, allow updating for other fields
     try:
+        # Log existing video data if any
+        if exercise.videoId:
+            logger.debug(f"Existing videoId={exercise.videoId} will be updated")
+
         # Use helper function to get video data
+        logger.info(f"Fetching video data for exercise '{exercise.name}'")
         video_data = get_youtube_video(exercise.name)
-        
+
         if video_data:
+            logger.debug(f"Video data fetched: {video_data}")
+
             # Assign video ID, thumbnail URL, and video URL
             exercise.videoId = video_data['video_id']
             exercise.thumbnail_url = video_data['thumbnail_url']
             exercise.video_url = video_data['video_url']
+            exercise.last_updated = now()
             exercise.save()
-            
+
             # Update related WorkoutPlan if needed
             update_workout_plan_with_video(exercise)
+
+            execution_time = time.time() - start_time
+            logger.info(f"Successfully updated video data for exercise '{exercise.name}' in {execution_time:.2f}s")
 
             serializer = ExerciseSerializer(exercise)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
+            logger.warning(f"No video data found for exercise '{exercise.name}'")
             return Response({'error': 'Could not fetch video details'}, status=status.HTTP_404_NOT_FOUND)
+
     except Exception as e:
-        logger.error(f"Error fetching video for exercise {exercise_id}: {str(e)}", exc_info=True)
-        return Response({'error': 'An error occurred while fetching the video'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        execution_time = time.time() - start_time
+        logger.error(
+            f"Error fetching video for exercise {exercise_id}",
+            extra={
+                'exercise_name': exercise.name,
+                'error': str(e),
+                'execution_time': f"{execution_time:.2f}s"
+            },
+            exc_info=True
+        )
+        return Response(
+            {'error': 'An error occurred while fetching the video'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 # Add a helper function to fetch exercise details by name
 def get_exercise_details_by_name(exercise_name):

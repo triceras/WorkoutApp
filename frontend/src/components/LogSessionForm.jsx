@@ -135,45 +135,56 @@ const LogSessionForm = ({
     console.log('Available workout exercises:', workoutExercises);
 
     if (workoutExercises.length > 0 && availableExercises.length > 0) {
-      initialValues.exercises = workoutExercises.map(exercise => {
+      initialValues.exercises = workoutExercises.map((exercise) => {
+        // Debug log
+        console.log('Processing exercise:', exercise);
+    
+        // Enhanced exercise type detection
         const exerciseType = exercise.exercise_type || 
-          (exercise.name.toLowerCase().includes('bike') ? 'cardio' : 'strength');
-        const isCardio = exerciseType === 'cardio';
-
-        // Convert instructions object to string if needed
+          (exercise.name.toLowerCase().includes("bike") || 
+           exercise.name.toLowerCase().includes("jog") || 
+           exercise.name.toLowerCase().includes("run")) ? "cardio" :
+          (exercise.name.toLowerCase().includes("hold") || 
+           exercise.name.toLowerCase().includes("plank")) ? "isometric" : 
+          "strength";
+    
+        const isCardio = exerciseType === "cardio";
+        const isIsometric = exerciseType === "isometric";
+    
+        // Convert instructions
         let instructionsValue = exercise.instructions;
-        if (instructionsValue && typeof instructionsValue === 'object') {
+        if (instructionsValue && typeof instructionsValue === "object") {
           instructionsValue = JSON.stringify(instructionsValue);
         }
-
-        // Find matching exercise in available exercises
+    
+        // Improved exercise matching
         const matchedExercise = availableExercises.find(ex => 
-          ex.name.toLowerCase() === exercise.name.toLowerCase()
+          ex.name.toLowerCase().trim() === exercise.name.toLowerCase().trim()
         );
-        console.log(`Matching exercise ${exercise.name}:`, matchedExercise);
-
+        console.log(`Exercise ${exercise.name} matching result:`, matchedExercise);
+    
         return {
           name: exercise.name,
           exercise_id: matchedExercise?.id || null,
           exercise_type: exerciseType,
-          sets: isCardio ? '' : (exercise.sets || '3'),
-          reps: isCardio ? '' : (exercise.reps || '10'),
-          weight: isCardio ? '' : (exercise.weight || ''),
-          duration: isCardio ? (exercise.duration || '30') : '',
-          intensity: isCardio ? normalizeIntensity(exercise.intensity) : '',
-          avg_heart_rate: exercise.avg_heart_rate || '',
-          max_heart_rate: exercise.max_heart_rate || '',
-          tracking_type: isCardio ? 'time_based' : 'weight_based',
-          videoId: exercise.videoId || exercise.video_id || '',
-          instructions: instructionsValue || '',
-          equipment: exercise.equipment || '',
-          isPrePopulated: !!matchedExercise
+          sets: isCardio ? "1" : (exercise.sets || "3"),
+          reps: isCardio ? null : isIsometric ? (exercise.duration || "30") : (exercise.reps || "10"),
+          weight: isCardio ? null : (exercise.weight || "bodyweight"),
+          duration: (isCardio || isIsometric) ? (exercise.duration || "30") : "",
+          intensity: isCardio ? normalizeIntensity(exercise.intensity) : "",
+          avg_heart_rate: exercise.avg_heart_rate || "",
+          max_heart_rate: exercise.max_heart_rate || "",
+          tracking_type: isCardio ? "time_based" : isIsometric ? "duration_based" : "weight_based",
+          videoId: exercise.videoId || exercise.video_id || matchedExercise?.videoId || "",
+          instructions: instructionsValue || "",
+          equipment: exercise.equipment || "",
+          isPrePopulated: true
         };
       });
     }
-
     return initialValues;
   };
+
 
   const validationSchema = Yup.object({
     session_name: Yup.string().required('Session name is required'),

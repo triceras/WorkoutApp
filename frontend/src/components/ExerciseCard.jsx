@@ -24,68 +24,65 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
   console.log('Using thumbnailUrl:', thumbnailUrl);
 
   // src/components/ExerciseCard.jsx
-useEffect(() => {
-  const fetchVideoDetails = async () => {
-    if (!videoId && exercise.name) {
-      try {
-        // Fetch exercise details from the database using the exercise name
-        const exerciseResponse = await axiosInstance.get(`exercises/`, {
-          params: { name: exercise.name },
-        });
-
-        // Check if any results were returned
-        if (exerciseResponse.data.length > 0) {
-          const fetchedExercise = exerciseResponse.data[0];
-
-          // Check if the fetched exercise has a videoId
-          if (fetchedExercise.videoId) {
-            setVideoId(fetchedExercise.videoId);
-            setThumbnailUrl(fetchedExercise.thumbnail_url);
-            console.log(
-              "Video details found in the database:",
-              fetchedExercise.videoId
+  useEffect(() => {
+    const fetchVideoDetails = async () => {
+      console.log("Fetching video details for:", exercise.name);
+      if (!videoId && exercise.name) {
+        setIsLoading(true);
+        setError(null);
+        try {
+          // Fetch exercise details from the database using the exercise name
+          const exerciseResponse = await axiosInstance.get(`exercises/`, {
+            params: { name: exercise.name },
+          });
+   
+          if (exerciseResponse.data.length > 0) {
+            const fetchedExercise = exerciseResponse.data[0];
+            
+            // Check for both videoId and video_id
+            const videoIdToUse = fetchedExercise.videoId || fetchedExercise.video_id;
+            const thumbnailUrlToUse = fetchedExercise.thumbnail_url;
+            
+            if (videoIdToUse) {
+              setVideoId(videoIdToUse);
+              setThumbnailUrl(thumbnailUrlToUse);
+              console.log(
+                "Video details found in the database:",
+                videoIdToUse
+              );
+              return;
+            }
+            
+            // If no video details found, try to fetch them
+            const videoResponse = await axiosInstance.patch(
+              `exercises/${fetchedExercise.id}/fetch-video/`
             );
-            return;
-          } else {
-            // Only proceed if fetchedExercise.id is available
-            if (fetchedExercise.id) {
-              // If not found or no videoId, then fetch from YouTube and update
-              const response = await axiosInstance.patch(
-                `exercises/${fetchedExercise.id}/fetch-video/`
-              );
-
-              if (response.data && response.data.video_id) {
-                setVideoId(response.data.video_id);
-                setThumbnailUrl(response.data.thumbnail_url);
-                console.log(
-                  "Video details fetched and updated:",
-                  response.data.video_id
-                );
-              } else {
-                console.warn(
-                  "Failed to fetch video details for exercise:",
-                  exercise.name
-                );
-              }
-            } else {
-              console.error(
-                "Exercise ID is undefined, cannot fetch video details."
-              );
+            
+            if (videoResponse.data) {
+              const updatedExercise = videoResponse.data;
+              setVideoId(updatedExercise.videoId || updatedExercise.video_id);
+              setThumbnailUrl(updatedExercise.thumbnail_url);
+              console.log("Video details fetched and updated:", updatedExercise);
             }
           }
-        } else {
-          console.warn(
-            `Exercise ${exercise.name} not found in the database.`
+   
+          // If not found or no videoId, log an error as this should not happen 
+          // if the backend is assigning video details correctly
+          console.error(
+            "Exercise found but video details are missing for:",
+            exercise.name
           );
+        } catch (error) {
+          console.error("Error fetching video details:", error);
+          setError("Error fetching video details.");
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Error fetching video details:", error);
       }
-    }
-  };
-
-  fetchVideoDetails();
-}, [exercise.id, exercise.name, videoId]);
+    };
+   
+    fetchVideoDetails();
+  }, [exercise.id, exercise.name, videoId]);
 
   const parseInstructions = (instructions) => {
     if (typeof instructions === 'string') {

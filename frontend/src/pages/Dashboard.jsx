@@ -384,23 +384,22 @@ function Dashboard() {
                   </Card>
                 )}
 
-              {
-                currentWorkout && (
-                  <React.Fragment>
-                    {/* Existing Paper component for TODAY'S WORKOUT */}
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 3,
-                        mb: 4,
-                        background: "linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%)",
-                        border: "1px solid rgba(75, 0, 130, 0.1)",
-                        borderRadius: "20px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 2.5,
-                      }}
-                    >
+              {currentWorkout && (
+                <React.Fragment>
+                  {/* Existing Paper component for TODAY'S WORKOUT */}
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3,
+                      mb: 4,
+                      background: "linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%)",
+                      border: "1px solid rgba(75, 0, 130, 0.1)",
+                      borderRadius: "20px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2.5,
+                    }}
+                  >
                       <Box
                         sx={{
                           width: 80,
@@ -569,11 +568,34 @@ function Dashboard() {
                     </Grid>
                     <Grid container spacing={3}>
                     </Grid>
-                    <WorkoutCard
-                      workouts={currentWorkout.exercises}
-                      userName={userData?.first_name || userData?.username}
-                      openVideoModal={openVideoModal}
-                    />
+                    {currentWorkout.type === 'rest' ? (
+                      <Box sx={{ mt: 4, mb: 4 }}>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 4,
+                            background: "linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%)",
+                            border: "1px solid rgba(76, 175, 80, 0.1)",
+                            borderRadius: "20px",
+                            textAlign: "center"
+                          }}
+                        >
+                          <Typography variant="h5" sx={{ color: "#2e7d32", mb: 2 }}>
+                            🌟 Today is a Rest Day! 🌟
+                          </Typography>
+                          <Typography variant="body1" sx={{ mb: 3 }}>
+                            {currentWorkout.notes || "Take this time to focus on recovery and rejuvenation. Rest days are crucial for muscle repair and preventing burnout."}
+                          </Typography>
+                          <RestDaySuggestions />
+                        </Paper>
+                      </Box>
+                    ) : (
+                      <WorkoutCard
+                        workouts={currentWorkout.exercises}
+                        userName={userData?.first_name || userData?.username}
+                        openVideoModal={openVideoModal}
+                      />
+                    )}
                   </React.Fragment>
                 )}
 

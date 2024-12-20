@@ -6,7 +6,11 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from .models import WorkoutPlan, TrainingSession
-from .services.workout_plan import generate_workout_plan
+from .services.workout_plan import (
+    generate_workout_plan,
+    WorkoutPlanCreationError,
+    OpenRouterServiceUnavailable
+)
 from .services.profile import generate_profile_picture
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -15,6 +19,8 @@ from django.core.cache import cache
 from django.utils import timezone
 from django.conf import settings
 from redis.exceptions import LockNotOwnedError
+from .services.workout_plan import assign_video_ids_to_exercises
+from django.db.utils import OperationalError
 
 
 logger = logging.getLogger(__name__)
@@ -33,65 +39,68 @@ def generate_workout_plan_task(self, user_id):
     Celery task to generate a workout plan for a user.
     """
     logger.info(f"Starting workout plan generation for user_id {user_id}")
-    
-    # Get a lock for this user
+
     lock_id = f'workout_plan_lock_{user_id}'
-    lock = cache.lock(lock_id, timeout=300)  # 5 minutes timeout
+    lock = cache.lock(lock_id, timeout=300)
     have_lock = False
-    
+
     try:
-        # Try to acquire the lock
         have_lock = lock.acquire(blocking=False)
         if not have_lock:
             logger.warning(f"Could not acquire lock for user_id {user_id}")
             return
-        
+
         logger.info(f"Lock acquired for user_id {user_id}")
-        
+
         try:
             User = get_user_model()
             user = User.objects.get(id=user_id)
-            
+
             # Generate the workout plan
             plan = generate_workout_plan(user.id)
-            
-            # Send the workout plan to the user via WebSocket
-            if plan and plan.plan_data:
-                logger.info(f"Generated workout plan for user {user_id}")
-                send_workout_plan_to_group(user, plan.plan_data)
-                logger.info(f"Workout plan sent to user {user_id}")
-                return plan.id
-            else:
+
+            if not plan or not plan.plan_data:
                 error_msg = f"No workout plan data generated for user {user_id}"
                 logger.error(error_msg)
                 raise ValueError(error_msg)
-                
+
+            logger.info(f"Generated workout plan for user {user_id}")
+            logger.info(f"Workout plan data before assigning video IDs: {plan.plan_data}")  # Log plan data before update
+
+            # Assign video IDs before saving
+            plan.plan_data = assign_video_ids_to_exercises(plan.plan_data)
+            plan.save()
+
+            logger.info(f"Workout plan data after assigning video IDs: {plan.plan_data}")  # Log plan data after update
+
+            send_workout_plan_to_group(user, plan.plan_data)
+            logger.info(f"Workout plan sent to user {user_id}")
+            return plan.id
+
         except User.DoesNotExist:
-            logger.error(f"User {user_id} does not exist")
+            logger.error(f"User {user_id} not found")
             raise
-        except Exception as e:
-            logger.error(f"Error in generate_workout_plan_task: {str(e)}", exc_info=True)
-            
-            # Send error message to user via WebSocket
+        except WorkoutPlanCreationError as e:
+            logger.error(f"Error generating workout plan: {str(e)}", exc_info=True)
             try:
                 channel_layer = get_channel_layer()
                 async_to_sync(channel_layer.group_send)(
-                    f'user_{user_id}',
+                    f"user_{user_id}",
                     {
-                        'type': 'workout_message',
-                        'message_type': 'error',
-                        'message': 'Failed to generate workout plan. Please try again.',
-                        'user_id': str(user_id)
+                        "type": "workout_message",
+                        "message_type": "error",
+                        "message": str(e),
+                        "user_id": str(user_id),
                     }
                 )
             except Exception as ws_error:
                 logger.error(f"Error sending WebSocket error message: {str(ws_error)}")
-            
+
             # Retry for certain errors
             if isinstance(e, (OperationalError, TimeoutError)):
                 raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
             raise
-            
+
     finally:
         try:
             if have_lock and lock.owned():
@@ -100,7 +109,6 @@ def generate_workout_plan_task(self, user_id):
             logger.warning("Lock for user %s was already released", user_id)
         except (ValueError, RuntimeError) as e:
             logger.error("Error releasing lock: %s", str(e))
-            logger.error(f"Error releasing lock: {str(e)}")
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=600, soft_time_limit=550)
@@ -290,11 +298,12 @@ def process_feedback_with_ai(feedback_data, modify_specific_session=False):
 
 
 def send_workout_plan_to_group(user, plan_data):
-    """
-    Send workout plan data to the user's WebSocket group.
-    """
+    """Send workout plan data to the user's WebSocket group."""
     try:
-        # Get the latest workout plan for the user
+        # Validate plan_data
+        if not isinstance(plan_data, dict) or 'workoutDays' not in plan_data:
+            raise ValueError("Invalid plan data format")
+            
         workout_plan = WorkoutPlan.objects.filter(user=user).latest('created_at')
         
         channel_layer = get_channel_layer()
@@ -312,15 +321,19 @@ def send_workout_plan_to_group(user, plan_data):
     except Exception as e:
         logger.error(f"Error sending workout plan to group: {str(e)}", exc_info=True)
         # Send error message to user
-        async_to_sync(channel_layer.group_send)(
-            f"user_{user.id}",
-            {
-                'type': 'workout_message',
-                'message_type': 'error',
-                'user_id': user.id,
-                'message': 'Error delivering workout plan'
-            }
-        )
+        try:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_{user.id}",
+                {
+                    'type': 'workout_message',
+                    'message_type': 'error',
+                    'user_id': user.id,
+                    'message': 'Error delivering workout plan'
+                }
+            )
+        except Exception as ws_error:
+            logger.error(f"Failed to send error message: {str(ws_error)}")
 
 
 # @shared_task
@@ -370,7 +383,7 @@ def check_and_refresh_workout_plans():
         )
 
         for user in users_needing_refresh:
-            generate_workout_plan.delay(user.id)
+            generate_workout_plan_task.delay(user.id)
             
     except Exception as e:
         logger.error(f"Error refreshing workout plans: {str(e)}", exc_info=True)

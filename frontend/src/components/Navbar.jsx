@@ -186,9 +186,11 @@ function Navbar({ isSidebarOpen, setIsSidebarOpen }) {
   const handleLogout = async () => {
     try {
       await axiosInstance.post('logout/');
+      logout();
+      navigate('/'); // Navigate to landing page
     } catch (error) {
       console.error('Error during logout:', error);
-    } finally {
+      // Still logout and redirect even if the API call fails
       logout();
       navigate('/');
     }

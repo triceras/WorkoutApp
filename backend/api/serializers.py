@@ -604,7 +604,10 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         exercises_data = validated_data.pop('training_session_exercises', [])
         # Remove source field as it's not part of the model
         validated_data.pop('source', None)
-        training_session = TrainingSession.objects.create(**validated_data)
+
+        # Set the comments field from validated_data
+        comments = validated_data.pop('comments', '')  # Get comments or default to empty string
+        training_session = TrainingSession.objects.create(comments=comments, **validated_data)
 
         for exercise_data in exercises_data:
             TrainingSessionExercise.objects.create(
