@@ -570,21 +570,25 @@ function Dashboard() {
                 )}
 
                 {/* Progress Chart placed below the exercise cards */}
-                <Typography variant="h5" className="sectionTitle">
-                  Your Progress
-                </Typography>
-                <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
-                  {progressData ? (
-                    <ProgressChart progressData={progressData} />
-                  ) : (
-                    <Typography variant="body1">
-                      Start logging your sessions to see progress.
-                    </Typography>
-                  )}
-                </Paper>
+                <Box sx={{ mb: 6 }}>
+                  <Typography variant="h5" className="sectionTitle">
+                    Your Progress
+                  </Typography>
+                  <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
+                    {progressData ? (
+                      <ProgressChart progressData={progressData} />
+                    ) : (
+                      <Typography variant="body1">
+                        Start logging your sessions to see progress.
+                      </Typography>
+                    )}
+                  </Paper>
+                </Box>
 
                 {/* Progression Metrics */}
-                <ProgressionMetrics isRestDay={currentWorkout?.type === 'rest'} />
+                <Box sx={{ mb: 6 }}>
+                  <ProgressionMetrics isRestDay={currentWorkout?.type === 'rest'} />
+                </Box>
 
                 {/* Only show LogSessionForm if it's not a rest day */}
                 {currentWorkout && currentWorkout.type !== 'rest' && (
@@ -593,7 +597,14 @@ function Dashboard() {
                       {workoutPlans && workoutPlans.length > 0 ? (
                         <LogSessionForm
                           workoutPlans={workoutPlans}
-                          currentWorkout={currentWorkout}
+                          currentWorkout={{
+                            ...currentWorkout,
+                            exercises: currentWorkout.exercises.map(exercise => ({
+                              ...exercise,
+                              isPrePopulated: true,
+                              tracking_type: exercise.exercise_type === 'cardio' ? 'time_based' : 'weight_based'
+                            }))
+                          }}
                           source="dashboard"
                           onSessionLogged={handleSessionLogged}
                           isLoading={isLoadingWorkoutPlan}

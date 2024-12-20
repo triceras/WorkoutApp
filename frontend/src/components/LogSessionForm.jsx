@@ -136,48 +136,36 @@ const LogSessionForm = ({
 
     if (workoutExercises.length > 0 && availableExercises.length > 0) {
       initialValues.exercises = workoutExercises.map((exercise) => {
-        // Debug log
         console.log('Processing exercise:', exercise);
-    
-        // Enhanced exercise type detection
-        const exerciseType = exercise.exercise_type || 
-          (exercise.name.toLowerCase().includes("bike") || 
-           exercise.name.toLowerCase().includes("jog") || 
-           exercise.name.toLowerCase().includes("run")) ? "cardio" :
-          (exercise.name.toLowerCase().includes("hold") || 
-           exercise.name.toLowerCase().includes("plank")) ? "isometric" : 
-          "strength";
-    
-        const isCardio = exerciseType === "cardio";
-        const isIsometric = exerciseType === "isometric";
-    
-        // Convert instructions
+        
+        const isCardio = exercise.tracking_type === 'time_based';
+        
+        // Convert instructions if needed
         let instructionsValue = exercise.instructions;
         if (instructionsValue && typeof instructionsValue === "object") {
           instructionsValue = JSON.stringify(instructionsValue);
         }
-    
-        // Improved exercise matching
+        
+        // Find matching exercise in available exercises
         const matchedExercise = availableExercises.find(ex => 
           ex.name.toLowerCase().trim() === exercise.name.toLowerCase().trim()
         );
-        console.log(`Exercise ${exercise.name} matching result:`, matchedExercise);
-    
+        
         return {
           name: exercise.name,
           exercise_id: matchedExercise?.id || null,
-          exercise_type: exerciseType,
-          sets: isCardio ? "1" : (exercise.sets || "3"),
-          reps: isCardio ? null : isIsometric ? (exercise.duration || "30") : (exercise.reps || "10"),
-          weight: isCardio ? null : (exercise.weight || "bodyweight"),
-          duration: (isCardio || isIsometric) ? (exercise.duration || "30") : "",
-          intensity: isCardio ? normalizeIntensity(exercise.intensity) : "",
-          avg_heart_rate: exercise.avg_heart_rate || "",
-          max_heart_rate: exercise.max_heart_rate || "",
-          tracking_type: isCardio ? "time_based" : isIsometric ? "duration_based" : "weight_based",
-          videoId: exercise.videoId || exercise.video_id || matchedExercise?.videoId || "",
-          instructions: instructionsValue || "",
-          equipment: exercise.equipment || "",
+          exercise_type: exercise.exercise_type,
+          tracking_type: exercise.tracking_type,
+          sets: isCardio ? null : exercise.sets,
+          reps: isCardio ? null : exercise.reps,
+          weight: isCardio ? null : (exercise.weight || 'bodyweight'),
+          duration: isCardio ? exercise.duration : null,
+          intensity: isCardio ? exercise.intensity : null,
+          avg_heart_rate: '',
+          max_heart_rate: '',
+          videoId: exercise.videoId || matchedExercise?.videoId || '',
+          instructions: instructionsValue || '',
+          equipment: exercise.equipment || '',
           isPrePopulated: true
         };
       });
@@ -225,21 +213,34 @@ const LogSessionForm = ({
       const workoutTypeValue = WORKOUT_TYPE_CHOICES.includes(values.workout_type) ? values.workout_type : 'Recovery';
 
       const exercisesData = values.exercises.map(exercise => {
-        const isCardio = exercise.exercise_type === 'cardio';
-        const parsedSets = isCardio ? null : (exercise.sets ? parseInt(exercise.sets, 10) : null);
-        const parsedReps = isCardio ? null : (exercise.reps ? parseInt(exercise.reps, 10) : null);
-        const parsedWeight = (exercise.exercise_type === 'strength' && exercise.weight) ? parseFloat(exercise.weight) : null;
-        const parsedDuration = isCardio && exercise.duration ? parseInt(exercise.duration, 10) : null;
-
+        const isCardio = exercise.tracking_type === 'time_based';
+        
+        // For cardio exercises
+        if (isCardio) {
+          return {
+            name: exercise.name,
+            exercise_id: exercise.exercise_id,
+            exercise_type: exercise.exercise_type,
+            tracking_type: 'time_based',
+            sets: null,
+            reps: null,
+            weight: null,
+            duration: exercise.duration,
+            intensity: exercise.intensity || 'Moderate'
+          };
+        }
+        
+        // For strength/weight-based exercises
         return {
           name: exercise.name,
           exercise_id: exercise.exercise_id,
           exercise_type: exercise.exercise_type,
-          sets: parsedSets,
-          reps: parsedReps,
-          weight: parsedWeight,
-          duration: parsedDuration,
-          intensity: isCardio ? exercise.intensity : null,
+          tracking_type: exercise.tracking_type,
+          sets: exercise.sets,
+          reps: exercise.reps,
+          weight: exercise.weight === 'bodyweight' ? null : exercise.weight,
+          duration: null,
+          intensity: null
         };
       });
 

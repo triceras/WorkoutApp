@@ -221,7 +221,7 @@ const ProgressionMetrics = ({ isRestDay }) => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, mt: 4 }}>
       <Typography variant="h4" gutterBottom>
         Your Progress
       </Typography>

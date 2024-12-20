@@ -28,6 +28,84 @@ class OpenRouterServiceUnavailable(Exception):
     """Exception raised when OpenRouter service is unavailable."""
     pass
 
+# Define base exercise schema
+BASE_EXERCISE = {
+    "type": "object",
+    "required": ["name", "exercise_type", "tracking_type", "instructions"],
+    "properties": {
+        "name": {"type": "string"},
+        "exercise_type": {"type": "string"},
+        "tracking_type": {"type": "string"},
+        "weight": {"type": ["string", "null"]},
+        "sets": {"type": ["string", "null"]},
+        "reps": {"type": ["string", "null"]},
+        "duration": {"type": ["string", "null"]},
+        "rest_time": {"type": ["string", "null"]},
+        "intensity": {"type": ["string", "null"]},
+        "instructions": {
+            "type": "object",
+            "properties": {
+                "setup": {"type": "string"},
+                "execution": {"type": "array", "items": {"type": "string"}},
+                "form_tips": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["setup", "execution", "form_tips"]
+        }
+    },
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "exercise_type": {"enum": ["cardio", "hiit", "recovery", "yoga", "stretching", "flexibility"]},
+                    "tracking_type": {"const": "time_based"}
+                }
+            },
+            "then": {
+                "required": ["duration", "intensity"],
+                "properties": {
+                    "duration": {"type": "string"},
+                    "intensity": {"type": "string"},
+                    "sets": {"type": "null"},
+                    "reps": {"type": "null"}
+                }
+            }
+        },
+        {
+            "if": {
+                "properties": {
+                    "tracking_type": {"const": "reps_based"}
+                }
+            },
+            "then": {
+                "required": ["sets", "reps"],
+                "properties": {
+                    "sets": {"type": "string"},
+                    "reps": {"type": "string"},
+                    "duration": {"type": "null"},
+                    "intensity": {"type": "null"}
+                }
+            }
+        },
+        {
+            "if": {
+                "properties": {
+                    "tracking_type": {"const": "weight_based"}
+                }
+            },
+            "then": {
+                "required": ["sets", "reps", "weight"],
+                "properties": {
+                    "sets": {"type": "string"},
+                    "reps": {"type": "string"},
+                    "weight": {"type": "string"},
+                    "duration": {"type": "null"},
+                    "intensity": {"type": "null"}
+                }
+            }
+        }
+    ]
+}
+
 # JSON schema for workout plan validation
 WORKOUT_PLAN_SCHEMA = {
     "type": "object",
@@ -49,93 +127,7 @@ WORKOUT_PLAN_SCHEMA = {
                     "duration": {"type": ["string", "integer", "null"]},
                     "exercises": {
                         "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "name": {"type": "string"},
-                                "exercise_type": {
-                                    "type": "string",
-                                    "enum": [
-                                        "strength",
-                                        "cardio",
-                                        "flexibility",
-                                        "mobility",
-                                        "balance",
-                                        "power",
-                                        "endurance",
-                                        "plyometric",
-                                        "agility",
-                                        "mobility",
-                                        "bodyweight",
-                                        "calisthenics",
-                                        "hiit",
-                                        "compound",
-                                        "isolation",
-                                        "functional",
-                                        "recovery",
-                                        "stretching",
-                                        "yoga",
-                                        "pilates",
-                                        "stretching",
-                                        "full body",
-                                        "rest", 
-                                        "core",
-                                        "stretching"
-                                    ]
-                                },
-                                "tracking_type": {
-                                    "type": "string",
-                                    "enum": ["time_based", "reps_based", "weight_based", "bodyweight"]
-                                },
-                                "weight": {"type": ["string", "null"]},
-                                "sets": {"type": ["string", "integer", "null"]},
-                                "reps": {"type": ["string", "integer", "null"]},
-                                "duration": {"type": ["string", "integer", "null"]},
-                                "rest_time": {"type": ["string", "integer", "null"]},
-                                "intensity": {"type": ["string", "null"]},
-                                "instructions": {
-                                    "type": "object",
-                                    "properties": {
-                                        "setup": {"type": "string"},
-                                        "execution": {
-                                            "type": "array",
-                                            "items": {"type": "string"}
-                                        },
-                                        "form_tips": {
-                                            "type": "array",
-                                            "items": {"type": "string"}
-                                        },
-                                        "common_mistakes": {
-                                            "type": "array",
-                                            "items": {"type": "string"}
-                                        },
-                                        "safety_tips": {
-                                            "type": "array",
-                                            "items": {"type": "string"}
-                                        },
-                                        "modifications": {
-                                            "type": "object",
-                                            "properties": {
-                                                "beginner": {"type": "string"},
-                                                "advanced": {"type": "string"}
-                                            }
-                                        },
-                                        "sensation_guidance": {
-                                            "type": "array",
-                                            "items": {"type": "string"}
-                                        },
-                                        "hold_duration": {"type": "string"},
-                                        "contraindications": {
-                                            "type": "array",
-                                            "items": {"type": "string"}
-                                        }
-                                    },
-                                    "required": ["setup", "execution", "form_tips"]
-                                },
-                                "videoId": {"type": ["string", "null"]}
-                            },
-                            "required": ["name", "exercise_type", "tracking_type", "instructions"]
-                        }
+                        "items": BASE_EXERCISE
                     },
                     "notes": {"type": ["string", "null"]},
                     "suggested_activities": {
@@ -216,7 +208,19 @@ def generate_prompt(age, sex, weight, height, fitness_level, strength_goals,
   'strength', 'cardio', 'flexibility', 'mobility', 'balance', 'power', 'endurance', 'plyometric', 'agility',
   'mobility', 'bodyweight', 'calisthenics', 'hiit', 'compound', 'isolation', 'functional', 'recovery',
   'stretching', 'yoga', 'pilates', 'stretching', 'full body'
-- For any cardio or time-based exercise, ALWAYS specify the duration with an explicit time unit (e.g., "30 seconds", "5 minutes", or "1 hour"). Do NOT provide just a number without units.
+- For EVERY exercise, you MUST specify execution details based on the exercise type:
+  1. For cardio/time-based exercises:
+     - MUST specify duration (e.g., "45 seconds", "2 minutes") - reasonable durations only
+     - MUST specify intensity level (e.g., "moderate", "high")
+  2. For strength/weight-based exercises:
+     - MUST specify sets (e.g., "3 sets")
+     - MUST specify reps (e.g., "12 reps")
+     - MUST specify weight if applicable (e.g., "20 lbs" or "bodyweight")
+  3. For bodyweight/reps-based exercises:
+     - MUST specify sets (e.g., "3 sets")
+     - MUST specify reps (e.g., "15 reps")
+- DO NOT leave any exercise without specific execution details
+- Ensure all durations are reasonable and achievable (e.g., no 30-minute planks)
 - Ensure that the equipment used in each exercise is appropriate and matches the equipment the user has available.
 - Align the training sessions with the user's stated strength goals, fitness level, and additional goals so that each session's exercises and focus reflect what the user wants to achieve.
 
@@ -512,39 +516,29 @@ def generate_workout_plan(user_id, feedback_text=None):
 
                     # Determine exercise type and tracking type
                     exercise_type = exercise_data.get('exercise_type', 'strength')
+                    
+                    # Set tracking type and required fields based on exercise type
                     if exercise_type in ['cardio', 'recovery', 'yoga', 'stretching', 'flexibility']:
                         tracking_type = 'time_based'
-                    elif exercise_type in ['strength', 'power', 'compound']:
-                        tracking_type = 'weight_based'
-                    else:
-                        tracking_type = 'reps_based'
-
-                    # Parse duration/sets/reps from the duration field
-                    duration_str = exercise_data.get('duration', '')
-                    sets = None
-                    reps = None
-                    duration = None
-
-                    if 'sets' in duration_str.lower():
-                        if 'reps' in duration_str.lower():
-                            # Parse "3 sets of 12 reps" format
-                            match = re.match(r'(\d+)\s*sets?\s*of\s*(\d+)\s*reps?', duration_str)
-                            if match:
-                                sets = match.group(1)
-                                reps = match.group(2)
-                                duration = None
-                        elif 'minute' in duration_str.lower() or 'second' in duration_str.lower():
-                            # Parse "3 sets of 5 minutes" format
-                            match = re.match(r'(\d+)\s*sets?\s*of\s*(\d+)\s*(minute|second)s?', duration_str)
-                            if match:
-                                sets = match.group(1)
-                                duration = f"{match.group(2)} {match.group(3)}s"
-                                reps = None
-                    else:
-                        # Handle simple time-based durations like "30 minutes"
-                        duration = duration_str
+                        duration = exercise_data.get('duration', '') or '45 seconds'
+                        intensity = exercise_data.get('intensity', 'moderate')
                         sets = None
                         reps = None
+                        weight = None
+                    elif exercise_type in ['strength', 'power', 'compound']:
+                        tracking_type = 'weight_based'
+                        duration = None
+                        intensity = None
+                        sets = exercise_data.get('sets', '3')
+                        reps = exercise_data.get('reps', '12')
+                        weight = exercise_data.get('weight', 'bodyweight')
+                    else:
+                        tracking_type = 'reps_based'
+                        duration = None
+                        intensity = None
+                        sets = exercise_data.get('sets', '3')
+                        reps = exercise_data.get('reps', '15')
+                        weight = None
 
                     # Create instructions from form guidance and safety tips
                     form_guidance = day_data.get('form_guidance', [])
@@ -557,15 +551,12 @@ def generate_workout_plan(user_id, feedback_text=None):
                     if safety_tips:
                         all_tips.extend([tip.strip('* ') for tip in safety_tips])
 
-                    # Create execution steps based on duration type
+                    # Create execution steps based on tracking type
                     execution_steps = [f"Perform {exercise_name} with proper form"]
-                    if sets:
-                        if reps:
-                            execution_steps.append(f"Complete {sets} sets of {reps} repetitions")
-                        elif duration:
-                            execution_steps.append(f"Complete {sets} sets of {duration} each")
+                    if tracking_type == 'time_based':
+                        execution_steps.append(f"Continue for {duration} at {intensity} intensity")
                     else:
-                        execution_steps.append(f"Continue for {duration}")
+                        execution_steps.append(f"Complete {sets} sets of {reps} repetitions")
 
                     instructions = {
                         'setup': 'Get into position',
@@ -577,12 +568,12 @@ def generate_workout_plan(user_id, feedback_text=None):
                         'name': exercise_name,
                         'exercise_type': exercise_type,
                         'tracking_type': tracking_type,
-                        'weight': exercise_data.get('weight'),
-                        'sets': sets,  # Use parsed sets value
-                        'reps': reps,  # Use parsed reps value
-                        'duration': duration,  # Use parsed duration value
+                        'weight': weight,
+                        'sets': sets,
+                        'reps': reps,
+                        'duration': duration,
                         'rest_time': exercise_data.get('rest_time'),
-                        'intensity': exercise_data.get('intensity'),
+                        'intensity': intensity if tracking_type == 'time_based' else None,
                         'instructions': instructions
                     }
                     exercises.append(transformed_exercise)
