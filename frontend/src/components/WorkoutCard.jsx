@@ -35,6 +35,10 @@ const WorkoutCard = ({ workouts = [] }) => {
     }
   };
 
+  const formatRestTime = (time) => {
+    return typeof time === 'number' ? time.toString() : time;
+  };
+
   const openVideoModal = (videoId) => {
     if (!videoId) return;
     setCurrentVideoId(videoId);
@@ -193,6 +197,10 @@ WorkoutCard.propTypes = {
       reps: PropTypes.string,
       duration: PropTypes.string,
       intensity: PropTypes.string,
+      rest_time: PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number
+      ]),
       instructions: PropTypes.oneOfType([
         PropTypes.string,
         PropTypes.shape({

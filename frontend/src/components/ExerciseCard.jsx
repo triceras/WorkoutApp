@@ -1,5 +1,6 @@
 // src/components/ExerciseCard.jsx
 import React, { useState, useEffect } from 'react';
+import './ExerciseCard.css';
 import PropTypes from 'prop-types';
 import {
   Card,
@@ -12,48 +13,32 @@ import {
 import axiosInstance from '../api/axiosInstance';
 
 const ExerciseCard = ({ exercise, openVideoModal }) => {
-  console.log('Exercise data:', exercise);
-  
-  // Get videoId and thumbnailUrl from the exercise data
   const [videoId, setVideoId] = useState(exercise.videoId || exercise.video_id);
   const [thumbnailUrl, setThumbnailUrl] = useState(exercise.thumbnail_url);
-  const [isLoading, setIsLoading] = useState(false); // Define isLoading
-  const [error, setError] = useState(null); // Define error
-  
-  console.log('Using videoId:', videoId);
-  console.log('Using thumbnailUrl:', thumbnailUrl);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // src/components/ExerciseCard.jsx
   useEffect(() => {
     const fetchVideoDetails = async () => {
-      console.log("Fetching video details for:", exercise.name);
       if (!videoId && exercise.name) {
         setIsLoading(true);
         setError(null);
         try {
-          // Fetch exercise details from the database using the exercise name
           const exerciseResponse = await axiosInstance.get(`exercises/`, {
             params: { name: exercise.name },
           });
    
           if (exerciseResponse.data.length > 0) {
             const fetchedExercise = exerciseResponse.data[0];
-            
-            // Check for both videoId and video_id
             const videoIdToUse = fetchedExercise.videoId || fetchedExercise.video_id;
             const thumbnailUrlToUse = fetchedExercise.thumbnail_url;
             
             if (videoIdToUse) {
               setVideoId(videoIdToUse);
               setThumbnailUrl(thumbnailUrlToUse);
-              console.log(
-                "Video details found in the database:",
-                videoIdToUse
-              );
               return;
             }
             
-            // If no video details found, try to fetch them
             const videoResponse = await axiosInstance.patch(
               `exercises/${fetchedExercise.id}/fetch-video/`
             );
@@ -62,16 +47,8 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
               const updatedExercise = videoResponse.data;
               setVideoId(updatedExercise.videoId || updatedExercise.video_id);
               setThumbnailUrl(updatedExercise.thumbnail_url);
-              console.log("Video details fetched and updated:", updatedExercise);
             }
           }
-   
-          // If not found or no videoId, log an error as this should not happen 
-          // if the backend is assigning video details correctly
-          console.error(
-            "Exercise found but video details are missing for:",
-            exercise.name
-          );
         } catch (error) {
           console.error("Error fetching video details:", error);
           setError("Error fetching video details.");
@@ -83,6 +60,13 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
    
     fetchVideoDetails();
   }, [exercise.id, exercise.name, videoId]);
+
+  const formatRestTime = (restTime) => {
+    if (typeof restTime === 'number') {
+      return restTime.toString();
+    }
+    return restTime;
+  };
 
   const parseInstructions = (instructions) => {
     if (typeof instructions === 'string') {
@@ -102,12 +86,12 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
     if (!parsedInstructions) return null;
 
     return (
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="h6" color="text.primary" gutterBottom>
+      <Box className="instructions-container">
+        <Typography variant="h6" gutterBottom>
           Instructions
         </Typography>
         {parsedInstructions.setup && (
-          <Box sx={{ mb: 2 }}>
+          <Box className="instruction-section">
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Setup:
             </Typography>
@@ -116,11 +100,11 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
         )}
 
         {parsedInstructions.execution && parsedInstructions.execution.length > 0 && (
-          <Box sx={{ mb: 2 }}>
+          <Box className="instruction-section">
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Execution:
             </Typography>
-            <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+            <ul className="instruction-list">
               {parsedInstructions.execution.map((step, index) => (
                 <li key={index}>
                   <Typography variant="body2">{step}</Typography>
@@ -131,11 +115,11 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
         )}
 
         {parsedInstructions.form_tips && parsedInstructions.form_tips.length > 0 && (
-          <Box>
+          <Box className="instruction-section">
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Form Tips:
             </Typography>
-            <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+            <ul className="instruction-list">
               {parsedInstructions.form_tips.map((tip, index) => (
                 <li key={index}>
                   <Typography variant="body2">{tip}</Typography>
@@ -148,53 +132,42 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
     );
   };
 
-  // Use the exercise type from the data or default to 'strength'
   const exerciseType = exercise.exercise_type || 'strength';
-    
-  // Determine if exercise is cardio or not based on the exercise type
   const isCardio = exerciseType === 'cardio' || exercise.type === 'cardio' || exercise.type === 'active_recovery' || exercise.type === 'recovery' || exercise.name?.toLowerCase().includes('yoga') || exercise.name?.toLowerCase().includes('stretching');
 
-    // Format weight display
-    const formatWeight = (weight) => {
-      if (!weight || weight === 'bodyweight') return 'Bodyweight';
-        return weight.includes('kg') ? weight : `${weight} kg`;
-    };
+  const formatWeight = (weight) => {
+    if (!weight || weight === 'bodyweight') return 'Bodyweight';
+    return weight;
+  };
+
+  const formatDuration = (duration) => {
+    if (!duration) return 'Not specified';
+    
+    if (/^\d+$/.test(duration)) {
+      return `${duration} seconds`;
+    }
+    
+    if (duration.includes('minute')) {
+      return duration;
+    }
+    
+    if (duration.includes('seconds')) {
+      return duration.replace(/\s*seconds\s*seconds/g, ' seconds');
+    }
+    
+    return `${duration} seconds`;
+  };
 
   return (
-    <Card sx={{ 
-      height: '100%',
-      borderRadius: '16px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      overflow: 'visible',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <Card className="exercise-card">
       {thumbnailUrl && (
         <Box 
-          sx={{ 
-            position: 'relative',
-            cursor: videoId ? 'pointer' : 'default',
-            borderRadius: '16px 16px 0 0',
-            overflow: 'hidden',
-            paddingTop: '56.25%', // 16:9 aspect ratio
-          }}
+          className="thumbnail-container"
           onClick={() => videoId && openVideoModal && openVideoModal(videoId)}
         >
-           {isLoading && ( // Use isLoading state
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'rgba(0, 0, 0, 0.1)',
-              }}
-            >
-              <CircularProgress /> {/* Use CircularProgress */}
+          {isLoading && (
+            <Box className="loading-overlay">
+              <CircularProgress />
             </Box>
           )}
 
@@ -203,143 +176,66 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
               component="img"
               image={thumbnailUrl}
               alt={`${exercise.name} demonstration`}
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transition: "transform 0.3s ease",
-                "&:hover": {
-                  transform: videoId ? "scale(1.05)" : "none",
-                },
-              }}
+              className="thumbnail-image"
             />
           )}
 
           {!isLoading && !thumbnailUrl && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                bgcolor: "rgba(0, 0, 0, 0.1)",
-              }}
-            >
-               <Typography variant="body1" color="text.secondary">
+            <Box className="no-thumbnail-overlay">
+              <Typography variant="body1" color="text.secondary">
                 No thumbnail available
               </Typography>
             </Box>
           )}
 
           {!isLoading && error && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                bgcolor: "rgba(255, 0, 0, 0.1)",
-              }}
-            >
-             <Typography color="error">Error loading video</Typography>
+            <Box className="error-overlay">
+              <Typography color="error">Error loading video</Typography>
             </Box>
           )}
+
           {videoId && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                bgcolor: 'rgba(0,0,0,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'background-color 0.3s ease',
-                '&:hover': {
-                  bgcolor: 'rgba(0,0,0,0.5)'
-                }
-              }}
-            >
-              <Typography 
-                variant="h4" 
-                sx={{ 
-                  color: 'white',
-                  textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-                }}
-              >
+            <Box className="play-overlay">
+              <Typography variant="h4" className="play-icon">
                 ▶
               </Typography>
             </Box>
           )}
         </Box>
       )}
-      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+
+      <CardContent className="exercise-content">
         <Typography variant="h5" component="h2" gutterBottom>
           {exercise.name}
         </Typography>
 
-        {/* Exercise metrics */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+        <Box className="exercise-metrics">
           {!isCardio && (
             <>
-              <Box sx={{ 
-                bgcolor: '#E3F2FD', 
-                p: 1, 
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <Typography variant="body2" color="text.secondary">
+              <Box className="metric-box sets-reps">
+                <Typography variant="body2" className="metric-label">
                   🏋️ SETS & REPS
                 </Typography>
-                <Typography variant="body2">
-                  {exercise.sets} sets of {exercise.reps} reps
+                <Typography variant="body2" className="metric-value">
+                  {exercise.sets?.toString().replace(/\s*sets?\s*/gi, '')} sets of {exercise.reps?.toString().replace(/\s*reps?\s*/gi, '')} reps
                 </Typography>
               </Box>
 
-              <Box sx={{ 
-                bgcolor: '#FCE4EC', 
-                p: 1, 
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <Typography variant="body2" color="text.secondary">
+              <Box className="metric-box weight">
+                <Typography variant="body2" className="metric-label">
                   💪 WEIGHT
                 </Typography>
-                <Typography variant="body2">
+                <Typography variant="body2" className="metric-value">
                   {formatWeight(exercise.weight)}
                 </Typography>
               </Box>
 
-              <Box sx={{ 
-                bgcolor: '#E8F5E9', 
-                p: 1, 
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <Typography variant="body2" color="text.secondary">
+              <Box className="metric-box rest">
+                <Typography variant="body2" className="metric-label">
                   ⏲️ REST INTERVAL
                 </Typography>
-                <Typography variant="body2">
-                  {exercise.rest_time} seconds
+                <Typography variant="body2" className="metric-value">
+                  {formatRestTime(exercise.rest_time)} seconds
                 </Typography>
               </Box>
             </>
@@ -347,34 +243,20 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
 
           {isCardio && (
             <>
-              <Box sx={{ 
-                bgcolor: '#FFF3E0', 
-                p: 1, 
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <Typography variant="body2" color="text.secondary">
+              <Box className="metric-box duration">
+                <Typography variant="body2" className="metric-label">
                   ⏱️ DURATION
                 </Typography>
-                <Typography variant="body2">
-                  {exercise.duration}
+                <Typography variant="body2" className="metric-value">
+                  {formatDuration(exercise.duration)}
                 </Typography>
               </Box>
 
-              <Box sx={{ 
-                bgcolor: '#F3E5F5', 
-                p: 1, 
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <Typography variant="body2" color="text.secondary">
+              <Box className="metric-box intensity">
+                <Typography variant="body2" className="metric-label">
                   🔥 INTENSITY
                 </Typography>
-                <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+                <Typography variant="body2" className="metric-value capitalize">
                   {exercise.intensity}
                 </Typography>
               </Box>
@@ -382,7 +264,6 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
           )}
         </Box>
 
-        {/* Instructions Section */}
         {renderInstructions()}
       </CardContent>
     </Card>
@@ -403,7 +284,10 @@ ExerciseCard.propTypes = {
       PropTypes.string,
       PropTypes.object
     ]),
-    rest_time: PropTypes.string,
+    rest_time: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number
+    ]),
     exercise_type: PropTypes.string,
     type: PropTypes.string,
     duration: PropTypes.string,

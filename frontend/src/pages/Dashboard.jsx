@@ -599,11 +599,18 @@ function Dashboard() {
                           workoutPlans={workoutPlans}
                           currentWorkout={{
                             ...currentWorkout,
-                            exercises: currentWorkout.exercises.map(exercise => ({
-                              ...exercise,
-                              isPrePopulated: true,
-                              tracking_type: exercise.exercise_type === 'cardio' ? 'time_based' : 'weight_based'
-                            }))
+                            exercises: currentWorkout.exercises.map(exercise => {
+                              const isCardio = exercise.exercise_type === 'cardio';
+                              return {
+                                ...exercise,
+                                isPrePopulated: true,
+                                tracking_type: isCardio ? 'time_based' : 'weight_based',
+                                duration: isCardio ? (exercise.duration || '45') : null,
+                                intensity: isCardio ? (exercise.intensity || 'Moderate') : null,
+                                sets: isCardio ? null : (exercise.sets || '3'),
+                                reps: isCardio ? null : (exercise.reps || '12')
+                              };
+                            })
                           }}
                           source="dashboard"
                           onSessionLogged={handleSessionLogged}

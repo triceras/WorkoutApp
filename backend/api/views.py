@@ -531,6 +531,7 @@ class UserProgressionView(APIView):
                             exercise_data = {
                                 "exercise_name": session_exercise.exercise.name,
                                 "exercise_type": session_exercise.exercise.exercise_type,
+                                "tracking_type": "time_based" if session_exercise.duration else "weight_based",
                                 "sets": session_exercise.sets,
                                 "reps": session_exercise.reps,
                                 "weight": session_exercise.weight,

@@ -323,7 +323,16 @@ class WorkoutLogSerializer(serializers.ModelSerializer):
 class ExerciseLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseLog
-        fields = '__all__'
+        fields = ['exercise', 'sets', 'reps', 'weight', 'duration', 'intensity']
+
+    INTENSITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'), 
+        ('high', 'High')
+    ]
+
+    duration = serializers.IntegerField(required=False, allow_null=True)
+    intensity = serializers.ChoiceField(choices=INTENSITY_CHOICES, required=False, allow_null=True)
 
 
 class WorkoutSessionSerializer(serializers.ModelSerializer):
