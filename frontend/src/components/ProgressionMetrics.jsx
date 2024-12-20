@@ -107,112 +107,118 @@ const ProgressionMetrics = ({ isRestDay }) => {
     return () => window.removeEventListener('session-logged', handleSessionLogged);
   }, [fetchMetrics]);
 
+  // Update renderSessionExercises function
   const renderSessionExercises = (session) => {
-    // Separate exercises by type
+    // Updated filtering logic
     const strengthExercises = session.exercises.filter(ex => 
-      !ex.duration && ex.tracking_type !== 'time_based'
+      ex.tracking_type === 'weight_based' && 
+      !['Assault Bike', 'Mountain Climbers'].includes(ex.exercise_name)
     );
+  
     const cardioExercises = session.exercises.filter(ex => 
-      ex.duration || ex.tracking_type === 'time_based'
+      ['Assault Bike', 'Mountain Climbers'].includes(ex.exercise_name) ||
+      ex.exercise_type === 'cardio'
     );
+  
+    console.log('Updated strength exercises:', strengthExercises);
+    console.log('Updated cardio exercises:', cardioExercises);
 
-    const tableStyles = {
-      bgcolor: 'rgb(236, 252, 239)',
-      borderRadius: '4px',
-      '& .MuiTable-root': {
-        borderCollapse: 'collapse',
-      },
-      '& .MuiTableCell-root': {
-        borderBottom: '1px solid rgba(224, 224, 224, 1)',
-      }
-    };
-
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {strengthExercises.length > 0 && (
-                  <>
-                    <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
-                      Strength Exercises
-                    </Typography>
-                    <TableContainer component={Paper} elevation={0} sx={tableStyles}>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
-                            <TableCell align="center" sx={{ fontWeight: 700 }}>SET 1</TableCell>
-                            <TableCell align="center" sx={{ fontWeight: 700 }}>SET 2</TableCell>
-                            <TableCell align="center" sx={{ fontWeight: 700 }}>SET 3</TableCell>
-                            <TableCell align="center" sx={{ fontWeight: 700 }}>SET 4</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {strengthExercises.map((exercise, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell component="th" scope="row">
-                                {exercise.exercise_name || exercise.name}
-                              </TableCell>
-                              <TableCell align="center">{exercise.reps || '12'}</TableCell>
-                              <TableCell align="center">{exercise.reps || '12'}</TableCell>
-                              <TableCell align="center">{exercise.reps || '12'}</TableCell>
-                              <TableCell align="center">-</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </>
-                )}
-
-                {cardioExercises.length > 0 && (
-                  <>
-                    <Typography variant="subtitle1" sx={{ mt: 3, mb: 1, fontWeight: 'bold' }}>
-                      Cardio/Time-Based Exercises
-                    </Typography>
-                    <TableContainer component={Paper} elevation={0} sx={tableStyles}>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
-                            <TableCell sx={{ fontWeight: 700 }}>DURATION</TableCell>
-                            <TableCell sx={{ fontWeight: 700 }}>INTENSITY</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {cardioExercises.map((exercise, idx) => {
-                            // Convert duration from seconds to minutes for display
-                            const durationInMinutes = exercise.duration 
-                              ? Math.round(parseInt(exercise.duration) / 60)
-                              : 45;
-                            return (
-                              <TableRow key={idx}>
-                                <TableCell component="th" scope="row">
-                                  {exercise.exercise_name || exercise.name}
-                                </TableCell>
-                                <TableCell>{`${durationInMinutes} minutes`}</TableCell>
-                                <TableCell sx={{ textTransform: 'capitalize' }}>
-                                  {exercise.intensity || 'moderate'}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </>
-                )}
-
-        {/* Display session comments if available */}
-        {session.comments && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2">Comments</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {session.comments}
-            </Typography>
-          </Box>
-        )}
-      </Box>
-    );
+  const tableStyles = {
+    bgcolor: 'rgb(236, 252, 239)',
+    borderRadius: '4px',
+    '& .MuiTable-root': {
+      borderCollapse: 'collapse',
+    },
+    '& .MuiTableCell-root': {
+      borderBottom: '1px solid rgba(224, 224, 224, 1)',
+    }
   };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {/* Strength Exercises Table */}
+      {strengthExercises.length > 0 && (
+        <>
+          <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+            Strength Exercises
+          </Typography>
+          <TableContainer component={Paper} elevation={0} sx={tableStyles}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>SETS</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>REPS</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>WEIGHT</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {strengthExercises.map((exercise, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell component="th" scope="row">
+                      {exercise.exercise_name}
+                    </TableCell>
+                    <TableCell align="center">{exercise.sets}</TableCell>
+                    <TableCell align="center">{exercise.reps}</TableCell>
+                    <TableCell align="center">
+                      {exercise.weight === 0 || exercise.weight === "bodyweight" 
+                        ? "Bodyweight" 
+                        : `${exercise.weight} lbs`}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+
+      {/* Cardio Exercises Table */}
+      {cardioExercises.length > 0 && (
+        <>
+          <Typography variant="subtitle1" sx={{ mt: 3, mb: 1, fontWeight: 'bold' }}>
+            Cardio/Time-Based Exercises
+          </Typography>
+          <TableContainer component={Paper} elevation={0} sx={tableStyles}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="center">DURATION</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="center">INTENSITY</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {cardioExercises.map((exercise, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell component="th" scope="row">
+                      {exercise.exercise_name}
+                    </TableCell>
+                    <TableCell align="center">
+                      {exercise.duration ? `${exercise.duration} minutes` : 'N/A'}
+                    </TableCell>
+                    <TableCell align="center" sx={{ textTransform: 'capitalize' }}>
+                      {exercise.intensity || 'Moderate'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+
+      {session.comments && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle2">Comments</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {session.comments}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};
 
   if (loading) {
     return (
