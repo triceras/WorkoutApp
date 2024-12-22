@@ -64,13 +64,25 @@ export const processWorkoutPlan = (plan) => {
       };
 
       // Handle tracking type based on exercise type
-      if (exercise.exercise_type === 'cardio' || 
+      if (exercise.tracking_type === 'time_based' ||
+          exercise.exercise_type === 'cardio' || 
+          exercise.exercise_type === 'flexibility' ||
+          exercise.exercise_type === 'recovery' ||
+          exercise.exercise_type === 'stretching' ||
           exercise.name?.toLowerCase().includes('cardio') ||
           exercise.name?.toLowerCase().includes('jogging') || 
-          exercise.name?.toLowerCase().includes('running')) {
+          exercise.name?.toLowerCase().includes('running') ||
+          exercise.name?.toLowerCase().includes('yoga') ||
+          exercise.name?.toLowerCase().includes('stretching')) {
         processedExercise.tracking_type = 'time_based';
-        processedExercise.duration = exercise.duration || day.duration || '30 minutes';
+        // Preserve the original duration and ensure it has "minutes" suffix
+        const duration = exercise.duration || day.duration;
+        processedExercise.duration = duration ? (duration.includes('minutes') ? duration : `${duration} minutes`) : 'N/A';
         processedExercise.intensity = exercise.intensity || 'moderate';
+        // Ensure sets and reps are null for time-based exercises
+        processedExercise.sets = null;
+        processedExercise.reps = null;
+        processedExercise.weight = null;
       } else {
         processedExercise.tracking_type = 'reps_based';
         processedExercise.sets = exercise.sets || 3;

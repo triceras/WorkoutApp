@@ -408,7 +408,8 @@ class TrainingSessionExerciseSerializer(serializers.ModelSerializer):
         help_text="Primary key of the Exercise."
     )
     exercise_name = serializers.CharField(source='exercise.name', read_only=True)
-    exercise_type = serializers.CharField(source='exercise.exercise_type', read_only=True)
+    exercise_type = serializers.CharField(source='exercise.exercise_type', read_only=True) # Add this line
+    tracking_type = serializers.CharField(source='exercise.tracking_type', read_only=True) # Add this line
     
     # Fields for strength exercises
     sets = serializers.IntegerField(required=False, allow_null=True)
@@ -446,7 +447,7 @@ class TrainingSessionExerciseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrainingSessionExercise
         fields = [
-            'id', 'exercise_id', 'exercise_name', 'exercise_type',
+            'id', 'exercise_id', 'exercise_name', 'exercise_type', 'tracking_type',
             'sets', 'reps', 'weight',
             'duration', 'calories_burned', 'average_heart_rate', 'max_heart_rate', 'intensity'
         ]
@@ -461,16 +462,28 @@ class TrainingSessionExerciseSerializer(serializers.ModelSerializer):
 
         exercise_type = exercise.exercise_type.lower()
         
-        # For cardio/endurance exercises
-        if exercise_type in ['cardio', 'endurance']:
+        # For time-based exercises
+        if exercise_type in ['cardio', 'recovery', 'flexibility', 'stretching'] or data.get('tracking_type') == 'time_based':
             # Remove strength-specific fields
             data.pop('sets', None)
             data.pop('reps', None)
             data.pop('weight', None)
             
-            # Validate required cardio fields
-            if not data.get('duration'):
-                raise serializers.ValidationError({'duration': 'Duration is required for cardio exercises'})
+            # Handle duration field
+            duration = data.get('duration')
+            if duration:
+                if isinstance(duration, str):
+                    # Extract numeric value from string (e.g., "30 minutes" -> 30)
+                    import re
+                    match = re.search(r'\d+', duration)
+                    if match:
+                        data['duration'] = int(match.group())
+                    else:
+                        raise serializers.ValidationError({'duration': 'Invalid duration format'})
+                elif isinstance(duration, (int, float)):
+                    data['duration'] = int(duration)
+                else:
+                    raise serializers.ValidationError({'duration': 'Duration must be a number or string'})
             
             # Set default intensity if not provided
             if not data.get('intensity'):
@@ -493,7 +506,6 @@ class TrainingSessionExerciseSerializer(serializers.ModelSerializer):
 
         return data
 
-
 class TrainingSessionSerializer(serializers.ModelSerializer):
     """
     Serializer for TrainingSession model.
@@ -512,7 +524,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         required=False
     )
     exercises = TrainingSessionExerciseSerializer(
-        source='training_session_exercises',
+        source='session_exercises',
         many=True,
         required=False,
         help_text="List of exercises for this training session."
@@ -610,7 +622,7 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        exercises_data = validated_data.pop('training_session_exercises', [])
+        exercises_data = validated_data.pop('session_exercises', [])  # Changed source to session_exercises
         # Remove source field as it's not part of the model
         validated_data.pop('source', None)
 
@@ -619,8 +631,10 @@ class TrainingSessionSerializer(serializers.ModelSerializer):
         training_session = TrainingSession.objects.create(comments=comments, **validated_data)
 
         for exercise_data in exercises_data:
+            exercise = exercise_data.pop('exercise')
             TrainingSessionExercise.objects.create(
                 training_session=training_session,
+                exercise=exercise,
                 **exercise_data
             )
 

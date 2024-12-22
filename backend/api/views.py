@@ -523,41 +523,29 @@ class UserProgressionView(APIView):
                         }
                     )
 
-                sessions_data = []
-                for session in all_sessions[:10]:
-                    try:
-                        exercises = []
-                        for session_exercise in session.session_exercises.all():
-                            exercise_data = {
-                                "exercise_name": session_exercise.exercise.name,
-                                "exercise_type": session_exercise.exercise.exercise_type,
-                                "tracking_type": "time_based" if session_exercise.duration else "weight_based",
-                                "sets": session_exercise.sets,
-                                "reps": session_exercise.reps,
-                                "weight": session_exercise.weight,
-                                "duration": session_exercise.duration,
-                                "intensity": session_exercise.intensity,
-                            }
-                            exercises.append(exercise_data)
-                            logger.info(
-                                f"Added session {session.id} with {len(exercises)} exercises"
-                            )
+                # Use the serializer to serialize the sessions
+                serialized_sessions = []
+                for session in all_sessions:
+                    session_data = TrainingSessionSerializer(
+                        session, context={"request": request}
+                    ).data
 
-                        sessions_data.append(
-                            {
-                                "id": session.id,
-                                "date": session.date,
-                                "session_name": session.session_name,
-                                "workout_type": session.workout_type,
-                                "source": session.source,
-                                "exercises": exercises,
-                                "comments": session.comments,
-                            }
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"Error processing session {session.id}: {str(e)}"
-                        )
+                    # Filter and format exercises for each session
+                    session_data["exercises"] = []
+                    for exercise in session.session_exercises.all():
+                        exercise_data = {
+                            "name": exercise.exercise.name,
+                            "exercise_type": exercise.exercise.exercise_type,
+                            "tracking_type": "time_based" if exercise.exercise.exercise_type in ["cardio", "recovery", "flexibility", "stretching"] else "weight_based",
+                            "duration": f"{exercise.duration} minutes" if exercise.duration else None,
+                            "intensity": exercise.intensity,
+                            "sets": exercise.sets,
+                            "reps": exercise.reps,
+                            "weight": exercise.weight
+                        }
+                        session_data["exercises"].append(exercise_data)
+
+                    serialized_sessions.append(session_data)
 
                 thirty_days_ago = timezone.now() - timedelta(days=30)
                 recent_sessions = all_sessions.filter(date__gte=thirty_days_ago)
@@ -590,7 +578,7 @@ class UserProgressionView(APIView):
                         "calories_burned__sum"
                     ]
                     or 0,
-                    "sessions": sessions_data,
+                    "sessions": serialized_sessions,
                 }
 
                 return Response(response_data)

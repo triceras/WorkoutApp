@@ -19,6 +19,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Dashboard.css';
 import WorkoutCard from '../components/WorkoutCard';
+import WorkoutPlan from '../components/WorkoutPlan';
 import ProgressChart from '../components/ProgressChart';
 import ProgressionMetrics from '../components/ProgressionMetrics'; // Import ProgressionMetrics
 import ErrorMessage from '../components/ErrorMessage';
@@ -47,12 +48,10 @@ function Dashboard() {
   const [isLoadingWorkoutPlan, setIsLoadingWorkoutPlan] = useState(true);
   const [sessionFeedback, setSessionFeedback] = useState(null);
 
-
   const openVideoModal = (videoUrl) => {
     window.open(videoUrl, '_blank');
     console.log('Opening video modal:', videoUrl);
   };
-
 
   // Error handling
   const handleFetchError = useCallback(
@@ -74,6 +73,7 @@ function Dashboard() {
     try {
       const response = await axiosInstance.get('user/progression/');
       setProgressData(response.data);
+      console.log("Fetched session data in Dashboard:", response.data);
     } catch (error) {
       console.error('Error fetching progress data:', error);
       setError('Unable to fetch progress data.');
@@ -442,38 +442,25 @@ function Dashboard() {
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                boxShadow: "0 8px 16px rgba(33, 150, 243, 0.2)",
+                                boxShadow: "0 8px 16px rgba(33, 150",
                               }}
                             >
-                              <span style={{ fontSize: "32px" }}>💪</span>
+                              <Typography variant="h6" style={{ color: 'white' }}>
+                                💪
+                              </Typography>
                             </Box>
                             <Box>
-                              <Typography
-                                variant="overline"
-                                sx={{
-                                  color: "#1976d2",
-                                  fontWeight: 700,
-                                  letterSpacing: "1.5px",
-                                  fontSize: "0.75rem",
-                                }}
-                              >
-                                WORKOUT TYPE
+                              <Typography variant="subtitle2" color="textSecondary">
+                                Workout Type
                               </Typography>
-                              <Typography
-                                variant="h6"
-                                sx={{
-                                  fontWeight: 700,
-                                  color: "#1a237e",
-                                  marginTop: "4px",
-                                }}
-                              >
+                              <Typography variant="body1" style={{ fontWeight: 'bold' }}>
                                 {currentWorkout.workout_type}
                               </Typography>
                             </Box>
                           </Paper>
                         </Grid>
                       )}
-                      {/* Conditionally render Duration */}
+                      {/* Conditionally render Estimated Duration */}
                       {currentWorkout.duration && (
                         <Grid item xs={12} sm={6}>
                           <Paper
@@ -481,8 +468,8 @@ function Dashboard() {
                             sx={{
                               p: 3,
                               height: "100%",
-                              background: "linear-gradient(135deg, #fce4ec 0%, #ffffff 100%)",
-                              border: "1px solid rgba(233, 30, 99, 0.1)",
+                              background: "linear-gradient(135deg, #ffe0b2 0%, #fff8e1 100%)",
+                              border: "1px solid rgba(255, 160, 0, 0.1)",
                               borderRadius: "20px",
                               display: "flex",
                               alignItems: "center",
@@ -490,7 +477,7 @@ function Dashboard() {
                               transition: "all 0.3s ease",
                               "&:hover": {
                                 transform: "translateY(-4px)",
-                                boxShadow: "0 12px 28px rgba(233, 30, 99, 0.15)",
+                                boxShadow: "0 12px 28px rgba(255, 160, 0, 0.15)",
                               },
                             }}
                           >
@@ -500,36 +487,23 @@ function Dashboard() {
                                 height: 64,
                                 borderRadius: "16px",
                                 background:
-                                  "linear-gradient(135deg, #e91e63 0%, #c2185b 100%)",
+                                  "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                boxShadow: "0 8px 16px rgba(233, 30, 99, 0.2)",
+                                boxShadow: "0 8px 16px rgba(255, 152, 0, 0.2)",
                               }}
                             >
-                              <span style={{ fontSize: "32px" }}>⏱️</span>
+                              <Typography variant="h6" style={{ color: 'white' }}>
+                                ⏱️
+                              </Typography>
                             </Box>
                             <Box>
-                              <Typography
-                                variant="overline"
-                                sx={{
-                                  color: "#c2185b",
-                                  fontWeight: 700,
-                                  letterSpacing: "1.5px",
-                                  fontSize: "0.75rem",
-                                }}
-                              >
-                                DURATION
+                              <Typography variant="subtitle2" color="textSecondary">
+                                Estimated Duration
                               </Typography>
-                              <Typography
-                                variant="h6"
-                                sx={{
-                                  fontWeight: 700,
-                                  color: "#880e4f",
-                                  marginTop: "4px",
-                                }}
-                              >
-                                {currentWorkout.duration}
+                              <Typography variant="body1" style={{ fontWeight: 'bold' }}>
+                                {currentWorkout.duration} minutes
                               </Typography>
                             </Box>
                           </Paper>
@@ -570,25 +544,21 @@ function Dashboard() {
                 )}
 
                 {/* Progress Chart placed below the exercise cards */}
-                <Box sx={{ mb: 6 }}>
-                  <Typography variant="h5" className="sectionTitle">
-                    Your Progress
-                  </Typography>
-                  <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
-                    {progressData ? (
-                      <ProgressChart progressData={progressData} />
-                    ) : (
-                      <Typography variant="body1">
-                        Start logging your sessions to see progress.
-                      </Typography>
-                    )}
-                  </Paper>
-                </Box>
+                <Typography variant="h5" className="sectionTitle">
+                  Your Progress
+                </Typography>
+                <Paper elevation={3} style={{ padding: '20px', marginBottom: '20px' }}>
+                  {progressData ? (
+                    <ProgressChart progressData={progressData} />
+                  ) : (
+                    <Typography variant="body1">
+                      Start logging your sessions to see progress.
+                    </Typography>
+                  )}
+                </Paper>
 
                 {/* Progression Metrics */}
-                <Box sx={{ mb: 6 }}>
-                  <ProgressionMetrics isRestDay={currentWorkout?.type === 'rest'} />
-                </Box>
+                <ProgressionMetrics isRestDay={currentWorkout?.type === 'rest'} />
 
                 {/* Only show LogSessionForm if it's not a rest day */}
                 {currentWorkout && currentWorkout.type !== 'rest' && (
@@ -597,21 +567,7 @@ function Dashboard() {
                       {workoutPlans && workoutPlans.length > 0 ? (
                         <LogSessionForm
                           workoutPlans={workoutPlans}
-                          currentWorkout={{
-                            ...currentWorkout,
-                            exercises: currentWorkout.exercises.map(exercise => {
-                              const isCardio = exercise.exercise_type === 'cardio';
-                              return {
-                                ...exercise,
-                                isPrePopulated: true,
-                                tracking_type: isCardio ? 'time_based' : 'weight_based',
-                                duration: isCardio ? (exercise.duration || '45') : null,
-                                intensity: isCardio ? (exercise.intensity || 'Moderate') : null,
-                                sets: isCardio ? null : (exercise.sets || '3'),
-                                reps: isCardio ? null : (exercise.reps || '12')
-                              };
-                            })
-                          }}
+                          currentWorkout={currentWorkout}
                           source="dashboard"
                           onSessionLogged={handleSessionLogged}
                           isLoading={isLoadingWorkoutPlan}

@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
+import TrainingSessionCard from "./TrainingSessionCard";
 import {
   Box,
   Card,
   CardContent,
   Grid,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
   Paper,
   Chip,
   CircularProgress,
@@ -16,15 +14,15 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TableContainer
-} from '@mui/material';
-import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import axiosInstance from '../api/axiosInstance';
+  TableContainer,
+} from "@mui/material";
+import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
+import axiosInstance from "../api/axiosInstance";
 
 const MetricCard = ({ title, value, icon }) => (
-  <Card sx={{ height: '100%', bgcolor: '#f8f9fa', boxShadow: 2 }}>
+  <Card sx={{ height: "100%", bgcolor: "#f8f9fa", boxShadow: 2 }}>
     <CardContent>
       <Box display="flex" alignItems="center" mb={1}>
         {icon}
@@ -51,22 +49,20 @@ const ProgressionMetrics = ({ isRestDay }) => {
     cardioProgress: {},
     completionRate: 0,
     averageRating: 0,
-    sessions: []  // Ensure this is initialized as an empty array
+    sessions: [],
   });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
   const fetchMetrics = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
+      setError("");
 
-      console.log('Fetching metrics...');
-      const response = await axiosInstance.get('user/progression/');
-      console.log('Response received:', response);
-
+      const response = await axiosInstance.get("user/progression/");
       const data = response.data;
-      console.log('Metrics data:', data);
+
+      console.log("Fetched session data in Dashboard:", data); // Inspect fetched data in dashboard
 
       if (data) {
         setMetrics({
@@ -79,17 +75,18 @@ const ProgressionMetrics = ({ isRestDay }) => {
           strengthProgress: data.strength_progress || {},
           cardioProgress: data.cardio_progress || {},
           completionRate: ((data.recent_sessions || 0) / 30 * 100).toFixed(0),
-          averageRating: 0,
-          sessions: data.sessions || []
+          averageRating: data.avg_rating || 0,
+          sessions: data.sessions || [],
         });
       }
     } catch (err) {
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
-      setError(err.response?.data?.error || 'Unable to fetch progress data. Please try again later.');
+      console.error("Error fetching metrics:", err);
+      const errorMessage =
+        err.response?.data?.error || err.message || "Unknown error";
+      const errorDetails = err.response
+        ? JSON.stringify(err.response.data)
+        : "No response details";
+      setError(`Error: ${errorMessage}. Details: ${errorDetails}`);
     } finally {
       setLoading(false);
     }
@@ -98,131 +95,23 @@ const ProgressionMetrics = ({ isRestDay }) => {
   useEffect(() => {
     fetchMetrics();
 
-    const handleSessionLogged = (event) => {
-      console.log('Session logged event received:', event.detail);
+    const handleSessionLogged = () => {
       fetchMetrics();
     };
 
-    window.addEventListener('session-logged', handleSessionLogged);
-    return () => window.removeEventListener('session-logged', handleSessionLogged);
+    window.addEventListener("session-logged", handleSessionLogged);
+    return () =>
+      window.removeEventListener("session-logged", handleSessionLogged);
   }, [fetchMetrics]);
-
-  // Update renderSessionExercises function
-  const renderSessionExercises = (session) => {
-    // Updated filtering logic
-    const strengthExercises = session.exercises.filter(ex => 
-      ex.tracking_type === 'weight_based' && 
-      !['Assault Bike', 'Mountain Climbers'].includes(ex.exercise_name)
-    );
-  
-    const cardioExercises = session.exercises.filter(ex => 
-      ['Assault Bike', 'Mountain Climbers'].includes(ex.exercise_name) ||
-      ex.exercise_type === 'cardio'
-    );
-  
-    console.log('Updated strength exercises:', strengthExercises);
-    console.log('Updated cardio exercises:', cardioExercises);
-
-  const tableStyles = {
-    bgcolor: 'rgb(236, 252, 239)',
-    borderRadius: '4px',
-    '& .MuiTable-root': {
-      borderCollapse: 'collapse',
-    },
-    '& .MuiTableCell-root': {
-      borderBottom: '1px solid rgba(224, 224, 224, 1)',
-    }
-  };
-
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {/* Strength Exercises Table */}
-      {strengthExercises.length > 0 && (
-        <>
-          <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
-            Strength Exercises
-          </Typography>
-          <TableContainer component={Paper} elevation={0} sx={tableStyles}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700 }}>SETS</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700 }}>REPS</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700 }}>WEIGHT</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {strengthExercises.map((exercise, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell component="th" scope="row">
-                      {exercise.exercise_name}
-                    </TableCell>
-                    <TableCell align="center">{exercise.sets}</TableCell>
-                    <TableCell align="center">{exercise.reps}</TableCell>
-                    <TableCell align="center">
-                      {exercise.weight === 0 || exercise.weight === "bodyweight" 
-                        ? "Bodyweight" 
-                        : `${exercise.weight} lbs`}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </>
-      )}
-
-      {/* Cardio Exercises Table */}
-      {cardioExercises.length > 0 && (
-        <>
-          <Typography variant="subtitle1" sx={{ mt: 3, mb: 1, fontWeight: 'bold' }}>
-            Cardio/Time-Based Exercises
-          </Typography>
-          <TableContainer component={Paper} elevation={0} sx={tableStyles}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, width: '40%' }}>EXERCISE</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }} align="center">DURATION</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }} align="center">INTENSITY</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {cardioExercises.map((exercise, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell component="th" scope="row">
-                      {exercise.exercise_name}
-                    </TableCell>
-                    <TableCell align="center">
-                      {exercise.duration ? `${exercise.duration} minutes` : 'N/A'}
-                    </TableCell>
-                    <TableCell align="center" sx={{ textTransform: 'capitalize' }}>
-                      {exercise.intensity || 'Moderate'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </>
-      )}
-
-      {session.comments && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2">Comments</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {session.comments}
-          </Typography>
-        </Box>
-      )}
-    </Box>
-  );
-};
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="200px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -247,7 +136,7 @@ const ProgressionMetrics = ({ isRestDay }) => {
       <Typography variant="h4" gutterBottom>
         Your Progress
       </Typography>
-      
+
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={4}>
           <MetricCard
@@ -267,7 +156,7 @@ const ProgressionMetrics = ({ isRestDay }) => {
           <MetricCard
             title="Completion Rate"
             value={`${metrics.completionRate}%`}
-            icon={<EmojiEventsIcon sx={{ color: 'success.main' }} />}
+            icon={<EmojiEventsIcon sx={{ color: "success.main" }} />}
           />
         </Grid>
       </Grid>
@@ -300,7 +189,7 @@ const ProgressionMetrics = ({ isRestDay }) => {
               <Typography variant="h6" gutterBottom>
                 Workout Types
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 2 }}>
                 {Object.entries(metrics.workoutTypes).map(([type, count]) => (
                   <Chip
                     key={type}
@@ -316,28 +205,31 @@ const ProgressionMetrics = ({ isRestDay }) => {
       </Grid>
 
       {!isRestDay && (
-        <>
-          <Typography variant="h6" component="h2" sx={{ mt: 4, mb: 2 }}>
+        <Box mt={4}>
+          <Typography variant="h6" component="h2" gutterBottom>
             Recent Training Sessions
           </Typography>
-          
-          {metrics.sessions.map((session, index) => (
-        <Card key={index} sx={{ mb: 2, bgcolor: '#f8f9fa' }}>
-          <CardContent>
-            <Typography variant="h6" component="div">
-              {session.session_name || `Day ${session.week_number}: Workout`} - {new Date(session.date).toLocaleTimeString()}
-            </Typography>
-            <Typography color="text.secondary" gutterBottom>
-              Date: {new Date(session.date).toLocaleDateString()}
-            </Typography>
-            <Typography variant="body2" sx={{ mt: 1, mb: 2 }}>
-              Exercises:
-            </Typography>
-            {renderSessionExercises(session)}
-          </CardContent>
-        </Card>
-          ))}
-        </>
+          {metrics.sessions.map((session) => {
+            // Find the corresponding workoutDay based on the session date
+            const workoutDay = session.workout_plan.workoutDays.find(
+              (day) =>
+                day.day.toLowerCase() ===
+                new Date(session.date)
+                  .toLocaleString("en-US", { weekday: "long" })
+                  .toLowerCase()
+            );
+            // Extract exercises from the workoutDay, or use an empty array if not found
+            const exercises = workoutDay ? workoutDay.exercises : [];
+
+            return (
+              <TrainingSessionCard
+                key={session.id}
+                session={session}
+                exercises={exercises}
+              />
+            );
+          })}
+        </Box>
       )}
     </Box>
   );

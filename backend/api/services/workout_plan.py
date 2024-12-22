@@ -378,7 +378,7 @@ def generate_workout_plan(user_id, feedback_text=None):
                     'content': prompt
                 }
             ],
-            'temperature': 0.5,  # Even lower temperature for more consistent responses
+            'temperature': 0.7,  # Even lower temperature for more consistent responses
             'max_tokens': 4096,  # Further reduced max tokens
             'response_format': { 'type': 'json_object' }
         }

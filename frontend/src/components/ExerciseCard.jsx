@@ -133,7 +133,7 @@ const ExerciseCard = ({ exercise, openVideoModal }) => {
   };
 
   const exerciseType = exercise.exercise_type || 'strength';
-  const isCardio = exerciseType === 'cardio' || exercise.type === 'cardio' || exercise.type === 'active_recovery' || exercise.type === 'recovery' || exercise.name?.toLowerCase().includes('yoga') || exercise.name?.toLowerCase().includes('stretching');
+  const isCardio = exerciseType === 'cardio' || exercise.type === 'cardio' || exercise.type === 'active_recovery' || exercise.type === 'recovery' || exercise.name?.toLowerCase().includes('yoga') || exercise.name?.toLowerCase().includes('stretching') || exercise.tracking_type === 'time_based';
 
   const formatWeight = (weight) => {
     if (!weight || weight === 'bodyweight') return 'Bodyweight';

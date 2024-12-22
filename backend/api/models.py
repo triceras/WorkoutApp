@@ -94,6 +94,9 @@ class Exercise(models.Model):
         ('plyometric', 'Plyometric'),
         ('core', 'Core'),
         ('cardio', 'Cardio'),
+        ('yoga', 'Yoga'),
+        ('stretching', 'Stretching'),
+        ('recovery', 'Recovery'),
     ]
 
     MUSCLE_GROUP_CHOICES = [

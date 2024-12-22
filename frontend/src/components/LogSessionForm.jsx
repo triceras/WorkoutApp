@@ -41,21 +41,26 @@ const EMOJIS = [
     value: 0,
     icon: <SentimentVeryDissatisfied fontSize="large" />,
     label: "Terrible",
+    unicode: '😠', // Add unicode representation
   },
   {
     value: 1,
     icon: <SentimentDissatisfied fontSize="large" />,
     label: "Very Bad",
+    unicode: '🙁',
   },
-  { value: 2, icon: <SentimentNeutral fontSize="large" />, label: "Bad" },
-  { value: 3, icon: <SentimentSatisfied fontSize="large" />, label: "Okay" },
-  { value: 4, icon: <SentimentVerySatisfied fontSize="large" />, label: "Good" },
+  { value: 2, icon: <SentimentNeutral fontSize="large" />, label: "Bad", unicode: '😐' },
+  { value: 3, icon: <SentimentSatisfied fontSize="large" />, label: "Okay", unicode: '🙂' },
+  { value: 4, icon: <SentimentVerySatisfied fontSize="large" />, label: "Good", unicode: '😊' },
   {
     value: 5,
     icon: <SentimentSatisfiedAlt fontSize="large" />,
     label: "Awesome",
+    unicode: '🤩',
   },
 ];
+
+
 
 const WORKOUT_TYPE_CHOICES = [
   "Cardio",
@@ -99,6 +104,7 @@ const LogSessionForm = ({
   const [availableExercises, setAvailableExercises] = useState([]);
   const [exercisesLoading, setExercisesLoading] = useState(true);
   const [exercisesError, setExercisesError] = useState(null);
+  const [selectedEmoji, setSelectedEmoji] = useState(null);
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -107,19 +113,8 @@ const LogSessionForm = ({
         const response = await axiosInstance.get("exercises/");
         const exercises = response.data.map((exercise) => ({
           ...exercise,
-          exercise_type:
-            exercise.exercise_type ||
-            (exercise.name.toLowerCase().includes("bike")
-              ? "cardio"
-              : "strength"),
-          tracking_type:
-            exercise.exercise_type === "cardio" ||
-            exercise.exercise_type === "recovery" ||
-            exercise.exercise_type === "flexibility" ||
-            exercise.exercise_type === "endurance" ||
-            exercise.name.toLowerCase().includes("bike")
-              ? "time_based"
-              : "weight_based",
+          exercise_type: exercise.exercise_type,
+          tracking_type: exercise.tracking_type,
         }));
         setAvailableExercises(exercises);
       } catch (error) {
@@ -164,10 +159,21 @@ const LogSessionForm = ({
 
   const getInitialFormValues = () => {
     const today = new Date().toISOString().split("T")[0];
-    const dayNumber = new Date().getDay();
+    const dayNumber = new Date().getDay(); // Get day number (0-6, Sunday-Saturday)
+    const weekdayNumberToName = {
+      0: 'Sunday',
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+    };
+    const todayName = weekdayNumberToName[dayNumber]; // Get day name (e.g., "Monday")
+  
     let initialValues = {
       session_name: currentWorkout?.name || `Day ${dayNumber}: Workout`,
-      workout_type: currentWorkout?.workout_type || "Strength",
+      workout_type: currentWorkout?.workout_type || "",
       session_date: today,
       heart_rate_pre: "",
       heart_rate_post: "",
@@ -176,58 +182,58 @@ const LogSessionForm = ({
       comments: "",
       exercises: [],
     };
-
-    const workoutExercises = currentWorkout?.exercises || [];
-
-    if (workoutExercises.length > 0 && availableExercises.length > 0) {
-      initialValues.exercises = workoutExercises.map((exercise) => {
-        console.log("Processing exercise:", exercise);
-
-        const isCardio = exercise.tracking_type === "time_based";
-
-        // Convert instructions if needed
-        let instructionsValue = exercise.instructions;
-        if (instructionsValue && typeof instructionsValue === "object") {
-          instructionsValue = JSON.stringify(instructionsValue);
-        }
-
-        // Find matching exercise in available exercises
-        const matchedExercise = availableExercises.find(
-          (ex) =>
-            ex.name.toLowerCase().trim() === exercise.name.toLowerCase().trim()
-        );
-
-        return {
-          name: exercise.name,
-          exercise_id: matchedExercise?.id || null,
-          exercise_type: exercise.exercise_type,
-          tracking_type: exercise.tracking_type,
-          sets: isCardio ? null : exercise.sets?.toString().replace(/\s*sets?\s*/gi, ''),
-          reps: isCardio ? null : exercise.reps?.toString().replace(/\s*reps?\s*/gi, ''),
-          weight: isCardio
-            ? null
-            : exercise.weight === 0 ||
-              exercise.weight === "bodyweight" ||
-              exercise.exercise_type === "full body"
-            ? "bodyweight"
-            : exercise.weight?.toString().replace(/\s*lbs?\s*/gi, ''),
-            duration: isCardio && exercise.duration
-            ? `${parseInt(exercise.duration)} minutes`
-            : null,
-          intensity: isCardio
-            ? INTENSITY_OPTIONS.includes(exercise.intensity)
-              ? exercise.intensity
-              : INTENSITY_OPTIONS[1]
-            : null,
-          avg_heart_rate: "",
-          max_heart_rate: "",
-          videoId: exercise.videoId || matchedExercise?.videoId || "",
-          instructions: instructionsValue || "",
-          equipment: exercise.equipment || "",
-          isPrePopulated: true,
-        };
-      });
+  
+    // Filter exercises based on the current day
+    if (currentWorkout && availableExercises.length > 0) {
+      initialValues.exercises = currentWorkout.exercises
+        .filter((exercise) => {
+          // Check if the current workout day matches today's name
+          return currentWorkout.day.toLowerCase() === todayName.toLowerCase();
+        })
+        .map((exercise) => {
+          console.log("Processing exercise:", exercise);
+  
+          const isCardio = exercise.exercise_type === "cardio";
+          const isTimeBased = ['cardio', 'recovery', 'flexibility', 'stretching'].includes(exercise.exercise_type?.toLowerCase());
+  
+          // Convert instructions if needed
+          let instructionsValue = exercise.instructions;
+          if (instructionsValue && typeof instructionsValue === "object") {
+            instructionsValue = JSON.stringify(instructionsValue);
+          }
+  
+          // Find matching exercise in available exercises
+          const matchedExercise = availableExercises.find(
+            (ex) =>
+              ex.name.toLowerCase().trim() === exercise.name.toLowerCase().trim()
+          );
+  
+          return {
+            name: exercise.name,
+            exercise_id: matchedExercise?.id || null,
+            exercise_type: exercise.exercise_type,
+            tracking_type: isTimeBased ? 'time_based' : 'weight_based',
+            sets: isTimeBased ? null : exercise.sets?.toString().replace(/\s*sets?\s*/gi, ''),
+            reps: isTimeBased ? null : exercise.reps?.toString().replace(/\s*reps?\s*/gi, ''),
+            weight: isTimeBased
+              ? null
+              : exercise.weight === 0 ||
+                exercise.weight === "bodyweight" ||
+                exercise.exercise_type === "full body"
+              ? "bodyweight"
+              : exercise.weight?.toString().replace(/\s*lbs?\s*/gi, ''),
+            duration: isTimeBased ? (exercise.duration?.toString().match(/\d+/)?.[0] || null) : null,
+            intensity: isTimeBased ? exercise.intensity : null,
+            avg_heart_rate: "",
+            max_heart_rate: "",
+            videoId: exercise.videoId || matchedExercise?.videoId || "",
+            instructions: instructionsValue || "",
+            equipment: exercise.equipment || "",
+            isPrePopulated: true,
+          };
+        });
     }
+  
     return initialValues;
   };
 
@@ -241,18 +247,23 @@ const LogSessionForm = ({
           name: Yup.string().required("Exercise name is required"),
           exercise_id: Yup.number().nullable(),
           weight: Yup.mixed().nullable(),
-          duration: Yup.string()
+          duration: Yup.number()
             .nullable()
+            .transform((value) => {
+              if (value === "" || value === null) return null;
+              const numericValue = parseInt(value, 10);
+              return isNaN(numericValue) ? null : numericValue;
+            })
             .test(
               "duration-required",
-              "Duration is required for cardio exercises",
+              "Duration is required for time-based exercises",
               function (value) {
                 const { tracking_type, exercise_type } = this.parent;
-                if (
+                const isTimeBased = 
                   tracking_type === "time_based" ||
-                  exercise_type === "cardio"
-                ) {
-                  return value !== null && value !== "";
+                  ["cardio", "recovery", "flexibility", "stretching"].includes(exercise_type?.toLowerCase());
+                if (isTimeBased) {
+                  return value !== null && value > 0;
                 }
                 return true;
               }
@@ -261,13 +272,13 @@ const LogSessionForm = ({
             .nullable()
             .test(
               "intensity-required",
-              "Intensity is required for cardio exercises",
+              "Intensity is required for time-based exercises",
               function (value) {
                 const { tracking_type, exercise_type } = this.parent;
-                if (
+                const isTimeBased = 
                   tracking_type === "time_based" ||
-                  exercise_type === "cardio"
-                ) {
+                  ["cardio", "recovery", "flexibility", "stretching"].includes(exercise_type?.toLowerCase());
+                if (isTimeBased) {
                   return value !== null && value !== "";
                 }
                 return true;
@@ -278,12 +289,13 @@ const LogSessionForm = ({
               "Invalid intensity value",
               function (value) {
                 const { tracking_type, exercise_type } = this.parent;
-                if (
-                  (tracking_type === "time_based" ||
-                    exercise_type === "cardio") &&
-                  value
-                ) {
-                  return INTENSITY_OPTIONS.includes(value);
+                const isTimeBased = 
+                  tracking_type === "time_based" ||
+                  ["cardio", "recovery", "flexibility", "stretching"].includes(exercise_type?.toLowerCase());
+                if (isTimeBased && value) {
+                  return INTENSITY_OPTIONS.includes(
+                    value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
+                  );
                 }
                 return true;
               }
@@ -333,76 +345,78 @@ const LogSessionForm = ({
   const handleSubmit = async (values, { setSubmitting, setErrors }) => {
     setSubmitting(true);
     console.log("Form values submitted:", values);
-
+  
     try {
       const chosenWorkoutPlanId =
         workoutPlans.length > 0 && workoutPlans[0].id
           ? workoutPlans[0].id
           : null;
-
+  
       if (!chosenWorkoutPlanId) {
         throw new Error("No workout plan ID found. Cannot log the session.");
       }
-
-      const workoutTypeValue = WORKOUT_TYPE_CHOICES.includes(
-        values.workout_type
-      )
-        ? values.workout_type
-        : "Recovery";
-
+  
+      // No need for workoutTypeValue here
+  
+      // Create exercisesData by mapping over values.exercises
       const exercisesData = values.exercises.map((exercise) => {
-        const isCardio = exercise.tracking_type === "time_based";
-        const intensityValue =
-          isCardio && exercise.intensity ? exercise.intensity : null;
-
-        if (isCardio || exercise.duration) {
-          return {
+        console.log("Before processing in handleSubmit:", exercise.name, exercise.exercise_type, exercise.tracking_type);
+        console.log("After determining exerciseType:", exercise.name, exercise.exercise_type, exercise.tracking_type);
+  
+        let processedExercise;
+  
+        if (exercise.tracking_type === "time_based" || ["cardio", "recovery", "flexibility", "stretching"].includes(exercise.exercise_type?.toLowerCase())) {
+          processedExercise = {
             name: exercise.name,
             exercise_id: exercise.exercise_id,
             exercise_type: exercise.exercise_type,
-            tracking_type: "time_based",
+            tracking_type: exercise.tracking_type,
             sets: null,
             reps: null,
             weight: null,
-            duration: exercise.duration ? parseInt(exercise.duration.toString().replace(/[^0-9]/g, '')) * 60 : null, // Convert minutes to seconds
-            intensity: exercise.intensity || 'Moderate',
+            duration: parseInt(exercise.duration, 10) || null,
+            intensity: exercise.intensity?.charAt(0).toUpperCase() + exercise.intensity?.slice(1).toLowerCase() || null,
+          };
+        } else {
+          processedExercise = {
+            name: exercise.name,
+            exercise_id: exercise.exercise_id,
+            exercise_type: exercise.exercise_type,
+            tracking_type: "weight_based",
+            sets: exercise.sets,
+            reps: exercise.reps,
+            weight:
+              exercise.weight === "bodyweight" ||
+              exercise.weight === "0" ||
+              !exercise.weight
+                ? null
+                : exercise.weight,
+            duration: null,
+            intensity: null,
           };
         }
-
-        return {
-          name: exercise.name,
-          exercise_id: exercise.exercise_id,
-          exercise_type: exercise.exercise_type,
-          tracking_type: exercise.tracking_type,
-          sets: exercise.sets,
-          reps: exercise.reps,
-          weight:
-            exercise.weight === "bodyweight" ||
-            exercise.weight === 0 ||
-            exercise.exercise_type === "full body"
-              ? 0
-              : exercise.weight
-              ? exercise.weight
-              : null,
-          duration: null,
-          intensity: null,
-        };
+  
+        console.log("After processing in handleSubmit:", processedExercise.name, processedExercise.exercise_type, processedExercise.tracking_type);
+  
+        return processedExercise;
       });
-
+  
+      // Ensure exercisesData is used in sessionData
       const sessionData = {
         date: values.session_date,
         workout_plan_id: chosenWorkoutPlanId,
         source: source,
         session_name: values.session_name,
-        workout_type: workoutTypeValue,
+        workout_type: values.workout_type, // This is just a label for the session
         heart_rate_pre: values.heart_rate_pre || null,
         heart_rate_post: values.heart_rate_post || null,
         calories_burned: values.calories_burned || null,
         feedback_rating: values.feedback_rating,
+        feedback_emoji: selectedEmoji?.unicode || null,
         comments: values.comments,
-        exercises: exercisesData,
+        exercises: exercisesData, // Correctly use the mapped exercisesData
       };
-
+  
       console.log("Session data to be sent:", sessionData);
 
       const response = await axiosInstance.post("training_sessions/", sessionData);
@@ -415,7 +429,7 @@ const LogSessionForm = ({
           error: "",
         });
         onSessionLogged(response.data);
-
+  
         const event = new CustomEvent("session-logged", {
           detail: { success: true },
         });
@@ -427,14 +441,14 @@ const LogSessionForm = ({
         (error.response?.status === 400
           ? "This session has already been logged"
           : "Failed to log training session");
-
+  
       console.error("Error logging session:", error);
       if (error.response) {
         console.error("Error response data:", error.response.data);
         console.error("Error response status:", error.response.status);
         console.error("Error response headers:", error.response.headers);
       }
-
+  
       setSubmissionStatus({ success: "", error: errorMessage });
       setErrors({ submit: errorMessage });
     } finally {
@@ -563,61 +577,76 @@ const LogSessionForm = ({
                         {arrayHelpers => (
                           <div>
                             {formik.values.exercises.map((exercise, index) => {
-                              const isCardio = exercise.exercise_type === 'cardio' || exercise.tracking_type === 'time_based';
+                              const isTimeBased = 
+                                exercise.tracking_type === 'time_based' || 
+                                ['cardio', 'recovery', 'flexibility', 'stretching'].includes(exercise.exercise_type?.toLowerCase());
                               return (
                                 <Box key={index} sx={{ mb: 2, p: 2, bgcolor: alpha('#000', 0.02), borderRadius: 1 }}>
                                   <Grid container spacing={2} alignItems="center">
                                   <Grid item xs={12} sm={4}>
-                                        <Autocomplete
-                                            options={availableExercises}
-                                            getOptionLabel={(option) => option.name || ''}
-                                            value={availableExercises.find(ex => ex.id === exercise.exercise_id) || null}
-                                            onChange={(event, newValue) => {
-                                                formik.setFieldValue(`exercises.${index}.name`, newValue?.name || '');
-                                                formik.setFieldValue(`exercises.${index}.exercise_id`, newValue?.id || null);
-                                                const exerciseType = newValue?.exercise_type || 'strength';
-                                                const isTimeBased = ['cardio', 'recovery', 'flexibility', 'endurance'].includes(exerciseType?.toLowerCase());
-                                                formik.setFieldValue(`exercises.${index}.exercise_type`, exerciseType);
-                                                formik.setFieldValue(`exercises.${index}.tracking_type`, isTimeBased ? 'time_based' : 'weight_based');
+                                  <Autocomplete
+                                        options={availableExercises}
+                                        getOptionLabel={(option) => option.name || ''}
+                                        value={availableExercises.find(ex => ex.id === exercise.exercise_id) || null}
+                                        onChange={(event, newValue) => {
+                                            formik.setFieldValue(`exercises.${index}.name`, newValue?.name || '');
+                                            formik.setFieldValue(`exercises.${index}.exercise_id`, newValue?.id || null);
 
-                                                if (isTimeBased) {
-                                                    formik.setFieldValue(`exercises.${index}.sets`, null);
-                                                    formik.setFieldValue(`exercises.${index}.reps`, null);
-                                                    formik.setFieldValue(`exercises.${index}.weight`, null);
-                                                    formik.setFieldValue(
-                                                        `exercises.${index}.duration`,
-                                                        newValue?.duration ? `${Math.round(parseInt(newValue.duration) / 60)} minutes` : '45 minutes'
-                                                    );
-                                                    formik.setFieldValue(`exercises.${index}.intensity`, newValue?.intensity || 'Moderate');
-                                                } else {
-                                                    // Get values from the selected exercise
-                                                    // Parse sets and reps by removing the units
-                                                    const sets = newValue?.sets?.toString().replace(/\s*sets?\s*/gi, '');
-                                                    const reps = newValue?.reps?.toString().replace(/\s*reps?\s*/gi, '');
-                                                    const weight = newValue?.weight === 0 ? 'bodyweight' : newValue?.weight?.toString().replace(/\s*lbs?\s*/gi, '');
-                                                    
-                                                    formik.setFieldValue(`exercises.${index}.sets`, sets);
-                                                    formik.setFieldValue(`exercises.${index}.reps`, reps);
-                                                    formik.setFieldValue(`exercises.${index}.weight`, weight);
-                                                    formik.setFieldValue(`exercises.${index}.duration`, null);
-                                                    formik.setFieldValue(`exercises.${index}.intensity`, null);
-                                                }
-                                            }}
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    {...params}
-                                                    label="Exercise Name"
-                                                    error={formik.touched.exercises?.[index]?.name && Boolean(formik.errors.exercises?.[index]?.name)}
-                                                    helperText={formik.touched.exercises?.[index]?.name && formik.errors.exercises?.[index]?.name}
-                                                    InputLabelProps={{
-                                                        shrink: true,
-                                                    }}
-                                                />
-                                            )}
-                                        />
+                                            // Use the exercise type from the initially processed exercise if available, otherwise use newValue
+                                            const initialExercise = currentWorkout?.exercises.find(ex => ex.name.toLowerCase() === exercise.name.toLowerCase());
+                                            const exerciseType = initialExercise?.exercise_type || newValue?.exercise_type || '';
+                                            const isTimeBased = 
+                                              ['cardio', 'recovery', 'flexibility', 'stretching'].includes(exerciseType?.toLowerCase()) ||
+                                              initialExercise?.duration;
+
+                                            formik.setFieldValue(`exercises.${index}.exercise_type`, exerciseType);
+                                            formik.setFieldValue(`exercises.${index}.tracking_type`, isTimeBased ? 'time_based' : 'weight_based');
+
+                                            if (isTimeBased) {
+                                                formik.setFieldValue(`exercises.${index}.sets`, null);
+                                                formik.setFieldValue(`exercises.${index}.reps`, null);
+                                                formik.setFieldValue(`exercises.${index}.weight`, null);
+                                                const duration = initialExercise?.duration?.toString().match(/\d+/)?.[0] || exercise.duration;
+                                                formik.setFieldValue(
+                                                    `exercises.${index}.duration`,
+                                                    parseInt(duration, 10)
+                                                );
+                                                // Set intensity to 'Moderate' if it's a time-based exercise and not already set
+                                                formik.setFieldValue(
+                                                  `exercises.${index}.intensity`,
+                                                  exercise.intensity
+                                                    ? exercise.intensity.charAt(0).toUpperCase() + exercise.intensity.slice(1).toLowerCase()
+                                                    : null
+                                                );
+                                            } else {
+                                                // Get values from the selected exercise
+                                                // Parse sets and reps by removing the units
+                                                const sets = exercise.sets?.toString().replace(/\s*sets?\s*/gi, '');
+                                                const reps = exercise.reps?.toString().replace(/\s*reps?\s*/gi, '');
+                                                const weight = exercise.weight === 0 ? 'bodyweight' : exercise.weight?.toString().replace(/\s*lbs?\s*/gi, '');
+
+                                                formik.setFieldValue(`exercises.${index}.sets`, sets);
+                                                formik.setFieldValue(`exercises.${index}.reps`, reps);
+                                                formik.setFieldValue(`exercises.${index}.weight`, weight);
+                                                formik.setFieldValue(`exercises.${index}.duration`, null);
+                                                formik.setFieldValue(`exercises.${index}.intensity`, null);
+                                            }
+                                        }}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Exercise Name"
+                                                error={formik.touched.exercises?.[index]?.name && Boolean(formik.errors.exercises?.[index]?.name)}
+                                                helperText={formik.touched.exercises?.[index]?.name && formik.errors.exercises?.[index]?.name}
+                                                InputLabelProps={{
+                                                    shrink: true,
+                                                }}
+                                            />
+                                        )}
+                                    />
                                     </Grid>
 
-                                    {isCardio ? (
+                                    {isTimeBased ? (
                                       <Grid item xs={12} sm={7} container spacing={2}>
                                         <Grid item xs={6}>
                                           <FormControl fullWidth>
@@ -626,10 +655,10 @@ const LogSessionForm = ({
                                               name={`exercises.${index}.duration`}
                                               value={formik.values.exercises[index].duration || ''}
                                               onChange={(e) => {
-                                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                                const numericValue = e.target.value.replace(/\D/g, '');
                                                 formik.setFieldValue(
                                                   `exercises.${index}.duration`,
-                                                  value === '' ? null : `${value} minutes`
+                                                  numericValue ? parseInt(numericValue, 10) : null
                                                 );
                                               }}
                                               error={formik.touched.exercises?.[index]?.duration && Boolean(formik.errors.exercises?.[index]?.duration)}
@@ -648,7 +677,7 @@ const LogSessionForm = ({
                                             <InputLabel>Intensity</InputLabel>
                                             <Select
                                               name={`exercises.${index}.intensity`}
-                                              value={exercise.intensity || 'Moderate'}
+                                              value={exercise.intensity?.charAt(0).toUpperCase() + exercise.intensity?.slice(1).toLowerCase() || ''}
                                               onChange={(e) => {
                                                 formik.setFieldValue(`exercises.${index}.intensity`, e.target.value);
                                               }}
@@ -759,10 +788,10 @@ const LogSessionForm = ({
                             <Button
                               startIcon={<AddIcon />}
                               onClick={() => {
-                                arrayHelpers.push({
+                                const newExercise = {
                                   name: '',
                                   exercise_id: null,
-                                  exercise_type: 'strength',
+                                  exercise_type: '',
                                   sets: null,
                                   reps: null,
                                   weight: null,
@@ -770,12 +799,13 @@ const LogSessionForm = ({
                                   intensity: null,
                                   avg_heart_rate: '',
                                   max_heart_rate: '',
-                                  tracking_type: 'weight_based',
+                                  tracking_type: '',
                                   videoId: '',
                                   instructions: '',
                                   equipment: '',
                                   isPrePopulated: false
-                                });
+                                };
+                                arrayHelpers.push(newExercise);
                               }}
                             >
                               Add Exercise
@@ -791,24 +821,27 @@ const LogSessionForm = ({
                 <Grid item xs={12}>
                   <Card>
                     <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Feedback
-                      </Typography>
-                      <Grid container spacing={2} direction="column" alignItems="center">
-                        <Grid item xs={12}>
-                          <Grid container spacing={2} justifyContent="center">
-                            {EMOJIS.map((emoji) => (
-                              <Grid item key={emoji.value}>
-                                <IconButton
-                                  onClick={() => formik.setFieldValue('feedback_rating', emoji.value)}
-                                  color={formik.values.feedback_rating === emoji.value ? 'primary' : 'default'}
-                                  size="large"
-                                  title={emoji.label}
-                                >
-                                  {emoji.icon}
-                                </IconButton>
-                              </Grid>
-                            ))}
+                    <Typography variant="h6" gutterBottom>
+                      Feedback
+                    </Typography>
+                    <Grid container spacing={2} direction="column" alignItems="center">
+                      <Grid item xs={12}>
+                        <Grid container spacing={2} justifyContent="center">
+                          {EMOJIS.map((emoji) => (
+                            <Grid item key={emoji.value}>
+                              <IconButton
+                                onClick={() => {
+                                  formik.setFieldValue('feedback_rating', emoji.value);
+                                  setSelectedEmoji(emoji); // Set the selected emoji
+                                }}
+                                color={formik.values.feedback_rating === emoji.value ? 'primary' : 'default'}
+                                size="large"
+                                title={emoji.label}
+                              >
+                                {emoji.icon}
+                              </IconButton>
+                            </Grid>
+                          ))}
                           </Grid>
                         </Grid>
                         <Grid item xs={12} sx={{ width: '100%', mt: 2 }}>
